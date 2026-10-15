@@ -242,6 +242,26 @@ export function resolveRelativeTimeline(
 		ten: 10,
 	};
 
+	if (norm.includes("kal") || norm.includes("tomorrow")) {
+		const target = new Date(refDate.getTime());
+		target.setDate(target.getDate() + 1);
+		return target.toISOString().slice(0, 10);
+	}
+
+	if (
+		norm.includes("next week") ||
+		norm.includes("agle hafte") ||
+		norm.includes("agle week")
+	) {
+		const target = new Date(refDate.getTime());
+		target.setDate(target.getDate() + 7);
+		return target.toISOString().slice(0, 10);
+	}
+
+	if (norm.includes("today") || norm.includes("aaj")) {
+		return refDate.toISOString().slice(0, 10);
+	}
+
 	const relMatch = norm.match(
 		/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(day|week|month)s?/,
 	);
@@ -341,11 +361,23 @@ export function resolveDueAt(
 	if (!text) return null;
 	const norm = normalize(text);
 
+	const numberMap: Record<string, number> = {
+		ek: 1,
+		do: 2,
+		teen: 3,
+		char: 4,
+		one: 1,
+		two: 2,
+		three: 3,
+		four: 4,
+	};
+
 	const hourMatch = norm.match(
-		/(\d+)\s*(?:hour|ghante|ghanta|hr)s?\s*(?:me|within|in)?/,
+		/(\d+|ek|do|teen|char|one|two|three|four)\s*(?:hour|ghante|ghanta|hr)s?\s*(?:me|mein|within|in)?/,
 	);
 	if (hourMatch?.[1]) {
-		const hours = parseInt(hourMatch[1], 10);
+		const raw = hourMatch[1];
+		const hours = numberMap[raw] ?? parseInt(raw, 10);
 		const target = new Date(refDate.getTime() + hours * 3600 * 1000);
 		return target.toISOString();
 	}
@@ -362,12 +394,12 @@ export function resolveDueAt(
 		if (ampm === "pm" && h < 12) h += 12;
 		if (ampm === "am" && h === 12) h = 0;
 
-		const target = new Date(`${datePart}T00:00:00`);
-		target.setHours(h, m, 0, 0);
-		return target.toISOString();
+		const hStr = String(h).padStart(2, "0");
+		const mStr = String(m).padStart(2, "0");
+		return new Date(`${datePart}T${hStr}:${mStr}:00+05:30`).toISOString();
 	}
 
-	return `${datePart}T09:00:00.000Z`;
+	return new Date(`${datePart}T09:00:00+05:30`).toISOString();
 }
 
 function findQuoteInMessages(
@@ -433,12 +465,18 @@ export function validateAndEnrichFacts(
 		return messages.find((m) => m.lineNo === lineNo)?.sender;
 	};
 
-	const deriveSpeaker = (
-		sender: string | undefined,
+	const deriveSpeakerFromLines = (
+		lineNos: number[] | undefined,
 		fallback: EvidenceSpeaker,
 	): EvidenceSpeaker => {
-		if (!sender) return fallback;
-		return sender === me ? "us" : "lead";
+		if (!lineNos || lineNos.length === 0) return fallback;
+		for (const lineNo of lineNos) {
+			const sender = messages.find((m) => m.lineNo === lineNo)?.sender;
+			if (sender) {
+				return sender === me ? "us" : "lead";
+			}
+		}
+		return fallback;
 	};
 
 	const validateItem = (
@@ -451,7 +489,18 @@ export function validateAndEnrichFacts(
 
 		if (isInferenceField) {
 			evidence.sourceKind = "agent.inference";
-			evidence.speaker = defaultSpeaker;
+			const found = findQuoteInMessages(evidence.quote, messages);
+			if (found) {
+				evidence.lineNos = found.lineNos;
+				const firstLine = found.lineNos[0] ?? 0;
+				const actualSender = senderOfLine(firstLine) ?? found.speakerSender;
+				evidence.speaker = actualSender === me ? "us" : "lead";
+			} else {
+				evidence.speaker = deriveSpeakerFromLines(
+					evidence.lineNos,
+					defaultSpeaker,
+				);
+			}
 			summary.verified++;
 			summary.details.push({ field: fieldName, status: "verified" });
 			return evidence;
@@ -472,7 +521,7 @@ export function validateAndEnrichFacts(
 				evidence.lineNos = found.lineNos;
 				const firstLine = found.lineNos[0] ?? 0;
 				const actualSender = senderOfLine(firstLine) ?? found.speakerSender;
-				evidence.speaker = deriveSpeaker(actualSender, defaultSpeaker);
+				evidence.speaker = actualSender === me ? "us" : "lead";
 
 				if (!linesMatch) {
 					summary.fixed++;
@@ -489,7 +538,10 @@ export function validateAndEnrichFacts(
 				evidence.sourceKind = "agent.inference";
 				evidence.downgraded = true;
 				evidence.flag = "quote_not_found";
-				evidence.speaker = defaultSpeaker;
+				evidence.speaker = deriveSpeakerFromLines(
+					evidence.lineNos,
+					defaultSpeaker,
+				);
 				summary.downgraded++;
 				summary.details.push({
 					field: fieldName,
@@ -643,8 +695,10 @@ export function validateAndEnrichFacts(
 		"lead",
 	);
 
-	if (facts.nextStep.value) {
-		const nextStepNorm = normalize(facts.nextStep.value);
+	if (facts.nextStep.value || facts.nextStep.evidence?.quote) {
+		const combined =
+			`${facts.nextStep.value ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.trim();
+		const nextStepNorm = normalize(combined);
 		if (!facts.nextStep.owner) {
 			if (
 				nextStepNorm.includes("bhej") ||
@@ -658,7 +712,7 @@ export function validateAndEnrichFacts(
 			}
 		}
 
-		facts.nextStep.dueAt = resolveDueAt(facts.nextStep.value, refDate);
+		facts.nextStep.dueAt = resolveDueAt(combined, refDate);
 		facts.nextStep.evidence = validateItem(
 			"nextStep",
 			facts.nextStep.evidence,
