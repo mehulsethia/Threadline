@@ -1,3 +1,4 @@
+import "@crm/env/load";
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";

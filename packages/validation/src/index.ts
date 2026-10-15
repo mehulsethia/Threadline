@@ -57,6 +57,11 @@ export type {
 	EveToolOutput,
 } from "./eve-tool";
 export type { AuthTest, JoinPayload, OauthAccess, Reply } from "./slack";
+export {
+	type ParsedWhatsAppExport,
+	parseWhatsAppExport,
+	type WhatsAppMessageItem,
+} from "./whatsapp-parser";
 
 export class InvalidInput extends Error {
 	override readonly name = "InvalidInput";
