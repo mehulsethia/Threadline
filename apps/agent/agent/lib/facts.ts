@@ -14,6 +14,14 @@ const FIELDS = {
 	function: { column: "function" },
 	location: { column: null },
 	tenure: { column: null },
+	need: { column: null },
+	budget: { column: null },
+	timeline: { column: null },
+	stage: { column: null },
+	language: { column: null },
+	objections: { column: null },
+	nextStep: { column: null },
+	sentiment: { column: null },
 } as const;
 
 export type FactField = keyof typeof FIELDS;
@@ -44,7 +52,8 @@ export function fillsBlank(input: {
 }
 
 export type RecordFactInput = {
-	contactId: string;
+	contactId?: string;
+	dealId?: string;
 	field: FactField;
 	value: string;
 	evidence: Evidence[];
@@ -64,7 +73,7 @@ export type RecordFactResult = {
 export async function recordFact(
 	input: RecordFactInput,
 ): Promise<RecordFactResult> {
-	const { contactId, field, value } = input;
+	const { contactId, dealId, field, value } = input;
 	const trimmed = value.trim();
 
 	const scored = scoreEvidence(input.evidence);
@@ -78,6 +87,15 @@ export async function recordFact(
 		return { ...base, stored: false, applied: false, reason: "Empty value." };
 	}
 
+	if (!contactId && !dealId) {
+		return {
+			...base,
+			stored: false,
+			applied: false,
+			reason: "Neither contactId nor dealId provided.",
+		};
+	}
+
 	if (scored.band === null) {
 		return {
 			...base,
@@ -88,33 +106,50 @@ export async function recordFact(
 		};
 	}
 
-	const contact = await db.contact.findUnique({
-		where: { id: contactId },
-		select: {
-			id: true,
-			email: true,
-			firstName: true,
-			lastName: true,
-			title: true,
-			seniority: true,
-			function: true,
-			linkedinUrl: true,
-			twitterUrl: true,
-			githubUrl: true,
-		},
-	});
+	let contact: FactSubject | null = null;
+	if (contactId) {
+		const found = await db.contact.findUnique({
+			where: { id: contactId },
+			select: {
+				id: true,
+				email: true,
+				firstName: true,
+				lastName: true,
+				title: true,
+				seniority: true,
+				function: true,
+				linkedinUrl: true,
+				twitterUrl: true,
+				githubUrl: true,
+			},
+		});
 
-	if (!contact) {
-		return {
-			...base,
-			stored: false,
-			applied: false,
-			reason: "No such contact.",
-		};
+		if (!found) {
+			return {
+				...base,
+				stored: false,
+				applied: false,
+				reason: "No such contact.",
+			};
+		}
+		contact = found;
+	} else if (dealId) {
+		const deal = await db.deal.findUnique({
+			where: { id: dealId },
+			select: { id: true },
+		});
+		if (!deal) {
+			return {
+				...base,
+				stored: false,
+				applied: false,
+				reason: "No such deal.",
+			};
+		}
 	}
 
 	const existing = await db.contactFact.findMany({
-		where: { contactId, field },
+		where: contactId ? { contactId, field } : { dealId, field },
 		select: { id: true, value: true, status: true },
 	});
 
@@ -149,7 +184,7 @@ export async function recordFact(
 	const column = FIELDS[field].column;
 	const hasAgentFact = Boolean(currentApplied);
 
-	if (humanOwns({ field, column, contact, hasAgentFact })) {
+	if (contact && humanOwns({ field, column, contact, hasAgentFact })) {
 		return {
 			...base,
 			stored: false,
@@ -160,7 +195,7 @@ export async function recordFact(
 
 	const applies =
 		scored.band === FactBand.VERIFIED ||
-		fillsBlank({ field, contact, hasAgentFact });
+		(contact ? fillsBlank({ field, contact, hasAgentFact }) : false);
 
 	if (
 		!applies &&
@@ -184,7 +219,7 @@ export async function recordFact(
 		if (applies) {
 			await tx.contactFact.updateMany({
 				where: {
-					contactId,
+					...(contactId ? { contactId } : { dealId }),
 					field,
 					status: { in: [FactStatus.APPLIED, FactStatus.PROPOSED] },
 				},
@@ -194,7 +229,8 @@ export async function recordFact(
 
 		await tx.contactFact.create({
 			data: {
-				contactId,
+				contactId: contactId ?? null,
+				dealId: dealId ?? null,
 				field,
 				value: trimmed,
 				score: scored.score,
@@ -209,14 +245,14 @@ export async function recordFact(
 
 		if (!applies) return;
 
-		if (column) {
+		if (contactId && column) {
 			await tx.contact.update({
 				where: { id: contactId },
 				data: { [column]: trimmed },
 			});
 		}
 
-		if (field === "name") {
+		if (contactId && field === "name") {
 			const split = splitName(trimmed);
 			if (split) {
 				await tx.contact.update({

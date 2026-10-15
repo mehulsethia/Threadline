@@ -46,10 +46,12 @@ export type BlankFactSweep = {
 export async function sweepBlankFacts(
 	options: { dry?: boolean } = {},
 ): Promise<BlankFactSweep> {
-	const [pending, proposals] = await Promise.all([
-		db.contactFact.count({ where: { status: FactStatus.PROPOSED } }),
+	const [pending, rawProposals] = await Promise.all([
+		db.contactFact.count({
+			where: { status: FactStatus.PROPOSED, contactId: { not: null } },
+		}),
 		db.contactFact.findMany({
-			where: { status: FactStatus.PROPOSED },
+			where: { status: FactStatus.PROPOSED, contactId: { not: null } },
 			select: {
 				id: true,
 				contactId: true,
@@ -62,6 +64,20 @@ export async function sweepBlankFacts(
 			take: SCAN,
 		}),
 	]);
+
+	const proposals: Proposal[] = [];
+	for (const p of rawProposals) {
+		if (p.contactId && p.contact) {
+			proposals.push({
+				id: p.id,
+				contactId: p.contactId,
+				field: p.field,
+				value: p.value,
+				score: p.score,
+				contact: p.contact,
+			});
+		}
+	}
 
 	const sweep: BlankFactSweep = {
 		scanned: proposals.length,
@@ -161,8 +177,11 @@ async function appliedValues(
 			select: { contactId: true, field: true, value: true },
 		});
 
-		for (const row of rows)
-			values.set(key(row.contactId, row.field), row.value);
+		for (const row of rows) {
+			if (row.contactId) {
+				values.set(key(row.contactId, row.field), row.value);
+			}
+		}
 	}
 
 	return values;

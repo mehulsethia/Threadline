@@ -3,6 +3,7 @@ import Chat from "@carbon/icons-react/es/Chat";
 import Email from "@carbon/icons-react/es/Email";
 import Events from "@carbon/icons-react/es/Events";
 import MagicWand from "@carbon/icons-react/es/MagicWand";
+import Microphone from "@carbon/icons-react/es/Microphone";
 import Phone from "@carbon/icons-react/es/Phone";
 import Task from "@carbon/icons-react/es/Task";
 import type { ActivityType } from "@crm/db/enums";
@@ -21,6 +22,8 @@ const PRESENTATION: ActivityPresentation = {
 	TASK: { icon: Task, label: "Task" },
 	STAGE_CHANGE: { icon: ArrowRight, label: "Stage change" },
 	ENRICHMENT: { icon: MagicWand, label: "Enrichment" },
+	WHATSAPP: { icon: Chat, label: "WhatsApp" },
+	VOICE_NOTE: { icon: Microphone, label: "Voice note" },
 };
 
 export function activityLabel(type: ActivityType): string {

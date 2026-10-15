@@ -11,7 +11,11 @@ export type EvidenceKind =
 	| "handle.name-form"
 	| "search.cites-profile"
 	| "employer-only"
-	| "contradiction";
+	| "contradiction"
+	| "whatsapp.message"
+	| "voice.transcript"
+	| "voice.live-call"
+	| "agent.inference";
 
 type Weighting = {
 	weight: number;
@@ -20,6 +24,26 @@ type Weighting = {
 };
 
 export const WEIGHTS = {
+	"whatsapp.message": {
+		weight: 0.9,
+		primary: true,
+		label: "the lead said it in a WhatsApp message",
+	},
+	"voice.transcript": {
+		weight: 0.85,
+		primary: true,
+		label: "stated in an audio recording or voice note transcript",
+	},
+	"voice.live-call": {
+		weight: 0.9,
+		primary: true,
+		label: "stated directly during a live voice call",
+	},
+	"agent.inference": {
+		weight: 0.3,
+		primary: false,
+		label: "inferred by agent reasoning",
+	},
 	"profile.email-match": {
 		weight: 0.95,
 		primary: true,
