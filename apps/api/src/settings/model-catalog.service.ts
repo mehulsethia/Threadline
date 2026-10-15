@@ -10,7 +10,7 @@ export interface CatalogModel {
 
 function getStaticCatalog(): CatalogModel[] {
 	const fastModel = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";
-	const smartModel = process.env.GEMINI_SMART_MODEL || "gemini-2.5-pro";
+	const smartModel = process.env.GEMINI_SMART_MODEL || "gemini-4-argon";
 	const liveModel =
 		process.env.GEMINI_LIVE_MODEL || "gemini-live-2.5-flash-native-audio";
 

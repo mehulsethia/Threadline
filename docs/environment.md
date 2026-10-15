@@ -113,10 +113,13 @@ single place that knows what is set.
 | --- | --- |
 | `GOOGLE_GENAI_USE_VERTEXAI` | Enables Vertex AI backend (`1`) |
 | `GOOGLE_CLOUD_PROJECT` | GCP project ID hosting Vertex AI (`project-e705af63-271f-48bf-92f`) |
-| `GOOGLE_CLOUD_LOCATION` | GCP region for Vertex AI (`us-central1`) |
+| `GOOGLE_CLOUD_LOCATION` | Default GCP region for Vertex AI (`us-central1`) |
 | `GEMINI_FAST_MODEL` | Fast extraction model (`gemini-2.5-flash`) |
-| `GEMINI_SMART_MODEL` | Deep reasoning model (`gemini-2.5-pro`) |
+| `GEMINI_FAST_LOCATION` | Region for fast model (`us-central1`, fallback: `GOOGLE_CLOUD_LOCATION`) |
+| `GEMINI_SMART_MODEL` | Deep reasoning model (`gemini-4-argon`) |
+| `GEMINI_SMART_LOCATION` | Region for smart model (`global`, fallback: `GOOGLE_CLOUD_LOCATION`) |
 | `GEMINI_LIVE_MODEL` | Live bidirectional voice model (`gemini-live-2.5-flash-native-audio`) |
+| `GEMINI_LIVE_LOCATION` | Region for live model (`us-central1`, fallback: `GOOGLE_CLOUD_LOCATION`) |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
 

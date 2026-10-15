@@ -145,11 +145,23 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	GEMINI_FAST_LOCATION?: string;
+
+	@IsOptional()
+	@IsString()
 	GEMINI_SMART_MODEL?: string;
 
 	@IsOptional()
 	@IsString()
+	GEMINI_SMART_LOCATION?: string;
+
+	@IsOptional()
+	@IsString()
 	GEMINI_LIVE_MODEL?: string;
+
+	@IsOptional()
+	@IsString()
+	GEMINI_LIVE_LOCATION?: string;
 
 	@IsOptional()
 	@IsString()
