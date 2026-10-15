@@ -14,7 +14,8 @@
 		"./eve-tool": "./src/eve-tool.ts",
 		"./field-backfill": "./src/field-backfill.ts",
 		"./field-templates": "./src/field-templates.ts",
-		"./saved-view": "./src/saved-view.ts"
+		"./saved-view": "./src/saved-view.ts",
+		"./whatsapp-parser": "./src/whatsapp-parser.ts"
 	},
 	"scripts": {
 		"check-types": "tsc --noEmit",
@@ -24,6 +25,7 @@
 	},
 	"dependencies": {
 		"@crm/db": "workspace:*",
+		"fflate": "^0.8.3",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
