@@ -58,6 +58,7 @@ export type {
 } from "./eve-tool";
 export type { AuthTest, JoinPayload, OauthAccess, Reply } from "./slack";
 export {
+	detectParticipants,
 	type ParsedWhatsAppExport,
 	parseWhatsAppExport,
 	type WhatsAppMessageItem,
