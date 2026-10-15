@@ -1,4 +1,4 @@
-import { defineTool, disableTool } from "eve/tools";
+import { defineTool } from "eve/tools";
 import { z } from "zod";
 import {
 	CONTEXT_DEV_PEOPLE,
@@ -13,8 +13,7 @@ import { personByClues } from "../lib/people";
 
 const ENABLE_LEGACY_TOOL = false;
 
-export default ENABLE_LEGACY_TOOL
-	? defineTool({
+export default defineTool({
 			description:
 				"Find the person behind a work email address when the CRM holds no LinkedIn URL for them. Sends the name and employer as clues, then returns the profile it resolved with a verdict on whether it is really them. Use get_linkedin_profile instead when the record already carries a LinkedIn URL.",
 			inputSchema: z.object({
@@ -33,6 +32,9 @@ export default ENABLE_LEGACY_TOOL
 					.describe("The last name, if the CRM holds one."),
 			}),
 			async execute({ email, companyName, companyDomain, firstName, lastName }) {
+				if (!ENABLE_LEGACY_TOOL) {
+					return { found: false as const, reason: "Tool is disabled" };
+				}
 				if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
 					return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
 				}
@@ -69,5 +71,4 @@ export default ENABLE_LEGACY_TOOL
 					note: "One candidate, not proof. Read the verdict before you write anything.",
 				};
 			},
-		})
-	: disableTool();
+		});

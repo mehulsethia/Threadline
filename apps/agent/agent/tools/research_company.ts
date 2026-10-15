@@ -1,5 +1,5 @@
 import { ActivityType, db } from "@crm/db";
-import { defineTool, disableTool } from "eve/tools";
+import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { extract, type JsonSchema } from "../lib/context-dev";
 import { spend } from "../lib/focus";
@@ -70,15 +70,17 @@ type ResearchBrief = z.infer<typeof researchBrief>;
 
 const ENABLE_LEGACY_TOOL = false;
 
-export default ENABLE_LEGACY_TOOL
-	? defineTool({
-			description:
-				"Read a company's marketing site and write a research brief to its timeline: positioning, pricing, who they sell to, notable customers, recent news.",
-			inputSchema: z.object({
-				companyId: z.string(),
-			}),
-			async execute({ companyId }) {
-				const company = await db.company.findUnique({
+export default defineTool({
+	description:
+		"Read a company's marketing site and write a research brief to its timeline: positioning, pricing, who they sell to, notable customers, recent news.",
+	inputSchema: z.object({
+		companyId: z.string(),
+	}),
+	async execute({ companyId }) {
+		if (!ENABLE_LEGACY_TOOL) {
+			return { written: false as const, reason: "Tool is disabled" };
+		}
+		const company = await db.company.findUnique({
 					where: { id: companyId },
 					select: {
 						id: true,
@@ -148,8 +150,7 @@ export default ENABLE_LEGACY_TOOL
 
 				return { written: true as const, activityId: activity.id };
 			},
-		})
-	: disableTool();
+});
 
 function formatBrief(brief: ResearchBrief): string {
 	const lines: string[] = [];

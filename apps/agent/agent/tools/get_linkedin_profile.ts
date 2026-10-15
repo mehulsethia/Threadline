@@ -1,4 +1,4 @@
-import { defineTool, disableTool } from "eve/tools";
+import { defineTool } from "eve/tools";
 import { z } from "zod";
 import {
 	CONTEXT_DEV_PEOPLE,
@@ -13,56 +13,57 @@ import { storePortrait } from "../lib/portrait";
 
 const ENABLE_LEGACY_TOOL = false;
 
-export default ENABLE_LEGACY_TOOL
-	? defineTool({
-			description:
-				"Read a LinkedIn profile by slug and check whether it is really the person behind an email address. Returns the profile, their full work history, and an explicit verdict.",
-			inputSchema: z.object({
-				slug: z.string().describe("The linkedin.com/in/<slug> handle."),
-				email: z.string().describe("The address we are trying to identify."),
-				companyName: z.string(),
-				companyDomain: z.string(),
-				contactId: z
-					.string()
-					.optional()
-					.describe(
-						"The CRM contact this candidate is for. Supply it and their photo is copied automatically if — and only if — the profile turns out to be them.",
-					),
-			}),
-			async execute({ slug, email, companyName, companyDomain, contactId }) {
-				if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
-					return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
-				}
+export default defineTool({
+	description:
+		"Read a LinkedIn profile by slug and check whether it is really the person behind an email address. Returns the profile, their full work history, and an explicit verdict.",
+	inputSchema: z.object({
+		slug: z.string().describe("The linkedin.com/in/<slug> handle."),
+		email: z.string().describe("The address we are trying to identify."),
+		companyName: z.string(),
+		companyDomain: z.string(),
+		contactId: z
+			.string()
+			.optional()
+			.describe(
+				"The CRM contact this candidate is for. Supply it and their photo is copied automatically if — and only if — the profile turns out to be them.",
+			),
+	}),
+	async execute({ slug, email, companyName, companyDomain, contactId }) {
+		if (!ENABLE_LEGACY_TOOL) {
+			return { found: false as const, reason: "Tool is disabled" };
+		}
+		if (!(await enabled(CONTEXT_DEV_PEOPLE))) {
+			return { found: false as const, ...unavailable(CONTEXT_DEV_SOURCE) };
+		}
 
-				const charge = spend(2);
-				if (!charge.ok) return { found: false as const, reason: charge.reason };
+		const charge = spend(2);
+		if (!charge.ok) return { found: false as const, reason: charge.reason };
 
-				const requestedUrl = `https://www.linkedin.com/in/${slug}`;
-				const result = await personByProfileUrl(requestedUrl);
+		const requestedUrl = `https://www.linkedin.com/in/${slug}`;
+		const result = await personByProfileUrl(requestedUrl);
 
-				if (result.outcome !== "found") {
-					return { found: false as const, reason: result.reason };
-				}
+		if (result.outcome !== "found") {
+			return { found: false as const, reason: result.reason };
+		}
 
-				const person = result.person;
-				const verdict = verdictFor(person, { email, companyName, companyDomain });
+		const person = result.person;
+		const verdict = verdictFor(person, { email, companyName, companyDomain });
 
-				const portrait =
-					contactId && verdict.isSamePerson
-						? await storePortrait({
-								contactId,
-								sourceUrl: person.photoUrl,
-								verified: true,
-							})
-						: null;
+		const portrait =
+			contactId && verdict.isSamePerson
+				? await storePortrait({
+						contactId,
+						sourceUrl: person.photoUrl,
+						verified: true,
+					})
+				: null;
 
-				return {
-					found: true as const,
-					profile: person,
-					sourceUrl: person.profileUrl ?? requestedUrl,
-					photo: portrait ?? undefined,
-					verdict,
-				};
-			},
-		})
-	: disableTool();
+		return {
+			found: true as const,
+			profile: person,
+			sourceUrl: person.profileUrl ?? requestedUrl,
+			photo: portrait ?? undefined,
+			verdict,
+		};
+	},
+});

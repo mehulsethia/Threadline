@@ -1,4 +1,4 @@
-import { defineTool, disableTool } from "eve/tools";
+import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { enabled, unavailable } from "../lib/capabilities";
 import { spend } from "../lib/focus";
@@ -6,8 +6,7 @@ import { ask } from "../lib/perplexity";
 
 const ENABLE_LEGACY_TOOL = false;
 
-export default ENABLE_LEGACY_TOOL
-	? defineTool({
+export default defineTool({
 			description:
 				"Research a person or company on the open web for sales context — recent news, funding, launches, public statements. Returns cited claims. NOT a source of truth for someone's identity or job title; use get_linkedin_profile for that.",
 			inputSchema: z.object({
@@ -22,6 +21,9 @@ export default ENABLE_LEGACY_TOOL
 					.describe("Reason over more sources. Slower, better for prep briefs."),
 			}),
 			async execute({ question, deep }) {
+				if (!ENABLE_LEGACY_TOOL) {
+					return { ok: false as const, reason: "Tool is disabled" };
+				}
 				if (!(await enabled("PERPLEXITY_API_KEY")))
 					return unavailable("PERPLEXITY_API_KEY");
 
@@ -45,6 +47,5 @@ export default ENABLE_LEGACY_TOOL
 					note: "Only write claims that have a citation.",
 				};
 			},
-		})
-	: disableTool();
+		});
 
