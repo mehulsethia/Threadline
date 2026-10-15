@@ -3,9 +3,10 @@ const TRUTHY = new Set(["1", "true", "yes", "on"]);
 export const DISABLE_VARIABLES = ["CRM_TELEMETRY_DISABLED", "DO_NOT_TRACK"];
 
 export function telemetryDisabled(
-	_env: Record<string, string | undefined> = process.env,
+	env: Record<string, string | undefined> = process.env,
 ): boolean {
-	return true;
+	if (env.NODE_ENV === "test") return true;
+	return DISABLE_VARIABLES.some((name) => isTruthy(env[name]));
 }
 
 function isTruthy(value: string | undefined): boolean {
