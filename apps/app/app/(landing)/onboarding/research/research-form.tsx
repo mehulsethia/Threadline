@@ -35,7 +35,6 @@ export function ResearchForm() {
 	const skip = useMutation(
 		trpc.settings.skipResearchKey.mutationOptions({
 			onSuccess: () => {
-				document.cookie = "crm_skip_research=1; path=/; max-age=31536000; SameSite=Lax";
 				router.refresh();
 				router.replace("/");
 			},
@@ -44,7 +43,6 @@ export function ResearchForm() {
 	);
 
 	const handleSkip = () => {
-		document.cookie = "crm_skip_research=1; path=/; max-age=31536000; SameSite=Lax";
 		skip.mutate();
 	};
 
