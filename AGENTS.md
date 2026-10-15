@@ -1,5 +1,7 @@
 # Strict rules — review before starting any work
 
+Before any task, read docs/HACKATHON_BRIEF.md.
+
 **Read the doc for the area you are touching before you touch it.** The table
 below is the whole index. These are plain paths, not imports: they are not in your
 context until you read them, and the rules in them are not optional.
