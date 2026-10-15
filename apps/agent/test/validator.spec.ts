@@ -286,9 +286,24 @@ describe("resolveDueAt", () => {
 		expect(due).toBe("2026-10-15T11:00:00.000Z");
 	});
 
-	it("resolves Saturday morning 11:00 AM", () => {
-		const due = resolveDueAt("Saturday morning 11:00 AM", refDate);
-		expect(due).toContain("2026-10-17");
+	it("resolves Hindi hourly duration 1 ghante me", () => {
+		const due = resolveDueAt("1 ghante me", refDate);
+		expect(due).toBe("2026-10-15T11:00:00.000Z");
+	});
+
+	it("resolves kal to next day in Asia/Kolkata timezone", () => {
+		const due = resolveDueAt("kal", refDate);
+		expect(due).toBe("2026-10-16T03:30:00.000Z");
+	});
+
+	it("resolves Saturday 11 AM in Asia/Kolkata timezone", () => {
+		const due = resolveDueAt("Saturday 11 AM", refDate);
+		expect(due).toBe("2026-10-17T05:30:00.000Z");
+	});
+
+	it("resolves next week to +7 days in Asia/Kolkata timezone", () => {
+		const due = resolveDueAt("next week", refDate);
+		expect(due).toBe("2026-10-22T03:30:00.000Z");
 	});
 });
 
@@ -389,5 +404,53 @@ describe("validateAndEnrichFacts", () => {
 		expect(facts.contact.phone.value).toBe("+919876543210");
 		expect(facts.contact.phone.evidence?.sourceKind).toBe("whatsapp.message");
 		expect(facts.contact.phone.evidence?.speaker).toBe("lead");
+	});
+
+	it("determines speaker deterministically from message sender of lineNos", () => {
+		const facts = createDummyFacts();
+		facts.deal.stageSuggestion.evidence = {
+			sourceKind: "agent.inference",
+			speaker: "us",
+			quote:
+				"Aap formal quotation PDF bana ke email ya WhatsApp par bhej dijiye",
+			lineNos: [17],
+		};
+
+		validateAndEnrichFacts(
+			facts,
+			sampleMessages,
+			"Rohit Sharma",
+			"Vikram Malhotra",
+			new Date("2026-10-15T10:00:00Z"),
+		);
+
+		expect(facts.deal.stageSuggestion.evidence.speaker).toBe("lead");
+	});
+
+	it("resolves nextStep dueAt from combined value and quote", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Send formal quotation PDF",
+			owner: null,
+			dueAt: null,
+			evidence: {
+				sourceKind: "whatsapp.message",
+				speaker: "us",
+				quote: "1 ghante me quotation bhejta hu",
+				lineNos: [18],
+			},
+		};
+
+		const refDate = new Date("2026-10-15T11:25:00Z");
+		validateAndEnrichFacts(
+			facts,
+			sampleMessages,
+			"Rohit Sharma",
+			"Vikram Malhotra",
+			refDate,
+		);
+
+		expect(facts.nextStep.dueAt).toBe("2026-10-15T12:25:00.000Z");
+		expect(facts.nextStep.owner).toBe("us");
 	});
 });
