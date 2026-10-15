@@ -120,12 +120,13 @@ single place that knows what is set.
 | `GEMINI_SMART_LOCATION` | Region for smart model (`global`, fallback: `GOOGLE_CLOUD_LOCATION`) |
 | `GEMINI_LIVE_MODEL` | Live bidirectional voice model (`gemini-live-2.5-flash-native-audio`) |
 | `GEMINI_LIVE_LOCATION` | Region for live model (`us-central1`, fallback: `GOOGLE_CLOUD_LOCATION`) |
+| `GCS_BUCKET` | Google Cloud Storage private bucket for uploads and media mirroring (`threadline-uploads-8f2a1`) |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
-| `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
+| `BLOB_READ_WRITE_TOKEN` | Legacy token for Vercel Blob (superseded by GCS_BUCKET) |
 
-`BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`
-because the API and the seed write pictures too. The Next.js app is deliberately
-excluded — recognising our URL for the image optimizer needs no token.
+`GCS_BUCKET` replaces Vercel Blob for storing contact portraits, brand logos,
+and conversation uploads via Google Cloud Storage and short-lived signed URLs.
+`GCS_BUCKET` is declared in `env.validation.ts` and `turbo.json`.
 
 ### The Context key is asked for, not configured
 

@@ -166,6 +166,10 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	CONTEXT_DAILY_CREDIT_CAP?: string;
+
+	@IsOptional()
+	@IsString()
+	GCS_BUCKET?: string;
 }
 
 export type RawEnvironment = Record<string, string | undefined>;
