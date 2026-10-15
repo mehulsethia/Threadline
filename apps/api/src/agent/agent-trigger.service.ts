@@ -567,7 +567,24 @@ export class AgentTriggerService {
 		void this.redeliverCancellations();
 	}
 
-	private poke(): void {
+	async queueIntake(
+		jobId: string,
+		payload?: Prisma.InputJsonValue,
+		required = false,
+	): Promise<boolean> {
+		return this.enqueue(
+			{
+				kind: "intake",
+				reason: "Customer conversation intake",
+				priority: PRIORITY.intake,
+				budget: 4,
+				payload: payload ?? { jobId },
+			},
+			required,
+		);
+	}
+
+	poke(): void {
 		this.pokeRoute("/internal/crm/dispatch");
 	}
 

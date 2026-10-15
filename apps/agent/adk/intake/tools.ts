@@ -55,15 +55,25 @@ export async function readFileBytes(fileUrl: string): Promise<Buffer> {
 	}
 
 	if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
-		const res = await fetch(fileUrl);
-		if (!res.ok) {
-			throw new Error(`Failed to fetch file from URL: ${res.statusText}`);
-		}
-		const arrayBuf = await res.arrayBuffer();
-		return Buffer.from(arrayBuf);
+		try {
+			const res = await fetch(fileUrl);
+			if (res.ok) {
+				const arrayBuf = await res.arrayBuffer();
+				return Buffer.from(arrayBuf);
+			}
+		} catch {}
 	}
 
-	return await downloadFile(fileUrl);
+	let destination = fileUrl;
+	if (fileUrl.includes("googleapis.com/")) {
+		try {
+			const url = new URL(fileUrl);
+			const parts = url.pathname.split("/").filter(Boolean);
+			destination = parts.slice(1).join("/");
+		} catch {}
+	}
+
+	return await downloadFile(destination);
 }
 
 export async function loadIntakeJob(input: { jobId: string }) {

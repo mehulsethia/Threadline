@@ -297,3 +297,147 @@ function parseZipExport(zipBytes: Uint8Array): ParsedWhatsAppExport {
 
 	return parseTextLines(chatText, attachments);
 }
+
+const SELLER_SIGNALS = [
+	"rate",
+	"price",
+	"inr",
+	"rs",
+	"cost",
+	"fees",
+	"fee",
+	"discount",
+	"batch",
+	"quotation",
+	"quote",
+	"gst",
+	"advance",
+	"credit",
+	"bhejta hu",
+	"bhej dunga",
+	"share kar",
+	"catalogue",
+	"brochure",
+	"curriculum",
+	"welcome to",
+	"thank you for reaching",
+	"we offer",
+	"hamare yahan",
+	"hum deliver",
+	"class 150",
+	"our centre",
+	"centre par",
+];
+
+const BUYER_SIGNALS = [
+	"hume chahiye",
+	"humko chahiye",
+	"requirement",
+	"enquiry",
+	"enquire",
+	"mera budget",
+	"hamara budget",
+	"budget approx",
+	"timing kya",
+	"issue hai",
+	"problem",
+	"concern",
+	"personal attention",
+	"discount",
+	"chahiye",
+];
+
+function normalizeParticipantText(text: string): string {
+	return text
+		.toLowerCase()
+		.replace(/[\u200E\u200F\uFEFF]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+export function detectParticipants(
+	participants: string[],
+	messages: WhatsAppMessageItem[],
+	meFlag?: string,
+): { me: string; lead: string; confidence: number; autoDetected: boolean } {
+	if (participants.length === 0) {
+		return {
+			me: meFlag ?? "Business",
+			lead: "Lead",
+			confidence: 0.5,
+			autoDetected: false,
+		};
+	}
+
+	if (meFlag) {
+		const normalizedFlag = normalizeParticipantText(meFlag);
+		const matchedMe =
+			participants.find(
+				(p) => normalizeParticipantText(p) === normalizedFlag,
+			) ??
+			participants.find((p) =>
+				normalizeParticipantText(p).includes(normalizedFlag),
+			) ??
+			meFlag;
+
+		const lead = participants.find((p) => p !== matchedMe) ?? "Lead";
+		return {
+			me: matchedMe,
+			lead,
+			confidence: 1.0,
+			autoDetected: false,
+		};
+	}
+
+	if (participants.length === 1) {
+		const only = participants[0] ?? "Unknown";
+		return {
+			me: "Business",
+			lead: only,
+			confidence: 0.5,
+			autoDetected: true,
+		};
+	}
+
+	const scores: Record<string, number> = {};
+	for (const p of participants) {
+		scores[p] = 0;
+	}
+
+	for (const msg of messages) {
+		const norm = normalizeParticipantText(msg.text);
+		let sellerHits = 0;
+		let buyerHits = 0;
+
+		for (const sig of SELLER_SIGNALS) {
+			if (norm.includes(sig)) sellerHits++;
+		}
+		for (const sig of BUYER_SIGNALS) {
+			if (norm.includes(sig)) buyerHits++;
+		}
+
+		const current = scores[msg.sender] ?? 0;
+		scores[msg.sender] = current + sellerHits * 2 - buyerHits * 2;
+	}
+
+	const sorted = [...participants].sort(
+		(a, b) => (scores[b] ?? 0) - (scores[a] ?? 0),
+	);
+
+	const meCandidate = sorted[0] ?? participants[0] ?? "Business";
+	const leadCandidate =
+		sorted.find((p) => p !== meCandidate) ?? participants[1] ?? "Lead";
+
+	const scoreDiff = (scores[meCandidate] ?? 0) - (scores[leadCandidate] ?? 0);
+	const confidence = Math.min(
+		0.98,
+		Math.max(0.65, 0.7 + Math.tanh(Math.max(0, scoreDiff) / 4) * 0.28),
+	);
+
+	return {
+		me: meCandidate,
+		lead: leadCandidate,
+		confidence: Number(confidence.toFixed(2)),
+		autoDetected: true,
+	};
+}

@@ -1,0 +1,265 @@
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Db } from "@crm/db";
+import { IntakeJobStatus, IntakeSourceType } from "@crm/db";
+import { blobEnabled, downloadFile, uploadFile } from "@crm/db/blob";
+import { detectParticipants, parseWhatsAppExport } from "@crm/validation";
+import {
+	BadRequestException,
+	Injectable,
+	Logger,
+	NotFoundException,
+} from "@nestjs/common";
+import { AgentTriggerService } from "../agent/agent-trigger.service";
+import { InjectDatabase } from "../database/database.constants";
+import type {
+	IntakePreviewInput,
+	IntakePreviewOutput,
+	IntakeStartInput,
+	IntakeStartOutput,
+	IntakeStatusOutput,
+} from "./intake.contracts";
+
+const ALLOWED_EXTENSIONS = [".zip", ".txt", ".opus", ".m4a", ".mp3", ".wav"];
+
+async function readFileBytes(fileUrl: string): Promise<Buffer> {
+	if (existsSync(fileUrl)) {
+		return readFileSync(fileUrl);
+	}
+
+	if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+		try {
+			const res = await fetch(fileUrl);
+			if (res.ok) {
+				const arrayBuf = await res.arrayBuffer();
+				return Buffer.from(arrayBuf);
+			}
+		} catch {}
+	}
+
+	let destination = fileUrl;
+	if (fileUrl.includes("googleapis.com/")) {
+		try {
+			const url = new URL(fileUrl);
+			const parts = url.pathname.split("/").filter(Boolean);
+			destination = parts.slice(1).join("/");
+		} catch {}
+	}
+
+	return await downloadFile(destination);
+}
+
+export type UploadedFileRecord = {
+	buffer: Buffer;
+	originalname: string;
+	mimetype: string;
+	size?: number;
+};
+
+@Injectable()
+export class IntakeService {
+	private readonly logger = new Logger(IntakeService.name);
+
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		private readonly agentTrigger: AgentTriggerService,
+	) {}
+
+	async uploadAndCreateJob(
+		file: UploadedFileRecord,
+		options?: {
+			me?: string;
+			autoStart?: boolean;
+			userId?: string | null;
+		},
+	): Promise<{
+		jobId: string;
+		status: IntakeJobStatus;
+		sourceType: IntakeSourceType;
+		fileUrl: string;
+	}> {
+		const originalName = file.originalname || "upload.txt";
+		const dotIndex = originalName.lastIndexOf(".");
+		const ext =
+			dotIndex !== -1 ? originalName.slice(dotIndex).toLowerCase() : "";
+
+		if (!ALLOWED_EXTENSIONS.includes(ext)) {
+			throw new BadRequestException(
+				`Unsupported file extension "${ext}". Allowed extensions: ${ALLOWED_EXTENSIONS.join(", ")}`,
+			);
+		}
+
+		const sourceType =
+			ext === ".zip" || ext === ".txt"
+				? IntakeSourceType.WHATSAPP_EXPORT
+				: IntakeSourceType.VOICE_NOTE;
+
+		let fileUrl: string;
+		if (blobEnabled()) {
+			const destination = `intake/${randomUUID()}-${originalName}`;
+			fileUrl = await uploadFile(destination, file.buffer, file.mimetype);
+		} else {
+			const dir = join(process.cwd(), "uploads", "intake");
+			if (!existsSync(dir)) {
+				mkdirSync(dir, { recursive: true });
+			}
+			const localPath = join(dir, `${randomUUID()}-${originalName}`);
+			writeFileSync(localPath, file.buffer);
+			fileUrl = localPath;
+		}
+
+		const job = await this.db.intakeJob.create({
+			data: {
+				userId: options?.userId ?? null,
+				sourceType,
+				fileUrl,
+				status: IntakeJobStatus.QUEUED,
+			},
+		});
+
+		if (options?.autoStart !== false) {
+			await this.agentTrigger.queueIntake(
+				job.id,
+				{
+					jobId: job.id,
+					...(options?.me ? { me: options.me } : {}),
+				},
+				true,
+			);
+			this.agentTrigger.poke();
+		}
+
+		this.logger.log({
+			message: "Intake job created",
+			jobId: job.id,
+			sourceType,
+			autoStart: options?.autoStart !== false,
+		});
+
+		return {
+			jobId: job.id,
+			status: job.status,
+			sourceType: job.sourceType,
+			fileUrl,
+		};
+	}
+
+	async previewParticipants(
+		input: IntakePreviewInput,
+	): Promise<IntakePreviewOutput> {
+		let targetUrl = input.fileUrl;
+		if (input.jobId) {
+			const job = await this.db.intakeJob.findUnique({
+				where: { id: input.jobId },
+			});
+			if (!job) {
+				throw new NotFoundException(`Intake job ${input.jobId} not found.`);
+			}
+			targetUrl = job.fileUrl;
+		}
+
+		if (!targetUrl) {
+			throw new BadRequestException(
+				"Either jobId or fileUrl must be provided.",
+			);
+		}
+
+		try {
+			const bytes = await readFileBytes(targetUrl);
+			const parsed = parseWhatsAppExport(bytes);
+			const detected = detectParticipants(parsed.participants, parsed.messages);
+			return {
+				participants: parsed.participants,
+				me: detected.me,
+				lead: detected.lead,
+				confidence: detected.confidence,
+				autoDetected: detected.autoDetected,
+				messageCount: parsed.messages.length,
+			};
+		} catch {
+			return {
+				participants: [],
+				me: "Business",
+				lead: "Lead",
+				confidence: 0.5,
+				autoDetected: false,
+				messageCount: 0,
+			};
+		}
+	}
+
+	async start(input: IntakeStartInput): Promise<IntakeStartOutput> {
+		const job = await this.db.intakeJob.findUnique({
+			where: { id: input.jobId },
+		});
+		if (!job) {
+			throw new NotFoundException(`Intake job ${input.jobId} not found.`);
+		}
+
+		if (job.status === IntakeJobStatus.FAILED) {
+			await this.db.intakeJob.update({
+				where: { id: input.jobId },
+				data: { status: IntakeJobStatus.QUEUED, error: null },
+			});
+		}
+
+		await this.agentTrigger.queueIntake(
+			input.jobId,
+			{
+				jobId: input.jobId,
+				...(input.me ? { me: input.me } : {}),
+			},
+			true,
+		);
+		this.agentTrigger.poke();
+
+		return {
+			jobId: input.jobId,
+			status: IntakeJobStatus.QUEUED,
+			queued: true,
+		};
+	}
+
+	async status(jobId: string): Promise<IntakeStatusOutput> {
+		const job = await this.db.intakeJob.findUnique({
+			where: { id: jobId },
+		});
+		if (!job) {
+			throw new NotFoundException(`Intake job ${jobId} not found.`);
+		}
+
+		const events = await this.db.agentEvent.findMany({
+			where: { sessionId: jobId },
+			orderBy: { emittedAt: "asc" },
+		});
+
+		const timeline = events.map((event) => {
+			const data =
+				event.data && typeof event.data === "object"
+					? (event.data as Record<string, unknown>)
+					: {};
+			return {
+				id: event.id,
+				tool: (data.tool as string) || event.type,
+				message: (data.message as string) || "",
+				timestamp: event.emittedAt,
+				data,
+			};
+		});
+
+		return {
+			id: job.id,
+			status: job.status,
+			sourceType: job.sourceType,
+			fileUrl: job.fileUrl,
+			summary: job.summary,
+			error: job.error,
+			createdContactIds: job.createdContactIds,
+			createdDealIds: job.createdDealIds,
+			createdAt: job.createdAt,
+			updatedAt: job.updatedAt,
+			timeline,
+		};
+	}
+}
