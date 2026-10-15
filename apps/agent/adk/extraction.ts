@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
+import type { DealStage } from "@crm/db";
 import type { WhatsAppMessageItem } from "@crm/validation/whatsapp-parser";
 import { GoogleGenAI } from "@google/genai";
+import {
+	detectParticipants,
+	type ValidationSummary,
+	validateAndEnrichFacts,
+} from "./validator";
 
 export type AudioSegment = {
 	start: string;
@@ -21,11 +27,16 @@ export type EvidenceSourceKind =
 	| "voice.live-call"
 	| "agent.inference";
 
+export type EvidenceSpeaker = "lead" | "us";
+
 export type EvidenceRef = {
 	sourceKind: EvidenceSourceKind;
+	speaker: EvidenceSpeaker;
 	quote: string;
 	lineNos?: number[];
 	audioRange?: { start: string; end: string };
+	downgraded?: boolean;
+	flag?: string;
 };
 
 export type ExtractedField<T> = {
@@ -51,15 +62,28 @@ export type ExtractedLeadFacts = {
 	deal: {
 		need: ExtractedField<string | null>;
 		quantity: ExtractedField<string | number | null>;
-		budget: ExtractedField<number | null>;
+		leadBudget: ExtractedField<number | null>;
+		quotedValue: ExtractedField<number | null>;
 		currency: ExtractedField<string | null>;
 		timeline: ExtractedField<string | null>;
-		stageSuggestion: ExtractedField<string | null>;
+		timelineResolved: string | null;
+		stageSuggestion: ExtractedField<DealStage | null>;
 	};
 	languagePreference: ExtractedField<string | null>;
 	objections: LeadObjection[];
-	nextStep: ExtractedField<string | null>;
+	nextStep: {
+		value: string | null;
+		owner: "us" | "lead" | null;
+		dueAt: string | null;
+		evidence: EvidenceRef | null;
+	};
 	sentiment: ExtractedField<"positive" | "neutral" | "negative" | null>;
+	participants: {
+		me: string;
+		lead: string;
+		confidence: number;
+		autoDetected: boolean;
+	};
 };
 
 export type ExtractLeadFactsInput = {
@@ -71,6 +95,7 @@ export type ExtractLeadFactsInput = {
 				segments?: AudioSegment[];
 		  }
 		| string;
+	me?: string;
 };
 
 function inferAudioMimeType(filename: string): string {
@@ -184,13 +209,22 @@ export async function transcribeAudio(
 	};
 }
 
-export async function extractLeadFacts(
-	input: ExtractLeadFactsInput,
-): Promise<ExtractedLeadFacts> {
+export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
+	facts: ExtractedLeadFacts;
+	validationSummary: ValidationSummary;
+}> {
+	const messages = input.messages ?? [];
+	const rawParticipants = Array.from(new Set(messages.map((m) => m.sender)));
+	const participantInfo = detectParticipants(
+		rawParticipants,
+		messages,
+		input.me,
+	);
+
 	const contentSections: string[] = [];
 
-	if (input.messages && input.messages.length > 0) {
-		const messageLines = input.messages.map((m) => {
+	if (messages.length > 0) {
+		const messageLines = messages.map((m) => {
 			const timeStr = m.timestamp.toISOString().replace("T", " ").slice(0, 19);
 			return `[Line ${m.lineNo}] (${timeStr}) ${m.sender}: ${m.text}`;
 		});
@@ -226,32 +260,39 @@ export async function extractLeadFacts(
 
 	const instructions = [
 		"You are Threadline's Lead Extraction Engine.",
-		"Analyze this customer conversation (WhatsApp messages and/or audio transcripts) to extract key lead, company, and deal facts.",
+		"Analyze this customer conversation to extract CRM lead facts.",
 		"",
-		"CRITICAL RULES:",
-		"1. Strict evidence linkage: For EVERY extracted field with a non-null value, you MUST link it to exact evidence:",
-		"   - 'sourceKind': 'whatsapp.message' if from chat, 'voice.transcript' if from audio transcript.",
-		"   - 'quote': the EXACT quote as stated by the lead or rep.",
-		"   - 'lineNos': array of line numbers from the messages (e.g. [2, 3]). Include ONLY when sourceKind is 'whatsapp.message'.",
-		"   - 'audioRange': { 'start': '00:00', 'end': '00:08' } timestamp range. Include ONLY when sourceKind is 'voice.transcript'.",
-		"2. ABSOLUTELY NO HALLUCINATIONS OR GUESSWORK:",
-		"   If a field is not explicitly mentioned or supported by direct evidence in the conversation, its value MUST be null, and its evidence MUST be null.",
-		"   Never invent, extrapolate, or assume unmentioned roles, cities, budgets, timelines, or names.",
-		"3. Objections: An array of objections or concerns raised by the lead. Each objection must include its own exact quote and evidence. If none, return [].",
-		"4. Language preference: Detected language preference of the lead (e.g. 'Hinglish', 'Hindi', 'English', 'Bengali').",
-		"5. Deal stage suggestion: Suggest a standard stage: 'Lead', 'Discovery', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'.",
-		"6. Budget & Currency: If budget is stated, 'budget' must be a numeric value and 'currency' must be 3-letter code (e.g. 'INR', 'USD'). If not stated, both must be null.",
-		"7. Sentiment: 'positive', 'neutral', or 'negative'.",
-		"8. Next Step: The agreed or proposed concrete next action.",
+		"PARTICIPANTS:",
+		`- Business user ("us", CRM seller): "${participantInfo.me}"`,
+		`- Lead / Customer ("lead"): "${participantInfo.lead}"`,
 		"",
-		"Return a JSON object conforming exactly to this structure:",
+		"CRITICAL EXTRACTION RULES:",
+		`1. CONTACT NAME: Must ALWAYS be the customer/lead (${participantInfo.lead}). Never create the business user (${participantInfo.me}) as a contact.`,
+		"2. MONEY FIELDS:",
+		"   - 'deal.leadBudget': What the customer/lead explicitly states they can spend or have budgeted (number or null).",
+		"   - 'deal.quotedValue': What the business user quoted, agreed, or course fee / supply price (number or null).",
+		"3. SPEAKER FIELD ON ALL EVIDENCE:",
+		"   - Every evidence object MUST include 'speaker': 'lead' (if spoken by customer) or 'us' (if spoken by business user).",
+		"4. INFERENCE VS LITERAL QUOTE:",
+		"   - 'sentiment', 'stageSuggestion', 'languagePreference' MUST use sourceKind 'agent.inference'.",
+		"   - Facts literally stated in messages/audio use 'whatsapp.message' or 'voice.transcript' with the exact quote.",
+		"5. FIELDS WITHOUT EVIDENCE MUST BE NULL: Never guess, extrapolate, or assume unmentioned values.",
+		"6. DEAL STAGES: Pick the most appropriate CRM stage name:",
+		"   'DEMO_BOOKED', 'QUALIFIED_TO_BUY', 'UNQUALIFIED_TO_BUY', 'DECISION_MAKER_BOUGHT_IN', 'CONTRACT_SENT', 'CLOSED_WON', 'CLOSED_LOST'.",
+		"7. NEXT STEP:",
+		"   - 'value': next step description",
+		"   - 'owner': 'us' or 'lead'",
+		"   - 'dueAt': stated timeframe, e.g. '1 hour', 'Saturday 11 AM' (or null)",
+		"",
+		"Return a JSON object conforming exactly to this schema:",
 		JSON.stringify(
 			{
 				contact: {
 					name: {
-						value: "Lead Name",
+						value: participantInfo.lead,
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
 							lineNos: [2],
 						},
@@ -264,6 +305,7 @@ export async function extractLeadFacts(
 						value: "Company Name",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
 							lineNos: [2],
 						},
@@ -272,6 +314,7 @@ export async function extractLeadFacts(
 						value: "City",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
 							lineNos: [2],
 						},
@@ -282,6 +325,7 @@ export async function extractLeadFacts(
 						value: "Need description",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
 							lineNos: [3],
 						},
@@ -290,47 +334,62 @@ export async function extractLeadFacts(
 						value: "150 pieces",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
-							lineNos: [3],
+							lineNos: [4],
 						},
 					},
-					budget: {
+					leadBudget: {
 						value: 450000,
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
-							lineNos: [5],
+							lineNos: [9],
+						},
+					},
+					quotedValue: {
+						value: 450000,
+						evidence: {
+							sourceKind: "whatsapp.message",
+							speaker: "us",
+							quote: "Exact quote",
+							lineNos: [11],
 						},
 					},
 					currency: {
 						value: "INR",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
-							lineNos: [5],
+							lineNos: [9],
 						},
 					},
 					timeline: {
 						value: "2 weeks",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
-							lineNos: [6],
+							lineNos: [10],
 						},
 					},
 					stageSuggestion: {
-						value: "Proposal",
+						value: "CONTRACT_SENT",
 						evidence: {
 							sourceKind: "agent.inference",
+							speaker: "us",
 							quote: "Exact quote",
-							lineNos: [10],
+							lineNos: [17],
 						},
 					},
 				},
 				languagePreference: {
 					value: "Hinglish",
 					evidence: {
-						sourceKind: "whatsapp.message",
+						sourceKind: "agent.inference",
+						speaker: "lead",
 						quote: "Exact quote",
 						lineNos: [2],
 					},
@@ -340,25 +399,30 @@ export async function extractLeadFacts(
 						objection: "Objection description",
 						evidence: {
 							sourceKind: "whatsapp.message",
+							speaker: "lead",
 							quote: "Exact quote",
-							lineNos: [7],
+							lineNos: [12],
 						},
 					},
 				],
 				nextStep: {
 					value: "Next step description",
+					owner: "us",
+					dueAt: "1 hour",
 					evidence: {
 						sourceKind: "whatsapp.message",
+						speaker: "us",
 						quote: "Exact quote",
-						lineNos: [11],
+						lineNos: [17],
 					},
 				},
 				sentiment: {
 					value: "positive",
 					evidence: {
-						sourceKind: "whatsapp.message",
+						sourceKind: "agent.inference",
+						speaker: "lead",
 						quote: "Exact quote",
-						lineNos: [10],
+						lineNos: [16],
 					},
 				},
 			},
@@ -389,13 +453,37 @@ export async function extractLeadFacts(
 	const rawJson = response.text?.trim() ?? "{}";
 	const parsed = JSON.parse(rawJson);
 
-	return normalizeExtractedFacts(parsed);
+	const facts = normalizeExtractedFacts(parsed, participantInfo);
+
+	const lastMessageDate =
+		messages.length > 0
+			? (messages[messages.length - 1]?.timestamp ?? new Date())
+			: new Date();
+
+	const validationSummary = validateAndEnrichFacts(
+		facts,
+		messages,
+		participantInfo.me,
+		participantInfo.lead,
+		lastMessageDate,
+	);
+
+	return { facts, validationSummary };
 }
 
 function normalizeExtractedFacts(
 	data: Record<string, unknown>,
+	participantInfo: {
+		me: string;
+		lead: string;
+		confidence: number;
+		autoDetected: boolean;
+	},
 ): ExtractedLeadFacts {
-	const normalizeField = <T>(field: unknown): ExtractedField<T> => {
+	const normalizeField = <T>(
+		field: unknown,
+		defaultSpeaker: EvidenceSpeaker,
+	): ExtractedField<T> => {
 		if (!field || typeof field !== "object") {
 			return { value: null as T, evidence: null };
 		}
@@ -403,10 +491,28 @@ function normalizeExtractedFacts(
 		if (obj.value === null || obj.value === undefined) {
 			return { value: null as T, evidence: null };
 		}
-		const evidence =
+		const evidenceObj =
 			obj.evidence && typeof obj.evidence === "object"
-				? (obj.evidence as EvidenceRef)
+				? (obj.evidence as Record<string, unknown>)
 				: null;
+
+		let evidence: EvidenceRef | null = null;
+		if (evidenceObj) {
+			evidence = {
+				sourceKind:
+					(evidenceObj.sourceKind as EvidenceSourceKind) ?? "whatsapp.message",
+				speaker: (evidenceObj.speaker as EvidenceSpeaker) ?? defaultSpeaker,
+				quote: String(evidenceObj.quote ?? ""),
+				lineNos: Array.isArray(evidenceObj.lineNos)
+					? (evidenceObj.lineNos as number[])
+					: undefined,
+				audioRange:
+					evidenceObj.audioRange && typeof evidenceObj.audioRange === "object"
+						? (evidenceObj.audioRange as { start: string; end: string })
+						: undefined,
+			};
+		}
+
 		return {
 			value: obj.value as T,
 			evidence,
@@ -416,38 +522,90 @@ function normalizeExtractedFacts(
 	const contactRaw = (data.contact as Record<string, unknown>) ?? {};
 	const companyRaw = (data.company as Record<string, unknown>) ?? {};
 	const dealRaw = (data.deal as Record<string, unknown>) ?? {};
+	const nextStepRaw = (data.nextStep as Record<string, unknown>) ?? {};
 
 	const objectionsRaw = Array.isArray(data.objections) ? data.objections : [];
 	const objections: LeadObjection[] = objectionsRaw
 		.filter((item) => item && typeof item === "object" && item.objection)
-		.map((item) => ({
-			objection: String(item.objection),
-			evidence: item.evidence as EvidenceRef,
-		}));
+		.map((item) => {
+			const evObj = item.evidence as Record<string, unknown> | undefined;
+			return {
+				objection: String(item.objection),
+				evidence: {
+					sourceKind:
+						(evObj?.sourceKind as EvidenceSourceKind) ?? "whatsapp.message",
+					speaker: (evObj?.speaker as EvidenceSpeaker) ?? "lead",
+					quote: String(evObj?.quote ?? ""),
+					lineNos: Array.isArray(evObj?.lineNos)
+						? (evObj.lineNos as number[])
+						: undefined,
+				},
+			};
+		});
+
+	const nextStepEvidence =
+		nextStepRaw.evidence && typeof nextStepRaw.evidence === "object"
+			? (nextStepRaw.evidence as Record<string, unknown>)
+			: null;
 
 	return {
 		contact: {
-			name: normalizeField<string | null>(contactRaw.name),
-			phone: normalizeField<string | null>(contactRaw.phone),
-			role: normalizeField<string | null>(contactRaw.role),
+			name: normalizeField<string | null>(contactRaw.name, "lead"),
+			phone: normalizeField<string | null>(contactRaw.phone, "lead"),
+			role: normalizeField<string | null>(contactRaw.role, "lead"),
 		},
 		company: {
-			name: normalizeField<string | null>(companyRaw.name),
-			city: normalizeField<string | null>(companyRaw.city),
+			name: normalizeField<string | null>(companyRaw.name, "lead"),
+			city: normalizeField<string | null>(companyRaw.city, "lead"),
 		},
 		deal: {
-			need: normalizeField<string | null>(dealRaw.need),
-			quantity: normalizeField<string | number | null>(dealRaw.quantity),
-			budget: normalizeField<number | null>(dealRaw.budget),
-			currency: normalizeField<string | null>(dealRaw.currency),
-			timeline: normalizeField<string | null>(dealRaw.timeline),
-			stageSuggestion: normalizeField<string | null>(dealRaw.stageSuggestion),
+			need: normalizeField<string | null>(dealRaw.need, "lead"),
+			quantity: normalizeField<string | number | null>(
+				dealRaw.quantity,
+				"lead",
+			),
+			leadBudget: normalizeField<number | null>(dealRaw.leadBudget, "lead"),
+			quotedValue: normalizeField<number | null>(dealRaw.quotedValue, "us"),
+			currency: normalizeField<string | null>(dealRaw.currency, "lead"),
+			timeline: normalizeField<string | null>(dealRaw.timeline, "lead"),
+			timelineResolved: null,
+			stageSuggestion: normalizeField<DealStage | null>(
+				dealRaw.stageSuggestion,
+				"us",
+			),
 		},
-		languagePreference: normalizeField<string | null>(data.languagePreference),
+		languagePreference: normalizeField<string | null>(
+			data.languagePreference,
+			"lead",
+		),
 		objections,
-		nextStep: normalizeField<string | null>(data.nextStep),
+		nextStep: {
+			value:
+				nextStepRaw.value !== undefined && nextStepRaw.value !== null
+					? String(nextStepRaw.value)
+					: null,
+			owner:
+				nextStepRaw.owner === "us" || nextStepRaw.owner === "lead"
+					? nextStepRaw.owner
+					: null,
+			dueAt: null,
+			evidence: nextStepEvidence
+				? {
+						sourceKind:
+							(nextStepEvidence.sourceKind as EvidenceSourceKind) ??
+							"whatsapp.message",
+						speaker: (nextStepEvidence.speaker as EvidenceSpeaker) ?? "us",
+						quote: String(nextStepEvidence.quote ?? ""),
+						lineNos: Array.isArray(nextStepEvidence.lineNos)
+							? (nextStepEvidence.lineNos as number[])
+							: undefined,
+					}
+				: null,
+		},
 		sentiment: normalizeField<"positive" | "neutral" | "negative" | null>(
 			data.sentiment,
+			"lead",
 		),
+		participants: participantInfo,
 	};
 }
