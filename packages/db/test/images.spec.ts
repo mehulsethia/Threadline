@@ -6,6 +6,16 @@ const OURS = "https://abc123.public.blob.vercel-storage.com";
 describe("isMirrored", () => {
 	it("recognises our own store, so a re-run does not re-upload", () => {
 		expect(isMirrored(`${OURS}/contacts/c1-9f8e.jpg`)).toBe(true);
+		expect(
+			isMirrored(
+				"https://storage.googleapis.com/threadline-uploads-8f2a1/test.jpg",
+			),
+		).toBe(true);
+		expect(
+			isMirrored(
+				"https://threadline-uploads-8f2a1.storage.googleapis.com/test.jpg",
+			),
+		).toBe(true);
 	});
 
 	it("does not recognise somebody else's CDN", () => {

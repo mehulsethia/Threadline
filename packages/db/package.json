@@ -45,9 +45,10 @@
 	},
 	"dependencies": {
 		"@crm/env": "workspace:*",
+		"@google-cloud/storage": "^8.4.0",
 		"@prisma/adapter-pg": "^7.9.1",
 		"@prisma/client": "^7.9.1",
-		"@vercel/blob": "^2.6.1"
+		"google-auth-library": "^11.3.0"
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
