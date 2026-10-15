@@ -49,7 +49,9 @@ const workspace = (data: {
 }) => ({ result: { data: { slug: SLUG, ...data } } });
 
 const researchKey = (configured: boolean, skipped = false) => ({
-	result: { data: { configured, skipped, hint: configured ? "••••9876" : null } },
+	result: {
+		data: { configured, skipped, hint: configured ? "••••9876" : null },
+	},
 });
 
 /** Answers both gate procedures, counting the calls to each. */

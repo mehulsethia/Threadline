@@ -19,7 +19,11 @@ export default defineTool({
 	}),
 	async execute({ contactId, force }, ctx) {
 		if (!ENABLE_LEGACY_TOOL) {
-			return { stored: false as const, configured: false as const, reason: "Tool is disabled" };
+			return {
+				stored: false as const,
+				configured: false as const,
+				reason: "Tool is disabled",
+			};
 		}
 		assertResearchPurpose(ctx);
 		if (!blobEnabled()) {
