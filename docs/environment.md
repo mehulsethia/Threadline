@@ -111,11 +111,14 @@ single place that knows what is set.
 
 | Variable | What it adds |
 | --- | --- |
-| `PERPLEXITY_API_KEY` | Open-web research with citations; finds a LinkedIn slug |
-| `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
-| `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
-| `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Enables Vertex AI backend (`1`) |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID hosting Vertex AI (`project-e705af63-271f-48bf-92f`) |
+| `GOOGLE_CLOUD_LOCATION` | GCP region for Vertex AI (`us-central1`) |
+| `GEMINI_FAST_MODEL` | Fast extraction model (`gemini-2.5-flash`) |
+| `GEMINI_SMART_MODEL` | Deep reasoning model (`gemini-2.5-pro`) |
+| `GEMINI_LIVE_MODEL` | Live bidirectional voice model (`gemini-live-2.5-flash-native-audio`) |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
+| `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`
 because the API and the seed write pictures too. The Next.js app is deliberately

@@ -126,6 +126,30 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	CRM_TELEMETRY_DISABLED?: string;
+
+	@IsOptional()
+	@IsString()
+	GOOGLE_GENAI_USE_VERTEXAI?: string;
+
+	@IsOptional()
+	@IsString()
+	GOOGLE_CLOUD_PROJECT?: string;
+
+	@IsOptional()
+	@IsString()
+	GOOGLE_CLOUD_LOCATION?: string;
+
+	@IsOptional()
+	@IsString()
+	GEMINI_FAST_MODEL?: string;
+
+	@IsOptional()
+	@IsString()
+	GEMINI_SMART_MODEL?: string;
+
+	@IsOptional()
+	@IsString()
+	GEMINI_LIVE_MODEL?: string;
 }
 
 export type RawEnvironment = Record<string, string | undefined>;
