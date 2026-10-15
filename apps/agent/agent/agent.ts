@@ -1,10 +1,9 @@
 import "@crm/env/load";
 
-import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
+import { createVertex } from "@ai-sdk/google-vertex";
 import { onTelemetryProblem, syncVersion } from "@crm/telemetry";
-import { defineAgent, defineDynamic } from "eve";
+import { defineAgent } from "eve";
 import { logCapabilities } from "./lib/capabilities";
-import { selectedModel } from "./lib/model";
 
 void logCapabilities();
 
@@ -12,11 +11,14 @@ onTelemetryProblem((message) => console.debug(`[telemetry] ${message}`));
 
 void syncVersion();
 
+const vertex = createVertex({
+	project: process.env.GOOGLE_CLOUD_PROJECT,
+	location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+});
+
 export default defineAgent({
-	model: defineDynamic({
-		fallback: DEFAULT_AGENT_MODEL.id,
-		events: { "session.started": () => selectedModel() },
-	}),
+	model: vertex(process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash"),
+	modelContextWindowTokens: 1_000_000,
 	limits: {
 		maxInputTokensPerSession: 500_000,
 		maxOutputTokensPerSession: 50_000,

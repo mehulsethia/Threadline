@@ -19,10 +19,13 @@
 		"clean": "rm -rf .turbo .eve node_modules"
 	},
 	"dependencies": {
+		"@ai-sdk/google-vertex": "^5.0.112",
+		"@ai-sdk/provider": "^4.0.27",
 		"@crm/db": "workspace:*",
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
 		"@crm/validation": "workspace:*",
+		"ai": "^7.0.141",
 		"context.dev": "2.10.0",
 		"eve": "^0.29.4",
 		"zod": "^4.4.3"
