@@ -18,16 +18,16 @@ export function AuthShell({ children }: { children: ReactNode }) {
 				<div className="relative flex max-w-lg flex-col gap-8">
 					<div className="flex flex-col gap-4">
 						<p className="font-mono text-xs/4 text-muted-foreground uppercase">
-							CRM
+							Threadline
 						</p>
 						<h1 className="max-w-[14ch] text-5xl/14 font-semibold text-balance">
-							Every customer, one place.
+							Your conversations, turned into closed deals.
 						</h1>
 					</div>
 				</div>
 
 				<p className="relative font-mono text-xs/4 text-muted-foreground">
-					Made with love by{" "}
+					Forked from{" "}
 					<a
 						href="https://trycomp.ai"
 						target="_blank"

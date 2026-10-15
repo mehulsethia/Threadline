@@ -11,11 +11,12 @@
   <img alt="stars" height="21" src="https://afterglow.watch/badge/trycompai/crm">
 </p>
 
-<h1 align="center">CRM</h1>
+<h1 align="center">Threadline</h1>
 
 <p align="center">
-  <strong>Comp AI CRM is an open source, CRM designed for AI agents.</strong><br>
-  Agentic-first CRM.
+  <strong>Your conversations, turned into closed deals.</strong><br>
+  Built on Google Cloud AI for the Google Cloud AI Builder Cup 2026.<br>
+  Forked from Comp AI's open-source CRM (MIT License).
 </p>
 
 <p align="center">

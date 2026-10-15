@@ -1,4 +1,7 @@
-# Google Cloud AI Builder Cup 2026 — Hackathon Brief
+# Threadline — Google Cloud AI Builder Cup 2026
+
+**Product**: Threadline  
+**Tagline**: "Your conversations, turned into closed deals."
 
 ## 1. The Competition
 - **Event**: Google Cloud AI Builder Cup 2026, organized by Hack2skill.
