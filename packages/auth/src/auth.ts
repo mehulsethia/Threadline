@@ -325,4 +325,3 @@ async function replaceSlackAccount(account: {
 	await replaceSlackConnection(account);
 	await queueSlackInventorySync();
 }
-
