@@ -29,8 +29,11 @@ import {
 	primaryWorkspaceDomain,
 } from "./workspace";
 
+const ENABLE_MICROSOFT_AUTH = false;
+const ENABLE_SLACK = false;
+
 const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
-const slackOAuth = env.slack;
+const slackOAuth = ENABLE_SLACK ? env.slack : undefined;
 const slackRedirectUri = new URL(
 	"/api/auth/oauth2/callback/slack",
 	env.apiUrl,
@@ -51,7 +54,7 @@ if (env.google) {
 	socialProviders.google = google;
 }
 
-if (env.microsoft) {
+if (ENABLE_MICROSOFT_AUTH && env.microsoft) {
 	socialProviders.microsoft = {
 		clientId: env.microsoft.clientId,
 		clientSecret: env.microsoft.clientSecret,
@@ -86,7 +89,10 @@ export const auth = betterAuth({
 	account: {
 		accountLinking: {
 			enabled: true,
-			trustedProviders: [GOOGLE_PROVIDER_ID, MICROSOFT_PROVIDER_ID],
+			trustedProviders: [
+				GOOGLE_PROVIDER_ID,
+				...(ENABLE_MICROSOFT_AUTH ? [MICROSOFT_PROVIDER_ID] : []),
+			],
 		},
 	},
 
@@ -117,9 +123,11 @@ export const auth = betterAuth({
 	},
 
 	trustedOrigins: [...env.trustedOrigins],
-	hooks: {
-		before: slackConnectGuard,
-	},
+	hooks: ENABLE_SLACK
+		? {
+				before: slackConnectGuard,
+			}
+		: undefined,
 
 	plugins: [
 		...(slackOAuth
@@ -312,7 +320,9 @@ async function replaceSlackAccount(account: {
 	accountId: string;
 	providerId: string;
 }): Promise<void> {
+	if (!ENABLE_SLACK) return;
 	if (account.providerId !== SLACK_PROVIDER_ID) return;
 	await replaceSlackConnection(account);
 	await queueSlackInventorySync();
 }
+

@@ -108,12 +108,12 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 	}
 
 	if (task.kind === "slack-people-match") {
-		await completeTask(task.id, await runSlackPeopleMatch());
+		await completeTask(task.id, "Slack integration disabled.");
 		return;
 	}
 
 	if (task.kind === "slack-channel-join") {
-		await completeTask(task.id, await runSlackChannelJoin(task.payload));
+		await completeTask(task.id, "Slack integration disabled.");
 		return;
 	}
 
@@ -135,7 +135,8 @@ export async function runResearchLane(
 	start: (task: LeasedTask) => Promise<{ id: string }>,
 	signal?: AbortSignal,
 ): Promise<number> {
-	if (signal?.aborted) return 0;
+	const ENABLE_LEGACY_RESEARCH_LANE = false;
+	if (!ENABLE_LEGACY_RESEARCH_LANE || signal?.aborted) return 0;
 
 	const tasks = await claimDue(
 		RESEARCH_BATCH,
