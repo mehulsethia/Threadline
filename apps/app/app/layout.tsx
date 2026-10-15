@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 		default: "Threadline",
 		template: "%s · Threadline",
 	},
-	description: "Evidence-backed customer relationship management.",
+	description: "Your conversations, turned into closed deals.",
 	icons: {
 		icon: [
 			{ url: "/favicon.svg", type: "image/svg+xml" },
