@@ -1,5 +1,6 @@
 import { EnrichmentStatus } from "@crm/db";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
+import { runAdkIntakeTask } from "../../adk/intake";
 import { APP_AUTH, type AppAuth } from "./app-auth";
 import { brandOutcome, runBrand } from "./brand";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
@@ -125,6 +126,12 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 				? "Queued 1 matching agent run."
 				: `Queued ${queued} matching agent runs.`,
 		);
+		return;
+	}
+
+	if (task.kind === "intake") {
+		const outcome = await runAdkIntakeTask(task);
+		await completeTask(task.id, outcome);
 		return;
 	}
 
