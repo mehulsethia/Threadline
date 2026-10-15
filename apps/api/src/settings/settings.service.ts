@@ -5,6 +5,7 @@ import {
 	readAgentModel,
 	readArchiveRetentionDays,
 	readContextDevKey,
+	SETTINGS_ID,
 	writeAgentModel,
 	writeArchiveRetentionDays,
 	writeContextDevKey,
@@ -86,9 +87,19 @@ export class SettingsService {
 	}
 
 	async researchKey(): Promise<ResearchKeySettings> {
-		const key = await readContextDevKey(this.db);
+		const row = await this.db.appSetting.findUnique({
+			where: { id: SETTINGS_ID },
+			select: { contextDevApiKey: true },
+		});
+		const raw = row?.contextDevApiKey?.trim();
+		const configured = Boolean(raw && raw !== "skipped");
+		const skipped = raw === "skipped";
 
-		return { configured: key !== null, hint: key ? maskKey(key) : null };
+		return {
+			configured,
+			skipped,
+			hint: configured && raw ? maskKey(raw) : null,
+		};
 	}
 
 	async setResearchKey(apiKey: string): Promise<ResearchKeySettings> {
@@ -105,27 +116,17 @@ export class SettingsService {
 			verified: check.outcome === "valid",
 		});
 
-		// Every company added while there was no key is still PENDING, because a
-		// brand task with nowhere to look leaves the record alone. The sign-in
-		// sweep would find them, but the person who just fixed it is standing
-		// here — so pick the work up now rather than on their next sign-in.
-		void this.backfill
-			.run("companies")
-			.then(({ queued, remaining }) => {
-				if (queued > 0) {
-					this.logger.log({
-						message: "Queued the research that was waiting on a key",
-						queued,
-						remaining,
-					});
-				}
-			})
-			.catch((cause: unknown) => {
-				this.logger.warn(
-					{ message: "Could not queue the waiting research" },
-					cause instanceof Error ? cause.stack : String(cause),
-				);
-			});
+		return this.researchKey();
+	}
+
+	async skipResearchKey(): Promise<ResearchKeySettings> {
+		await this.db.appSetting.upsert({
+			where: { id: SETTINGS_ID },
+			create: { id: SETTINGS_ID, contextDevApiKey: "skipped" },
+			update: { contextDevApiKey: "skipped" },
+		});
+
+		this.logger.log({ message: "Context key step skipped" });
 
 		return this.researchKey();
 	}

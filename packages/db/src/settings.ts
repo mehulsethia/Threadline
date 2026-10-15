@@ -62,7 +62,9 @@ export async function readContextDevKey(db: Db): Promise<string | null> {
 		select: { contextDevApiKey: true },
 	});
 
-	return row?.contextDevApiKey?.trim() || null;
+	const key = row?.contextDevApiKey?.trim();
+	if (!key || key === "skipped") return null;
+	return key;
 }
 
 export async function writeContextDevKey(db: Db, key: string): Promise<void> {

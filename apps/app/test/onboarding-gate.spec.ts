@@ -48,8 +48,8 @@ const workspace = (data: {
 	slug?: string;
 }) => ({ result: { data: { slug: SLUG, ...data } } });
 
-const researchKey = (configured: boolean) => ({
-	result: { data: { configured, hint: configured ? "••••9876" : null } },
+const researchKey = (configured: boolean, skipped = false) => ({
+	result: { data: { configured, skipped, hint: configured ? "••••9876" : null } },
 });
 
 /** Answers both gate procedures, counting the calls to each. */
@@ -142,6 +142,21 @@ describe("readResearchGate", () => {
 		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
 			"required",
 		);
+	});
+
+	it("is settled when skipped in settings", async () => {
+		answerWith(researchKey(false, true));
+		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
+			"settled",
+		);
+	});
+
+	it("is settled when the skip cookie is present", async () => {
+		expect(
+			await readResearchGate(
+				request("/", [SESSION_COOKIE, "crm_skip_research=1"]),
+			),
+		).toBe("settled");
 	});
 
 	it("is unknown rather than required when the API cannot be read", async () => {

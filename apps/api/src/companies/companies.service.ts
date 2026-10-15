@@ -311,7 +311,9 @@ export class CompaniesService {
 			domain: company.domain,
 		});
 
-		await this.agent.companyCreated(company.id);
+		if (company.domain) {
+			await this.agent.companyCreated(company.id);
+		}
 
 		void this.favicon.backfill(company.id, company.domain);
 		void this.fields.queueBackfillForNewRecord("COMPANY", company.id);
@@ -554,11 +556,15 @@ export class CompaniesService {
 	async enrich(id: string): Promise<{ id: string; queued: boolean }> {
 		const company = await this.db.company.findUnique({
 			where: { id },
-			select: { id: true, updatedAt: true },
+			select: { id: true, domain: true, updatedAt: true },
 		});
 
 		if (!company) {
 			throw new NotFoundException(`No company with id ${id}.`);
+		}
+
+		if (!company.domain) {
+			return { id, queued: false };
 		}
 
 		const queued = await this.agent.companyRequested(

@@ -130,16 +130,14 @@ excluded — recognising our URL for the image optimizer needs no token.
 in `AppSetting`, is asked for at `/onboarding/research`, and changes on Settings →
 General — an admin who cannot redeploy cannot set a variable.
 
-- **It buys two places to look, not one.** Company brand data by domain, and a person
-  read back from a LinkedIn URL already on their record. Both capabilities in
-  `agent/lib/capabilities.ts` turn on and off with this one key.
-- **An install that had the variable is asked again**: no migration, no fallback, and
-  **the gate cannot be dismissed**.
-- **Nothing is lost while waiting.** A keyless `brand` task settles `SKIPPED` *before*
-  anything marks the row `RUNNING`, and `settle` only overwrites `RUNNING` — so the
-  company stays `PENDING`, which the sweep re-queues
-  (`test/keyless-brand.integration.spec.ts`).
-- **Saving the key runs the company sweep immediately** (fire-and-forget).
+- **It powers company brand data by domain.** The `CONTEXT_DEV` capability turns on
+  when this key is set.
+- **The onboarding Context step is optional.** Users can click "Skip for now" to enter
+  the workspace without entering a key.
+- **Credits are protected**:
+  - `CONTEXT_DAILY_CREDIT_CAP` (default 100) limits daily Context credit spend.
+  - Saving the key does not bulk-enrich seeded companies.
+  - Companies without domains skip enrichment silently.
 - **`readContextDevKey` (`@crm/db/settings`) is the only reader**, read live with no
   cache. An unreadable database is a capability that is off, not an exception.
 - **The key is never read back** — only whether one is set, and its last four.

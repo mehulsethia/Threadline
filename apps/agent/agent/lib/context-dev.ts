@@ -226,6 +226,40 @@ export async function search(
 	}
 }
 
+let creditTracker = {
+	day: new Date().toISOString().slice(0, 10),
+	used: 0,
+};
+
+function checkAndResetDay(): void {
+	const today = new Date().toISOString().slice(0, 10);
+	if (creditTracker.day !== today) {
+		creditTracker = { day: today, used: 0 };
+	}
+}
+
+export function getDailyCreditCap(): number {
+	const raw = process.env.CONTEXT_DAILY_CREDIT_CAP;
+	if (!raw) return 100;
+	const parsed = Number.parseInt(raw, 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+}
+
+export function getCreditsUsedToday(): number {
+	checkAndResetDay();
+	return creditTracker.used;
+}
+
+export function canSpendCredits(cost: number): boolean {
+	checkAndResetDay();
+	return creditTracker.used + cost <= getDailyCreditCap();
+}
+
+export function recordCreditUsage(cost: number): void {
+	checkAndResetDay();
+	creditTracker.used += cost;
+}
+
 async function lookup(
 	params: Parameters<ContextDev["brand"]["retrieve"]>[0],
 ): Promise<LookupResult> {
@@ -234,8 +268,23 @@ async function lookup(
 		return { outcome: "skipped", reason: "Context.dev is not configured." };
 	}
 
+	const cap = getDailyCreditCap();
+	if (!canSpendCredits(10)) {
+		console.log(
+			`[context.dev] Daily credit cap of ${cap} reached (${getCreditsUsedToday()}/${cap} used today). Skipping lookup.`,
+		);
+		return {
+			outcome: "skipped",
+			reason: "Daily Context.dev credit cap reached.",
+		};
+	}
+
 	try {
 		const response = await api.brand.retrieve(params);
+		recordCreditUsage(10);
+		console.log(
+			`[context.dev] Used 10 credits (${getCreditsUsedToday()}/${cap} today).`,
+		);
 		const brand = response.brand as Brand | undefined;
 
 		if (!brand) return { outcome: "skipped", reason: "No brand matched." };

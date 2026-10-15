@@ -54,6 +54,12 @@ export class AgentTriggerService {
 		companyId: string,
 		reason = "New company",
 	): Promise<void> {
+		const company = await this.db.company.findUnique({
+			where: { id: companyId },
+			select: { domain: true },
+		});
+		if (!company?.domain) return;
+
 		await this.enqueue({
 			companyId,
 			kind: "brand",
@@ -72,6 +78,12 @@ export class AgentTriggerService {
 	}
 
 	async companyRequested(companyId: string, reason: string): Promise<boolean> {
+		const company = await this.db.company.findUnique({
+			where: { id: companyId },
+			select: { domain: true },
+		});
+		if (!company?.domain) return false;
+
 		const brand = await this.enqueue(
 			{
 				companyId,
