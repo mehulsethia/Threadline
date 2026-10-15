@@ -12,7 +12,10 @@ export const SLACK_INVENTORY = {
 	throttleMs: 15 * MINUTE_MS,
 } as const;
 
+const ENABLE_SLACK_SYNC = false;
+
 export async function queueSlackInventorySync(reason: string): Promise<void> {
+	if (!ENABLE_SLACK_SYNC) return;
 	const since = new Date(Date.now() - SLACK_INVENTORY.throttleMs);
 
 	try {
