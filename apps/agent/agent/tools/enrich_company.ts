@@ -4,7 +4,7 @@ import { runBrand } from "../lib/brand";
 import { spend } from "../lib/focus";
 import { assertResearchPurpose } from "../lib/session-purpose";
 
-const ENABLE_LEGACY_TOOL = false;
+const ENABLE_LEGACY_TOOL = true;
 
 export default defineTool({
 	description:

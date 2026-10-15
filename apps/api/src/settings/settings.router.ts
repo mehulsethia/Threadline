@@ -63,6 +63,14 @@ export class SettingsRouter {
 		return this.settings.setResearchKey(input.apiKey);
 	}
 
+	@Mutation({
+		output: researchKeyOutput,
+		meta: restMeta("POST", "/settings/skip-research-key", ["Settings"]),
+	})
+	async skipResearchKey() {
+		return this.settings.skipResearchKey();
+	}
+
 	@Query({
 		output: archiveRetentionOutput,
 		meta: restMeta("GET", "/settings/archive-retention", ["Settings"]),

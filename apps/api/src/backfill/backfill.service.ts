@@ -66,30 +66,6 @@ export class BackfillService implements OnModuleInit {
 		if (await this.cache.get(AUTO_KEY)) return { started: false };
 		await this.cache.set(AUTO_KEY, true, AUTO_EVERY_MS);
 
-		void (async () => {
-			try {
-				await this.sweepWorkspace();
-
-				const companies = await this.runCompanies(false);
-				const contacts = await this.runContacts();
-
-				const mirrored = await this.images.sweep();
-
-				this.logger.log({
-					message: "Automatic backfill swept",
-					queued: companies.queued + contacts.queued,
-					remaining: companies.remaining + contacts.remaining,
-					iconsResolving: companies.iconsResolving,
-					imagesMirrored: mirrored.copied,
-				});
-			} catch (error) {
-				this.logger.error(
-					{ message: "Automatic backfill failed" },
-					error instanceof Error ? error.stack : String(error),
-				);
-			}
-		})();
-
 		return { started: true };
 	}
 

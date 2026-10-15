@@ -33,6 +33,7 @@ export type ModelCatalogResult = z.infer<typeof modelCatalogOutput>;
 
 export const researchKeyOutput = z.object({
 	configured: z.boolean(),
+	skipped: z.boolean().optional(),
 	hint: z.string().nullable(),
 });
 

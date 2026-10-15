@@ -57,7 +57,7 @@ export function capabilitiesFrom(
 			from: "Settings → General",
 			label: "Company brand data",
 			gives: "a company's logo, industry, location and socials from its domain",
-			enabled: false,
+			enabled: Boolean(contextDev),
 		},
 		{
 			id: CONTEXT_DEV_PEOPLE,

@@ -150,6 +150,10 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	GEMINI_LIVE_MODEL?: string;
+
+	@IsOptional()
+	@IsString()
+	CONTEXT_DAILY_CREDIT_CAP?: string;
 }
 
 export type RawEnvironment = Record<string, string | undefined>;
