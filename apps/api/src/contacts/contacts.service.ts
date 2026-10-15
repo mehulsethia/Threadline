@@ -714,7 +714,7 @@ export class ContactsService {
 			},
 		});
 
-		if (!fact) {
+		if (!fact || !fact.contactId) {
 			throw new NotFoundException(`No fact with id ${input.factId}.`);
 		}
 
@@ -722,6 +722,7 @@ export class ContactsService {
 			throw new ConflictException("That suggestion has already been settled.");
 		}
 
+		const contactId = fact.contactId;
 		const accepted = input.decision === "accept";
 		const column = FACT_COLUMNS[fact.field];
 
@@ -729,7 +730,7 @@ export class ContactsService {
 			if (accepted) {
 				await tx.contactFact.updateMany({
 					where: {
-						contactId: fact.contactId,
+						contactId,
 						field: fact.field,
 						id: { not: fact.id },
 						status: { in: [FactStatus.APPLIED, FactStatus.PROPOSED] },
@@ -749,7 +750,7 @@ export class ContactsService {
 
 			if (accepted && column) {
 				await tx.contact.update({
-					where: { id: fact.contactId },
+					where: { id: contactId },
 					data: { [column]: fact.value },
 				});
 			}
@@ -758,7 +759,7 @@ export class ContactsService {
 				const [firstName, ...rest] = fact.value.trim().split(/\s+/);
 				if (firstName) {
 					await tx.contact.update({
-						where: { id: fact.contactId },
+						where: { id: contactId },
 						data: {
 							firstName,
 							lastName: rest.length > 0 ? rest.join(" ") : null,
@@ -771,12 +772,12 @@ export class ContactsService {
 		this.logger.log({
 			message: "Fact decided",
 			factId: fact.id,
-			contactId: fact.contactId,
+			contactId,
 			field: fact.field,
 			decision: input.decision,
 		});
 
-		return { contactId: fact.contactId, field: fact.field, applied: accepted };
+		return { contactId, field: fact.field, applied: accepted };
 	}
 
 	private searchFilter(q: string): Prisma.ContactWhereInput {

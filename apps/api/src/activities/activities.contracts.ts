@@ -20,6 +20,8 @@ const ALL_ACTIVITY_TYPES = [
 	ActivityType.TASK,
 	ActivityType.STAGE_CHANGE,
 	ActivityType.ENRICHMENT,
+	ActivityType.WHATSAPP,
+	ActivityType.VOICE_NOTE,
 ] as const;
 
 const activityTypeOutput = z.enum(ALL_ACTIVITY_TYPES);

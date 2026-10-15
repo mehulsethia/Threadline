@@ -50,6 +50,9 @@ model User {
 
   apiKeys Apikey[]
 
+  approvedDrafts OutboundDraft[] @relation("DraftApprover")
+  intakeJobs     IntakeJob[]     @relation("UserIntakeJobs")
+
   @@unique([email])
   @@map("user")
 }
@@ -186,6 +189,8 @@ enum ActivityType {
   TASK
   STAGE_CHANGE
   ENRICHMENT
+  WHATSAPP
+  VOICE_NOTE
 }
 
 enum EnrichmentStatus {
@@ -392,6 +397,9 @@ model Contact {
   fieldValues     FieldValue[]
   visitors        TrackedVisitor[]   @relation("VisitorContact")
   submissions     FormSubmission[]   @relation("SubmissionContact")
+  whatsAppMessages WhatsAppMessage[]
+  voiceRecordings  VoiceRecording[]
+  outboundDrafts   OutboundDraft[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -417,9 +425,11 @@ enum FactStatus {
 }
 
 model ContactFact {
-  id        String  @id @default(cuid())
-  contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   field String
   value String
@@ -443,6 +453,7 @@ model ContactFact {
   supersededAt DateTime?
 
   @@index([contactId, field, status])
+  @@index([dealId, field, status])
   @@index([status, observedAt])
   @@map("contactFact")
 }
@@ -939,9 +950,13 @@ model Deal {
   lastActivityAt DateTime?
   archivedAt     DateTime?
 
-  contacts    DealContact[]
-  activities  Activity[]
-  fieldValues FieldValue[]
+  contacts         DealContact[]
+  activities       Activity[]
+  fieldValues      FieldValue[]
+  facts            ContactFact[]
+  whatsAppMessages WhatsAppMessage[]
+  voiceRecordings  VoiceRecording[]
+  outboundDrafts   OutboundDraft[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -1583,3 +1598,110 @@ model Apikey {
   @@index([key])
   @@map("apikey")
 }
+
+model WhatsAppMessage {
+  id             String         @id @default(cuid())
+  externalId     String?        @unique
+  contactId      String?
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  dealId         String?
+  deal           Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  senderPhone    String
+  senderName     String?
+  recipientPhone String?
+  direction      EmailDirection @default(INBOUND)
+  body           String
+  rawPayload     Json?
+  timestamp      DateTime
+  evidenceRef    String?
+  createdAt      DateTime       @default(now())
+
+  @@index([contactId, timestamp])
+  @@index([dealId, timestamp])
+  @@map("whatsAppMessage")
+}
+
+model VoiceRecording {
+  id              String   @id @default(cuid())
+  contactId       String?
+  contact         Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  dealId          String?
+  deal            Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  audioUrl        String
+  durationSeconds Int?
+  transcript      String?
+  language        String?
+  summary         String?
+  source          String   @default("WHATSAPP_VOICE_NOTE")
+  recordedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([contactId, recordedAt])
+  @@index([dealId, recordedAt])
+  @@map("voiceRecording")
+}
+
+enum OutboundDraftStatus {
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  REJECTED
+}
+
+model OutboundDraft {
+  id               String              @id @default(cuid())
+  dealId           String
+  deal             Deal                @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId        String
+  contact          Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channel          String              @default("WHATSAPP")
+  recipientPhone   String
+  language         String              @default("hi")
+  contextRationale String
+  draftText        String
+  status           OutboundDraftStatus @default(PENDING_APPROVAL)
+  approvedById     String?
+  approvedBy       User?               @relation("DraftApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt       DateTime?
+  sentAt           DateTime?
+  waLink           String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([dealId, status])
+  @@index([status, createdAt])
+  @@map("outboundDraft")
+}
+
+enum IntakeSourceType {
+  WHATSAPP_EXPORT
+  VOICE_NOTE
+  CALL_RECORDING
+}
+
+enum IntakeJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model IntakeJob {
+  id                String           @id @default(cuid())
+  userId            String?
+  user              User?            @relation("UserIntakeJobs", fields: [userId], references: [id], onDelete: SetNull)
+  sourceType        IntakeSourceType
+  fileUrl           String
+  status            IntakeJobStatus  @default(QUEUED)
+  summary           Json?
+  error             String?
+  createdContactIds String[]         @default([])
+  createdDealIds    String[]         @default([])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("intakeJob")
+}
+
