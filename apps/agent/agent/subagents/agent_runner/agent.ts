@@ -7,6 +7,7 @@ import { attribute, purposeOf } from "../../lib/session-purpose";
 export default defineAgent({
 	description:
 		"Execute one immutable deployed CRM agent version and persist its result and every side effect.",
+	modelContextWindowTokens: DEFAULT_AGENT_MODEL.contextWindowTokens,
 	model: defineDynamic({
 		fallback: DEFAULT_AGENT_MODEL.id,
 		events: {
