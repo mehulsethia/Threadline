@@ -1,6 +1,6 @@
 import { db, IntakeJobStatus } from "@crm/db";
 import { Gemini, InMemoryRunner, LlmAgent } from "@google/adk";
-import type { LeasedTask } from "../../agent/lib/tasks";
+import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
 import {
 	createTaskAction,
 	emitIntakeEvent,
@@ -349,10 +349,14 @@ export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
 		where: { id: jobId },
 	});
 
+	let outcome: string;
 	if (jobAfter?.status !== IntakeJobStatus.DONE) {
 		const res = await runDeterministicIntakePipeline(jobId, meOverride);
-		return `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
+		outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
+	} else {
+		outcome = `Intake job ${jobId} finished successfully.`;
 	}
 
-	return `Intake job ${jobId} finished successfully.`;
+	await completeTask(task.id, outcome, jobId);
+	return outcome;
 }

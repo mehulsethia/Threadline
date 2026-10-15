@@ -579,6 +579,7 @@ export class AgentTriggerService {
 				priority: PRIORITY.intake,
 				budget: 4,
 				payload: payload ?? { jobId },
+				subject: { path: ["jobId"], value: jobId },
 			},
 			required,
 		);

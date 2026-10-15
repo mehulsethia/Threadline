@@ -587,6 +587,23 @@ export async function logActivityAction(input: {
 	body?: string;
 	occurredAt?: string;
 }) {
+	const existing = await db.activity.findFirst({
+		where: {
+			type: input.type as ActivityType,
+			contactId: input.contactId || null,
+			dealId: input.dealId || null,
+		},
+	});
+	if (existing) {
+		await emitIntakeEvent(
+			input.jobId,
+			"log_activity",
+			`Reused existing ${input.type} activity (${existing.id})`,
+			input.contactId,
+		);
+		return { activityId: existing.id };
+	}
+
 	const defaultUser = await db.user.findFirst({ select: { id: true } });
 	const created = await db.activity.create({
 		data: {
@@ -619,6 +636,24 @@ export async function createTaskAction(input: {
 	dealId?: string;
 	companyId?: string;
 }) {
+	const existing = await db.activity.findFirst({
+		where: {
+			type: ActivityType.TASK,
+			subject: input.subject,
+			contactId: input.contactId || null,
+			dealId: input.dealId || null,
+		},
+	});
+	if (existing) {
+		await emitIntakeEvent(
+			input.jobId,
+			"create_task",
+			`Reused existing follow-up task: "${input.subject}" (${existing.id})`,
+			input.contactId,
+		);
+		return { taskId: existing.id };
+	}
+
 	const defaultUser = await db.user.findFirst({ select: { id: true } });
 	const created = await db.activity.create({
 		data: {
