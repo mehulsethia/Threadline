@@ -39,7 +39,8 @@ async function verifyModel(
 }
 
 async function main(): Promise<void> {
-	const project = process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
+	const project =
+		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
 	const defaultLocation = process.env.GOOGLE_CLOUD_LOCATION || "us-central1";
 
 	const fastModel = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";

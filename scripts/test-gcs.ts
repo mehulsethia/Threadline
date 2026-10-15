@@ -1,6 +1,10 @@
 import "../packages/env/src/load.ts";
 
-import { downloadFile, getSignedUrl, uploadFile } from "../packages/db/src/blob.ts";
+import {
+	downloadFile,
+	getSignedUrl,
+	uploadFile,
+} from "../packages/db/src/blob.ts";
 
 async function main(): Promise<void> {
 	const bucket = process.env.GCS_BUCKET;
@@ -17,13 +21,17 @@ async function main(): Promise<void> {
 	console.log(`[Fetching signed URL via HTTP]...`);
 	const response = await fetch(signedUrl);
 	if (!response.ok) {
-		throw new Error(`HTTP fetch failed with status ${response.status}: ${await response.text()}`);
+		throw new Error(
+			`HTTP fetch failed with status ${response.status}: ${await response.text()}`,
+		);
 	}
 	const fetchedText = await response.text();
 	console.log(`[Fetched Content]: ${fetchedText}`);
 
 	if (fetchedText !== testPayload) {
-		throw new Error(`Payload mismatch: expected "${testPayload}", received "${fetchedText}"`);
+		throw new Error(
+			`Payload mismatch: expected "${testPayload}", received "${fetchedText}"`,
+		);
 	}
 
 	console.log(`[Downloading via SDK downloadFile]...`);
