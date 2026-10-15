@@ -25,6 +25,7 @@
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
 		"@crm/validation": "workspace:*",
+		"@google/adk": "^2.3.0",
 		"ai": "^7.0.141",
 		"context.dev": "2.10.0",
 		"eve": "^0.29.4",
