@@ -1,4 +1,4 @@
-import { DealStage } from "@crm/db";
+import { DealStage, FactBand, FactStatus } from "@crm/db";
 import { FIELD_ENTITIES, FIELD_TYPES } from "@crm/db/fields";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
@@ -43,7 +43,7 @@ const stageEnum = z.enum(
 
 export const dealCreateInput = z.object({
 	name: z.string().trim().min(1, "A deal needs a name."),
-	companyId: z.string().min(1, "A deal belongs to a company."),
+	companyId: z.string().nullable().optional(),
 	ownerId: z.string().min(1, "A deal needs an owner."),
 	stage: stageEnum.optional(),
 	amountCents,
@@ -56,7 +56,7 @@ export type DealCreateInput = z.infer<typeof dealCreateInput>;
 const dealUpdateInput = z.object({
 	name: z.string().trim().min(1).optional(),
 	description: z.string().nullable().optional(),
-	companyId: z.string().optional(),
+	companyId: z.string().nullable().optional(),
 	ownerId: z.string().optional(),
 	amountCents,
 	currency: currencyCode.optional(),
@@ -193,12 +193,46 @@ const dealContactOutput = dealContactSummaryOutput.extend({
 	role: z.string().nullable(),
 });
 
+const dealFactEvidenceOutput = z.object({
+	kind: z.string(),
+	detail: z.string(),
+	sourceUrl: z.string().optional(),
+});
+
+export const dealFactOutput = z.object({
+	id: z.string(),
+	field: z.string(),
+	value: z.string(),
+	score: z.number(),
+	band: z.enum(Object.values(FactBand) as [FactBand, ...FactBand[]]),
+	evidence: z.array(dealFactEvidenceOutput),
+	method: z.string(),
+	sourceUrl: z.string().nullable(),
+	status: z.enum(Object.values(FactStatus) as [FactStatus, ...FactStatus[]]),
+	observedAt: z.string(),
+});
+
+export type DealFact = z.infer<typeof dealFactOutput>;
+
+export const dealFactDecisionInput = z.object({
+	factId: z.string(),
+	decision: z.enum(["accept", "dismiss"]),
+});
+
+export type DealFactDecisionInput = z.infer<typeof dealFactDecisionInput>;
+
+export const dealFactDecisionOutput = z.object({
+	applied: z.boolean(),
+});
+
+export type DealFactDecisionOutput = z.infer<typeof dealFactDecisionOutput>;
+
 const dealListRowOutput = z.object({
 	id: z.string(),
 	name: z.string(),
 	stage: stageEnum,
 	currency: z.string(),
-	company: dealCompanyOutput,
+	company: dealCompanyOutput.nullable(),
 	owner: dealOwnerOutput,
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
@@ -231,9 +265,10 @@ export const dealDetailOutput = z.object({
 	stage: stageEnum,
 	currency: z.string(),
 	closedReason: z.string().nullable(),
-	company: dealCompanyDetailOutput,
+	company: dealCompanyDetailOutput.nullable(),
 	owner: dealOwnerOutput,
 	fields: z.array(recordFieldOutput),
+	facts: z.array(dealFactOutput),
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
 	reportingCurrency: z.string(),

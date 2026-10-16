@@ -28,7 +28,12 @@ import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
 import { ContactEnrichmentAction } from "@/components/crm/enrichment-actions";
 import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
-import { FactProvenance, FactSuggestion } from "@/components/crm/facts";
+import {
+	FactProvenance,
+	FactSuggestion,
+	type GenericFact,
+	RecordFactsSection,
+} from "@/components/crm/facts";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
 import {
 	InlineField,
@@ -426,6 +431,12 @@ function ContactOverview({ contact }: { contact: Contact }) {
 					<ContactSocials contact={contact} />
 				</DetailSheetSection>
 			) : null}
+
+			<RecordFactsSection
+				facts={contact.facts as GenericFact[]}
+				recordKind="contact"
+				recordId={contact.id}
+			/>
 
 			<WebsiteActivity contactId={contact.id} />
 		</DetailSheetBody>

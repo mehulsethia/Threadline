@@ -26,6 +26,8 @@ import {
 	dealCreateOutput,
 	dealDetachContactInput,
 	dealDetailOutput,
+	dealFactDecisionInput,
+	dealFactDecisionOutput,
 	dealIdInput,
 	dealListInput,
 	dealListOutput,
@@ -200,5 +202,14 @@ export class DealsRouter {
 	})
 	async bulkPurge(@Input("ids") ids: string[]) {
 		return this.deals.bulkPurge(ids);
+	}
+
+	@Mutation({
+		input: dealFactDecisionInput,
+		output: dealFactDecisionOutput,
+		meta: restMeta("POST", "/deals/decide-fact", ["Deals"]),
+	})
+	async decideFact(@Input() input: z.infer<typeof dealFactDecisionInput>) {
+		return this.deals.decideFact(input);
 	}
 }
