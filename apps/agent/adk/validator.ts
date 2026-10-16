@@ -35,10 +35,23 @@ export function isBusinessSideOrganization(
 	companyName: string | null | undefined,
 	messages: WhatsAppMessageItem[],
 	me: string,
+	workspaceName?: string,
 ): boolean {
 	if (!companyName) return false;
 	const normCompany = normalize(companyName);
 	if (!normCompany) return false;
+
+	if (workspaceName) {
+		const normWorkspace = normalize(workspaceName);
+		if (
+			normWorkspace &&
+			(normCompany === normWorkspace ||
+				normCompany.includes(normWorkspace) ||
+				normWorkspace.includes(normCompany))
+		) {
+			return true;
+		}
+	}
 
 	const meMessages = messages.filter((m) => m.sender === me);
 	for (const msg of meMessages) {
@@ -666,6 +679,7 @@ export function validateAndEnrichFacts(
 	lead: string,
 	refDate: Date,
 	timezoneOffset = "Z",
+	workspaceName?: string,
 ): ValidationSummary {
 	const summary: ValidationSummary = {
 		verified: 0,
@@ -826,6 +840,7 @@ export function validateAndEnrichFacts(
 				facts.company.name.value,
 				messages,
 				me,
+				workspaceName,
 			);
 			const leadMessages = messages.filter((m) => m.sender === lead);
 			const leadMentioned = leadMessages.some((m) =>

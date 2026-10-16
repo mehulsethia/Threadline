@@ -96,6 +96,7 @@ export type ExtractLeadFactsInput = {
 		  }
 		| string;
 	me?: string;
+	workspaceName?: string;
 };
 
 function inferAudioMimeType(filename: string): string {
@@ -521,6 +522,8 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 		participantInfo.me,
 		participantInfo.lead,
 		lastMessageDate,
+		"Z",
+		input.workspaceName,
 	);
 
 	return { facts, validationSummary };
