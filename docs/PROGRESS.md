@@ -130,4 +130,92 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 
 - **Open Issues**: None.
 
+---
 
+## PART 4 — Hero Flow 2: Lead Revival
+
+- **Status**: DONE
+- **Date**: 2026-10-16
+- **Summary**:
+  - **R1: Stalled Deal Detection Engine** (`apps/agent/adk/revival/detector.ts`):
+    - Deterministic evaluation using configurable workspace stage SLAs (`UNQUALIFIED_TO_BUY`: 3d, `QUALIFIED_TO_BUY`: 5d, `DEMO_BOOKED`: 4d, `CONTRACT_SENT`: 5d, `DECISION_MAKER_BOUGHT_IN`: 3d).
+    - Detects stall condition if: (1) no inbound message exceeds stage SLA, (2) an overdue "Check: ..." task exists, OR (3) the lead's last message contains an unanswered pricing/timeline question.
+    - Currency-normalized priority ranking: deal amount converted via static FX table (`FX_RATES_TO_USD`) × stage weight × staleness factor.
+    - Excludes `CLOSED_WON` and `CLOSED_LOST` deals.
+  - **R2: ADK Revival Agent** (`apps/agent/adk/revival/agent.ts`):
+    - Powered by `GEMINI_SMART_MODEL` (`gemini-4-argon`).
+    - Considers full context: messages, facts ledger + evidence, objections, open tasks, previous drafts, and workspace Playbook guidance.
+    - Chooses exactly 1 of 5 strategies: `nudge`, `address_objection`, `new_value`, `confirm_next_step`, `polite_close_out`.
+    - Generates 1 cited draft in the contact's native language and preferred channel (WhatsApp or Email with subject).
+    - Adheres to workspace Playbook notes (tone, compliance, zero hallucinated pricing/commitments).
+    - Saves record as `OutboundDraft` with status `PENDING_APPROVAL`, priority score, and pre-computed `waLink`.
+  - **R3: Guardrails**:
+    - Enforced 3-day quiet period: deals with a draft created in the past 3 days are excluded.
+    - Contact timezone respect for message scheduling.
+    - Multilingual opt-out detection (e.g. "not interested", "unsubscribe", "stop", "kein interesse", "no me interesa") marks `contact.optedOut = true` and permanently excludes the lead from revival outreach.
+  - **R4: Frontend Lead Revival Dashboard** (`apps/app/app/(app)/[slug]/revival/`):
+    - Priority-sorted queue with status tabs (Pending Approval, Sent, Skipped).
+    - Displays: Deal name, stage indicator, company, contact handle, normalized deal value, priority score badge.
+    - "Why stalled" alert banner with exact detection cause.
+    - Strategy badge, confidence score, and agent rationale explanation.
+    - Grounded citation badges with interactive popovers showing cited evidence.
+    - Editable draft textarea and email subject editor.
+    - Action buttons: "Approve & Send" (opens `wa.me` for WhatsApp or `mailto:` for email, marks `SENT`, logs activity, creates follow-up task), "Edit draft", and "Skip".
+    - Revival Settings Dialog to tune stage SLAs and sales playbook guidance.
+    - Added "Revival" navigation item with `Renew` icon in `AppIconRail`.
+  - **R5: Task Queue Integration & AgentEvents**:
+    - Added `revival` kind to `agent-tasks.ts` and dispatch runner in `apps/agent/agent/lib/dispatch.ts`.
+    - "Run revival now" button triggers `trpc.revival.runNow`.
+    - Emits `revival.cycle_started`, `revival.draft_created`, and `revival.cycle_completed` `AgentEvents`.
+  - **R6: Verification Against 4 Test Scenarios**:
+    - Created and executed test script `scripts/test-revival-flow.ts` simulating 4 stalled deals with backdated timestamps.
+
+### Real R6 Revival Execution Outputs
+
+```text
+=== LEAD REVIVAL EXECUTION REPORT ===
+Stalled Deals Detected: 8
+Drafts Generated: 8
+
+--------------------------------------------------
+SCENARIO 1: US SaaS Deal Stuck at Proposal 8 Days (Datacore Enterprise Security)
+Deal ID: cmvaq3uwj0001g5rpj1yb8tbb
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: The deal is in the CONTRACT_SENT stage and has been stalled for 8 days while the compliance committee reviews SOC2 details. Offering assistance with both SOC2 Type II and ISO 27001 requirements directly addresses their pre-signing requirements to help confirm the next step toward closing.
+Subject: N/A
+Cited Evidence: ["cmvaq3uwm0002g5rpl2yyvw2p","[2026-10-08T08:46:14.316Z]"]
+Text:
+Hi Sarah, I hope your week is going well. I wanted to check in and see how your compliance committee's review of our SOC2 details is progressing. Please let me know if they have any questions or need any additional documentation regarding our SOC2 Type II and ISO 27001 certifications before signing the Enterprise Proposal.
+
+Best regards, The Threadline Team
+
+--------------------------------------------------
+SCENARIO 2: German Manufacturing Enquiry with Unanswered Pricing Question (Weber Precision Valves)
+Deal ID: cmvaq3uwr0005g5rpa6j4jc1d
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: The lead asked a specific question about delivery times and volume pricing for 500 high-pressure valves 4 days ago, and the deal is currently in the DEMO_BOOKED stage. Since exact pricing and delivery timelines are not in the facts ledger and must not be invented, the best approach is to acknowledge their inquiry and confirm the upcoming demo/call to walk through the custom quote and timeline details together.
+Subject: N/A
+Cited Evidence: ["cmvaq3uwt0006g5rp37an4p4b","[2026-10-12T08:46:14.316Z]"]
+Text:
+Guten Tag Herr Weber, vielen Dank für Ihre Nachricht bezüglich der Lieferzeiten und Staffelpreise für die 500 Hochdruckventile. Da diese Details von Ihren genauen Spezifikationen abhängen, stelle ich die entsprechenden Informationen gerne für unseren bevorstehenden Termin zusammen. Passt der geplante Termin noch für Sie, um das Angebot im Detail zu besprechen? Best regards, The Threadline Team.
+
+--------------------------------------------------
+SCENARIO 3: UK Deal with Overdue "Check:" Task (Sterling Route Logistics)
+Deal ID: cmvaq3uwx0009g5rp8cbel00c
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: Oliver explicitly stated they are eager to move forward once the SLA schedule is confirmed, and there is an open task regarding agreement redlines. The best approach is to align on the SLA schedule and agreement review as the clear next step.
+Subject: N/A
+Cited Evidence: ["[2026-10-14T08:46:14.316Z] (Oliver Sterling): Hi team, we are eager to move forward once the SLA schedule is confirmed.","Task: Check: Oliver Sterling agreement redlines"]
+Text:
+Hi Oliver, thank you for your patience. We are reviewing the agreement redlines and finalizing the SLA schedule to ensure it aligns with our high-volume reliability and compliance standards. Are you available for a quick call to confirm these final details so we can move forward? Best regards, The Threadline Team.
+
+--------------------------------------------------
+SCENARIO 4: Opt-Out Exclusion Verification (Elena Rostova - Nordic Supply Deal)
+Contact Elena Rostova optedOut in DB: true
+Draft generated for Elena Rostova: NONE (SUCCESS)
+```
+
+- **Open Issues**: None.

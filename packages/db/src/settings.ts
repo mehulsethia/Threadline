@@ -160,3 +160,65 @@ export function maskKey(key: string): string {
 	const trimmed = key.trim();
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";
 }
+
+export const DEFAULT_STAGE_SLAS = {
+	UNQUALIFIED_TO_BUY: 3,
+	QUALIFIED_TO_BUY: 5,
+	DEMO_BOOKED: 4,
+	CONTRACT_SENT: 5,
+	DECISION_MAKER_BOUGHT_IN: 3,
+} as const;
+
+export type StageSlas = Record<string, number>;
+
+export async function readRevivalSlas(db: Db): Promise<StageSlas> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { revivalSlas: true },
+	});
+
+	if (
+		row?.revivalSlas &&
+		typeof row.revivalSlas === "object" &&
+		!Array.isArray(row.revivalSlas)
+	) {
+		return {
+			...DEFAULT_STAGE_SLAS,
+			...(row.revivalSlas as Record<string, number>),
+		};
+	}
+
+	return { ...DEFAULT_STAGE_SLAS };
+}
+
+export async function writeRevivalSlas(
+	db: Db,
+	slas: StageSlas,
+): Promise<StageSlas> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, revivalSlas: slas },
+		update: { revivalSlas: slas },
+	});
+
+	return readRevivalSlas(db);
+}
+
+export async function readPlaybook(db: Db): Promise<string> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { playbook: true },
+	});
+
+	return row?.playbook ?? "";
+}
+
+export async function writePlaybook(db: Db, playbook: string): Promise<string> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, playbook },
+		update: { playbook },
+	});
+
+	return playbook;
+}

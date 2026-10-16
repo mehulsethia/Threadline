@@ -1,6 +1,7 @@
 import { EnrichmentStatus } from "@crm/db";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
 import { runAdkIntakeTask } from "../../adk/intake";
+import { runLeadRevivalCycle } from "../../adk/revival/service";
 import { APP_AUTH, type AppAuth } from "./app-auth";
 import { brandOutcome, runBrand } from "./brand";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
@@ -130,6 +131,15 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 	if (task.kind === "intake") {
 		const outcome = await runAdkIntakeTask(task);
 		await completeTask(task.id, outcome);
+		return;
+	}
+
+	if (task.kind === "revival") {
+		const report = await runLeadRevivalCycle();
+		await completeTask(
+			task.id,
+			`Revival cycle completed: ${report.draftsGenerated} drafts generated for ${report.stalledDealsDetected} stalled deals.`,
+		);
 		return;
 	}
 
