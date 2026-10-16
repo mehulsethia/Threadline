@@ -233,6 +233,7 @@ Draft generated for Elena Rostova: NONE (SUCCESS - Excluded from revival)
 ## PART A — Revival draft quality (blocking for demo)
 
 - **Status**: DONE
+- **Commit**: `f45b7ef`
 - **Date**: 2026-10-16
 - **Summary**:
   - **A1: Owning Rep Sign-Off**:
@@ -411,5 +412,76 @@ Draft generated for Elena Rostova: NONE (SUCCESS)
 Revival run completed successfully.
 ```
 
-- **Open Issues**: None.
 
+---
+
+## PART B — Stage inference with explicit evidence criteria
+
+- **Status**: DONE
+- **Commit**: Pending
+- **Date**: 2026-10-16
+- **Summary**:
+  - Implemented explicit evidence-based stage entry criteria in `apps/agent/adk/validator.ts` (`inferDealStageWithEvidence`) and `apps/agent/adk/extraction.ts`:
+    - `Lead` (`UNQUALIFIED_TO_BUY`): Inquiry only, initial questions without qualified budget or confirmed timeline.
+    - `Qualified` (`QUALIFIED_TO_BUY`): Need confirmed plus budget or timeline confirmed.
+    - `Meeting/Demo` (`DEMO_BOOKED`): Meeting/demo booked, scheduled, or held.
+    - `Proposal` (`CONTRACT_SENT`): Quote, estimate, formal proposal, or contract pack sent.
+    - `Negotiation` (`DECISION_MAKER_BOUGHT_IN`): Buyer actively negotiating price, terms, SLA schedule, or redlines on a sent proposal.
+    - `Won` (`CLOSED_WON`) / `Lost` (`CLOSED_LOST`): Explicit confirmation of closed deal or lost deal.
+  - Implemented negative guardrails:
+    - If next task is "schedule a demo", deal cannot be in Negotiation or Proposal (resolves to Meeting/Demo).
+    - If next task is "send quotation/proposal/offer", proposal has not been sent yet (cannot be Proposal or Negotiation).
+  - Automatically picks highest stage whose criteria are met by cited evidence and persists stage with sourceKind `"agent.inference"`, citing exact source quote, line numbers, and speaker.
+  - Created test suite `apps/agent/test/validator.spec.ts` with 30 comprehensive unit tests covering all stage criteria, evidence binding, and negative guards.
+
+### Real Intake Verification Outputs (Part B Stage Inference)
+
+```
+TEST 1: Ingesting Valves Manufacturing Enquiry (Apex Flow Controls) (valves-enquiry.txt)
+  Contact: Vikram Malhotra (9820198201) | Company: Apex Flow Controls
+  Deal: "SS316 Industrial Ball Valves (Class 150) - 2 inch and 3 inch"
+  Stage: QUALIFIED_TO_BUY (Qualified) | Amount: 450000 INR
+  Stage Justifying Quote: "Great. Hamara total budget approx 4,50,000 INR hai for this lot."
+  Stage Evidence: sourceKind="agent.inference", lines=[25, 25], speaker="Vikram Malhotra"
+  Tasks Created: 1 ("Send formal quotation PDF via email or WhatsApp" | due: 2026-10-15T06:25:00.000Z)
+
+TEST 2: Ingesting Education Course Enquiry (Classroom Coaching) (coaching-institute.txt)
+  Contact: Sunita Rao (No phone) | Company: None
+  Deal: "Class 11 & 12 JEE (Advanced) Two-Year Classroom Coaching Program"
+  Stage: DEMO_BOOKED (Meeting/Demo) | Amount: 180000 INR
+  Stage Justifying Quote: "Bilkul ma'am. Aap Aarav ke sath Saturday morning 11:00 AM hamare Malviya Nagar, Jaipur centre par aaiye. Hum ek free diagnostic test aur demo session conduct karenge."
+  Stage Evidence: sourceKind="agent.inference", lines=[37, 39], speaker="Me"
+  Tasks Created: 1 ("Schedule JEE diagnostic test and visit centre" | due: 2026-10-17T05:30:00.000Z)
+
+TEST 3: Ingesting English B2B SaaS Enterprise Deal (US) (saas-pipeline-us.txt)
+  Contact: Sarah Jenkins (+15125550199) | Company: Datacore Cloud
+  Deal: "Enterprise Security Monitoring Software for Kubernetes Clusters"
+  Stage: DEMO_BOOKED (Meeting/Demo) | Amount: 48000 USD
+  Stage Justifying Quote: "Perfect. Let's schedule a product demo with our security architect tomorrow at 2 PM."
+  Stage Evidence: sourceKind="agent.inference", lines=[25, 25], speaker="Sarah Jenkins"
+  Tasks Created: 1 ("Schedule product demo with security architect" | due: 2026-10-15T14:00:00.000Z)
+
+TEST 4: Ingesting German Manufacturing Enquiry (EU/Germany) (manufacturing-de-whatsapp.txt)
+  Contact: Heinrich Weber (+491715550144) | Company: Weber Maschinenbau GmbH
+  Deal: "industrielle Durchflusssensoren und Druckventile für unsere automatisierte Fertigungsstraße"
+  Stage: QUALIFIED_TO_BUY (Qualified) | Amount: 72000 EUR
+  Stage Justifying Quote: "Wir benötigen zunächst 200 Einheiten bis Ende November. Unser Budgetrahmen liegt bei ca. 75.000 EUR."
+  Stage Evidence: sourceKind="agent.inference", lines=[15, 17], speaker="Heinrich Weber"
+  Tasks Created: 1 ("Create and send the formal offer as a PDF via email" | due: 2026-10-12T11:20:00.000Z)
+
+TEST 5: Ingesting English Call-Recording Style Transcript (UK) (call-recording-uk.txt)
+  Contact: Oliver Smith (+447700900123) | Company: Apex Fleet Logistics
+  Deal: "Upgrade telematics and dispatch management system"
+  Stage: QUALIFIED_TO_BUY (Qualified) | Amount: 32500 GBP
+  Stage Justifying Quote: "Our board has allocated a budget of £35,000 GBP for the software licensing and rollout."
+  Stage Evidence: sourceKind="agent.inference", lines=[13, 13], speaker="Oliver Smith"
+  Tasks Created: 1 ("Email the formal proposal and contract pack" | due: 2026-10-15T17:00:00.000Z)
+
+IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
+  - Messages diff: 0
+  - Contacts diff: 0
+  - Tasks diff: 0
+  - 0 duplicate messages, contacts, or tasks created.
+```
+
+- **Open Issues**: None.

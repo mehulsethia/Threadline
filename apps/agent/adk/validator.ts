@@ -5,6 +5,7 @@ import {
 } from "@crm/validation/whatsapp-parser";
 import type {
 	EvidenceRef,
+	EvidenceSourceKind,
 	EvidenceSpeaker,
 	ExtractedLeadFacts,
 } from "./extraction";
@@ -121,6 +122,189 @@ export function parseDeterministicAmount(
 	return null;
 }
 
+export interface InferredStageResult {
+	stage: DealStage;
+	evidence: {
+		sourceKind: EvidenceSourceKind;
+		speaker: "lead" | "us";
+		quote: string;
+		lineNos?: number[];
+	};
+	reason: string;
+}
+
+export function inferDealStageWithEvidence(
+	facts: ExtractedLeadFacts,
+	messages: WhatsAppMessageItem[],
+	_me?: string,
+	lead?: string,
+): InferredStageResult {
+	const nextStepCombined =
+		`${facts.nextStep.value ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.toLowerCase();
+	const nextStepIsDemo =
+		/\b(demo|meeting|visit|centre|diagnostic|call)\b/i.test(nextStepCombined);
+	const nextStepIsSendProposal =
+		/\b(send|create|email|provide|prepare|draft|bhej).*(quotation|quote|proposal|offer|contract|angebot)\b/i.test(
+			nextStepCombined,
+		) ||
+		/\b(quotation|quote|proposal|offer|angebot).*(bhej|send|email)\b/i.test(
+			nextStepCombined,
+		);
+
+	const wonRegex =
+		/\b(contract signed|signed the contract|signed the agreement|payment received|fee paid|issued the po|po issued|purchase order issued|deal is closed|deal closed)\b/i;
+	for (const msg of messages) {
+		if (wonRegex.test(msg.text)) {
+			return {
+				stage: DealStage.CLOSED_WON,
+				evidence: {
+					sourceKind: "agent.inference",
+					speaker: msg.sender === lead ? "lead" : "us",
+					quote: msg.text,
+					lineNos: [msg.lineNo],
+				},
+				reason: "Explicit won confirmation found in conversation",
+			};
+		}
+	}
+
+	const lostRegex =
+		/\b(went with competitor|chose another vendor|cancelling the project|cannot proceed with this|no longer interested)\b/i;
+	for (const msg of messages) {
+		if (lostRegex.test(msg.text)) {
+			return {
+				stage: DealStage.CLOSED_LOST,
+				evidence: {
+					sourceKind: "agent.inference",
+					speaker: "lead",
+					quote: msg.text,
+					lineNos: [msg.lineNo],
+				},
+				reason: "Explicit lost confirmation found in conversation",
+			};
+		}
+	}
+
+	if (!nextStepIsDemo && !nextStepIsSendProposal) {
+		const sentProposalRegex =
+			/\b(proposal sent|send(ing|t)? over the (enterprise |formal )?proposal|received (your|the) proposal|reviewing the proposal|attached.*proposal|contract pack|emailed the (formal )?proposal)\b/i;
+		const negotiatingRegex =
+			/\b(redline|negotiat|sla schedule|discount|payment terms.*acceptable|terms of payment)\b/i;
+		const sentProposalMsg = messages.find((m) =>
+			sentProposalRegex.test(m.text),
+		);
+		const negotiatingMsg = messages.find((m) => negotiatingRegex.test(m.text));
+
+		if (sentProposalMsg && negotiatingMsg) {
+			return {
+				stage: DealStage.DECISION_MAKER_BOUGHT_IN,
+				evidence: {
+					sourceKind: "agent.inference",
+					speaker: negotiatingMsg.sender === lead ? "lead" : "us",
+					quote: negotiatingMsg.text,
+					lineNos: [negotiatingMsg.lineNo],
+				},
+				reason:
+					"Buyer is negotiating price, terms or redlines on a sent proposal",
+			};
+		}
+	}
+
+	if (!nextStepIsDemo && !nextStepIsSendProposal) {
+		const sentProposalRegex =
+			/\b(proposal sent|send(ing|t)? (the|over the) (formal |enterprise )?(proposal|quotation|offer)|emailed the (formal |enterprise )?proposal|here is our quotation pdf|attached is the (formal )?offer|contract pack)\b/i;
+		const sentMsg = messages.find((m) => sentProposalRegex.test(m.text));
+		if (sentMsg) {
+			return {
+				stage: DealStage.CONTRACT_SENT,
+				evidence: {
+					sourceKind: "agent.inference",
+					speaker: sentMsg.sender === lead ? "lead" : "us",
+					quote: sentMsg.text,
+					lineNos: [sentMsg.lineNo],
+				},
+				reason: "Quote or proposal sent to buyer",
+			};
+		}
+	}
+
+	const demoRegex =
+		/\b(schedule a (product )?demo|calendar invite for|demo (tomorrow|session|at|on)|meeting (tomorrow|at|on|scheduled)|centre par aaiye|demo session conduct|centre par pahunch jayenge|visit.*centre)\b/i;
+	const demoMsg = messages.find((m) => demoRegex.test(m.text));
+	if (demoMsg || nextStepIsDemo) {
+		const quote =
+			demoMsg?.text ??
+			facts.nextStep.evidence?.quote ??
+			facts.nextStep.value ??
+			"Demo booked";
+		const lineNos = demoMsg
+			? [demoMsg.lineNo]
+			: facts.nextStep.evidence?.lineNos;
+		const speaker = demoMsg
+			? demoMsg.sender === lead
+				? "lead"
+				: "us"
+			: (facts.nextStep.evidence?.speaker ?? "us");
+		return {
+			stage: DealStage.DEMO_BOOKED,
+			evidence: {
+				sourceKind: "agent.inference",
+				speaker,
+				quote,
+				lineNos,
+			},
+			reason: "Meeting or demo booked or held",
+		};
+	}
+
+	const hasNeed = Boolean(
+		facts.deal.need.value && facts.deal.need.evidence?.quote,
+	);
+	const budgetQuote =
+		facts.deal.leadBudget.evidence?.quote ??
+		facts.deal.quotedValue.evidence?.quote;
+	const hasBudget = Boolean(
+		(facts.deal.leadBudget.value !== null ||
+			facts.deal.quotedValue.value !== null) &&
+			budgetQuote,
+	);
+	const timelineQuote = facts.deal.timeline.evidence?.quote;
+	const hasTimeline = Boolean(facts.deal.timeline.value && timelineQuote);
+
+	if (hasNeed && (hasBudget || hasTimeline)) {
+		const chosenQuote =
+			budgetQuote ?? timelineQuote ?? facts.deal.need.evidence?.quote ?? "";
+		const speaker =
+			facts.deal.leadBudget.evidence?.speaker ??
+			(facts.deal.quotedValue.evidence ? "us" : "lead");
+		return {
+			stage: DealStage.QUALIFIED_TO_BUY,
+			evidence: {
+				sourceKind: "agent.inference",
+				speaker: speaker === "us" ? "us" : "lead",
+				quote: chosenQuote,
+				lineNos:
+					facts.deal.leadBudget.evidence?.lineNos ??
+					facts.deal.quotedValue.evidence?.lineNos ??
+					facts.deal.timeline.evidence?.lineNos,
+			},
+			reason: "Need plus budget or timeline confirmed",
+		};
+	}
+
+	const firstLeadMsg = messages.find((m) => m.sender === lead) ?? messages[0];
+	return {
+		stage: DealStage.UNQUALIFIED_TO_BUY,
+		evidence: {
+			sourceKind: "agent.inference",
+			speaker: "lead",
+			quote: firstLeadMsg ? firstLeadMsg.text : "Inquiry only",
+			lineNos: firstLeadMsg ? [firstLeadMsg.lineNo] : undefined,
+		},
+		reason: "Inquiry only (unqualified lead)",
+	};
+}
+
 export function mapToCrmDealStage(
 	suggestion: string | null | undefined,
 	hasDemo = false,
@@ -134,6 +318,13 @@ export function mapToCrmDealStage(
 
 	const clean = suggestion.toUpperCase().replace(/[\s-]+/g, "_");
 	if (Object.values(DealStage).includes(clean as DealStage)) {
+		if (
+			hasDemo &&
+			(clean === DealStage.DECISION_MAKER_BOUGHT_IN ||
+				clean === DealStage.CONTRACT_SENT)
+		) {
+			return DealStage.DEMO_BOOKED;
+		}
 		return clean as DealStage;
 	}
 
@@ -150,10 +341,11 @@ export function mapToCrmDealStage(
 	}
 
 	if (
-		lower.includes("decision") ||
-		lower.includes("bought_in") ||
-		lower.includes("stakeholder") ||
-		lower.includes("negotiat")
+		!hasDemo &&
+		(lower.includes("decision") ||
+			lower.includes("bought_in") ||
+			lower.includes("stakeholder") ||
+			lower.includes("negotiat"))
 	) {
 		return DealStage.DECISION_MAKER_BOUGHT_IN;
 	}
@@ -793,26 +985,19 @@ export function validateAndEnrichFacts(
 			refDate,
 		);
 
-		const hasDemo = Boolean(
-			facts.nextStep.value &&
-				normalize(facts.nextStep.value).match(/demo|visit|centre|test/),
-		);
-		const hasProposal = Boolean(
-			facts.nextStep.value &&
-				normalize(facts.nextStep.value).match(/quote|quotation|proposal/),
-		);
-		const mappedStage = mapToCrmDealStage(
-			facts.deal.stageSuggestion.value as string,
-			hasDemo,
-			hasProposal,
-		);
-		facts.deal.stageSuggestion.value = mappedStage;
-		facts.deal.stageSuggestion.evidence = validateItem(
-			"deal.stageSuggestion",
-			facts.deal.stageSuggestion.evidence,
-			true,
-			"us",
-		);
+		const inferred = inferDealStageWithEvidence(facts, messages, me, lead);
+		facts.deal.stageSuggestion.value = inferred.stage;
+		facts.deal.stageSuggestion.evidence = {
+			sourceKind: inferred.evidence.sourceKind,
+			speaker: inferred.evidence.speaker,
+			quote: inferred.evidence.quote,
+			lineNos: inferred.evidence.lineNos,
+		};
+		summary.details.push({
+			field: "deal.stageSuggestion",
+			status: "verified",
+			reason: `Inferred stage ${inferred.stage}: "${inferred.evidence.quote}" (${inferred.reason})`,
+		});
 
 		facts.languagePreference.evidence = validateItem(
 			"languagePreference",
