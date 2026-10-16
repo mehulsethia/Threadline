@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Db } from "@crm/db";
 import { IntakeJobStatus, IntakeSourceType } from "@crm/db";
 import { blobEnabled, downloadFile, uploadFile } from "@crm/db/blob";
+import { consumeDemoQuota } from "@crm/db/demo";
 import { detectParticipants, parseWhatsAppExport } from "@crm/validation";
 import {
 	BadRequestException,
@@ -65,6 +66,11 @@ export class IntakeService {
 		@InjectDatabase() private readonly db: Db,
 		private readonly agentTrigger: AgentTriggerService,
 	) {}
+
+	/** One import against the judge account's daily cap. */
+	consumeImportQuota(userId: string): Promise<boolean> {
+		return consumeDemoQuota(this.db, userId, "intake");
+	}
 
 	async uploadAndCreateJob(
 		file: UploadedFileRecord,

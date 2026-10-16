@@ -1,5 +1,6 @@
 import { apiUrl } from "@crm/auth";
 import { Injectable } from "@nestjs/common";
+import { TRPCError } from "@trpc/server";
 import {
 	Ctx,
 	Input,
@@ -52,6 +53,12 @@ export class VoiceRouter {
 	) {
 		// Confirms the deal exists before handing out a pass for it.
 		await this.voiceService.getDealContext(input.dealId);
+		if (!(await this.voiceService.consumeCallQuota(ctx.user.id))) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "The demo account has used today's voice calls.",
+			});
+		}
 		return {
 			ticket: issueVoiceTicket(ctx.user.id, input.dealId),
 			wsUrl: voiceWsUrl(),
