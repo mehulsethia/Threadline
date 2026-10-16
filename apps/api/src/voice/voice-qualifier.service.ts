@@ -46,6 +46,30 @@ export class VoiceQualifierService {
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
+	/**
+	 * The person on the call: whoever on the deal wrote last, else the contact
+	 * marked primary, else a stable pick (never an unordered first row).
+	 */
+	private async callContact<
+		C extends { contactId: string; role: string | null; contact: unknown },
+	>(dealId: string, contacts: C[]): Promise<C["contact"] | undefined> {
+		if (contacts.length <= 1) return contacts[0]?.contact;
+		const lastInbound = await this.db.whatsAppMessage.findFirst({
+			where: {
+				dealId,
+				direction: "INBOUND",
+				contactId: { in: contacts.map((c) => c.contactId) },
+			},
+			orderBy: { timestamp: "desc" },
+			select: { contactId: true },
+		});
+		return (
+			contacts.find((c) => c.contactId === lastInbound?.contactId) ??
+			contacts.find((c) => /primary/i.test(c.role ?? "")) ??
+			[...contacts].sort((a, b) => a.contactId.localeCompare(b.contactId))[0]
+		)?.contact;
+	}
+
 	async getDealContext(
 		dealId: string,
 		orgId?: string,
@@ -74,7 +98,7 @@ export class VoiceQualifierService {
 			}
 		}
 
-		const primaryContact = deal.contacts[0]?.contact;
+		const primaryContact = await this.callContact(dealId, deal.contacts);
 		const leadName = primaryContact
 			? [primaryContact.firstName, primaryContact.lastName]
 					.filter(Boolean)
@@ -421,7 +445,7 @@ export class VoiceQualifierService {
 			throw new NotFoundException(`Deal ${dealId} not found.`);
 		}
 
-		const primaryContact = deal.contacts[0]?.contact;
+		const primaryContact = await this.callContact(deal.id, deal.contacts);
 
 		const evidence = [
 			{

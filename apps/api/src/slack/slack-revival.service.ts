@@ -43,7 +43,12 @@ export class SlackRevivalService {
 		}
 
 		const install = await this.getInstallationForOrg(orgId);
-		let botToken = process.env.SLACK_BOT_TOKEN;
+		// The env token is a local Socket Mode convenience; in production a
+		// workspace posts only through its own OAuth installation.
+		let botToken =
+			process.env.NODE_ENV === "production"
+				? undefined
+				: process.env.SLACK_BOT_TOKEN;
 
 		if (install?.botToken) {
 			try {
@@ -61,20 +66,12 @@ export class SlackRevivalService {
 			};
 		}
 
-		let channel = install?.alertsChannelId;
-		if (!channel) {
-			const publicChannels = await this.listChannels(botToken);
-			const dealsChannel = publicChannels.find(
-				(c) => c.name === "threadline-deals" || c.name === "general",
-			);
-			channel = dealsChannel?.id || publicChannels[0]?.id;
-		}
-
+		// Only the channel an admin picked in settings; never a guessed one.
+		const channel = install?.alertsChannelId;
 		if (!channel) {
 			return {
 				posted: false,
-				reason:
-					"No target alerts channel found or configured in Slack workspace.",
+				reason: "No Slack alerts channel selected in settings.",
 			};
 		}
 
@@ -498,25 +495,5 @@ export class SlackRevivalService {
 				blocks: updatedBlocks,
 			}),
 		});
-	}
-
-	private async listChannels(
-		token: string,
-	): Promise<Array<{ id: string; name: string }>> {
-		try {
-			const res = await fetch(
-				"https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=100",
-				{
-					headers: { authorization: `Bearer ${token}` },
-				},
-			);
-			const data = (await res.json()) as {
-				ok: boolean;
-				channels?: Array<{ id: string; name: string }>;
-			};
-			return data.channels || [];
-		} catch {
-			return [];
-		}
 	}
 }

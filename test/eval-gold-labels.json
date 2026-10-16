@@ -1,256 +1,124 @@
 {
-  "fixtures": [
-    {
-      "id": "fixture-saas-us",
-      "sourceFile": "fixtures/saas-pipeline-us.txt",
-      "expectedContact": {
-        "name": "Sarah Jenkins",
-        "city": "Austin",
-        "role": "Buyer"
-      },
-      "expectedCompany": {
-        "name": "Datacore Cloud",
-        "isSeller": false
-      },
-      "expectedAmount": 48000,
-      "expectedCurrency": "USD",
-      "expectedStage": "DEMO_BOOKED",
-      "expectedObjections": [
-        "SOC2 Type II report and ISO 27001 certification before signing"
-      ],
-      "expectedNextTask": {
-        "subject": "Product demo with security architect",
-        "relativeTime": "tomorrow at 2 PM"
-      }
-    },
-    {
-      "id": "fixture-manufacturing-de",
-      "sourceFile": "fixtures/manufacturing-de-whatsapp.txt",
-      "expectedContact": {
-        "name": "Heinrich Weber",
-        "city": "Stuttgart",
-        "role": "Buyer"
-      },
-      "expectedCompany": {
-        "name": "Weber Maschinenbau GmbH",
-        "isSeller": false
-      },
-      "expectedAmount": 72000,
-      "expectedCurrency": "EUR",
-      "expectedStage": "QUALIFIED_TO_BUY",
-      "expectedObjections": [
-        "CE-Zertifizierung und Werksprüfzeugnisse EN 10204 3.1"
-      ],
-      "expectedNextTask": {
-        "subject": "Send formal offer as PDF via email",
-        "relativeTime": "tomorrow afternoon"
-      }
-    },
-    {
-      "id": "fixture-call-recording-uk",
-      "sourceFile": "fixtures/call-recording-uk.txt",
-      "expectedContact": {
-        "name": "Oliver Smith",
-        "city": "London",
-        "role": "Buyer"
-      },
-      "expectedCompany": {
-        "name": "Apex Fleet Logistics",
-        "isSeller": false
-      },
-      "expectedAmount": 32500,
-      "expectedCurrency": "GBP",
-      "expectedStage": "QUALIFIED_TO_BUY",
-      "expectedObjections": [
-        "UK-based data residency for GDPR and Driver and Vehicle Standards Agency audits"
-      ],
-      "expectedNextTask": {
-        "subject": "Email formal proposal and contract pack",
-        "relativeTime": "Thursday 5 PM"
-      }
-    },
-    {
-      "id": "fixture-coaching-in",
-      "sourceFile": "fixtures/coaching-institute.txt",
-      "expectedContact": {
-        "name": "Sunita Rao",
-        "city": "Jaipur",
-        "role": "Buyer"
-      },
-      "expectedCompany": {
-        "name": null,
-        "isSeller": false,
-        "sellerName": "Apex IIT Academy"
-      },
-      "expectedAmount": 180000,
-      "expectedCurrency": "INR",
-      "expectedStage": "DEMO_BOOKED",
-      "expectedObjections": [
-        "Concerned about large batch sizes (over 40 students)",
-        "Daily evening timing clash with school"
-      ],
-      "expectedNextTask": {
-        "subject": "Diagnostic test and demo session at Malviya Nagar centre",
-        "relativeTime": "Saturday 11:00 AM"
-      }
-    },
-    {
-      "id": "fixture-valves-in",
-      "sourceFile": "fixtures/valves-enquiry.txt",
-      "expectedContact": {
-        "name": "Vikram Malhotra",
-        "city": "Ahmedabad",
-        "role": "Buyer"
-      },
-      "expectedCompany": {
-        "name": "Apex Flow Controls",
-        "isSeller": false
-      },
-      "expectedAmount": 450000,
-      "expectedCurrency": "INR",
-      "expectedStage": "QUALIFIED_TO_BUY",
-      "expectedObjections": [
-        "Material Test Certificate (MTC 3.1) and hydro test report mandatory",
-        "Payment terms require 30 days credit"
-      ],
-      "expectedNextTask": {
-        "subject": "Send formal quotation PDF via email or WhatsApp",
-        "relativeTime": "1 hour"
-      }
-    }
-  ],
-  "demoDeals": [
-    {
-      "id": "demo-deal-1-acme",
-      "name": "Acme Cloud Infrastructure",
-      "expectedContact": { "name": "David Miller", "city": "San Francisco" },
-      "expectedCompany": { "name": "Acme Cloud Inc" },
-      "expectedAmount": 180000,
-      "expectedCurrency": "USD",
-      "expectedStage": "QUALIFIED_TO_BUY",
-      "expectedObjections": ["Multi-region failover and SLA credits guarantee"],
-      "expectedNextTask": { "subject": "Send SOC2 documentation and architecture brief" }
-    },
-    {
-      "id": "demo-deal-2-finovate",
-      "name": "Finovate Banking Core",
-      "expectedContact": { "name": "Emily Watson", "city": "London" },
-      "expectedCompany": { "name": "Finovate UK Ltd" },
-      "expectedAmount": 95000,
-      "expectedCurrency": "GBP",
-      "expectedStage": "CONTRACT_SENT",
-      "expectedObjections": ["PCI-DSS Level 1 audit verification report"],
-      "expectedNextTask": { "subject": "Review MSA redlines with legal counsel" }
-    },
-    {
-      "id": "demo-deal-3-becker",
-      "name": "Deutsche Automatisation Suite",
-      "expectedContact": { "name": "Klaus Becker", "city": "Munich" },
-      "expectedCompany": { "name": "Becker Industrietechnik GmbH" },
-      "expectedAmount": 140000,
-      "expectedCurrency": "EUR",
-      "expectedStage": "DECISION_MAKER_BOUGHT_IN",
-      "expectedObjections": ["On-premise air-gapped backup requirement"],
-      "expectedNextTask": { "subject": "Finalize procurement sign-off with steering committee" }
-    },
-    {
-      "id": "demo-deal-4-logistique",
-      "name": "Logistique Méditerranée",
-      "expectedContact": { "name": "Jean-Luc Dupont", "city": "Marseille" },
-      "expectedCompany": { "name": "Logistique Méditerranée SAS" },
-      "expectedAmount": 85000,
-      "expectedCurrency": "EUR",
-      "expectedStage": "DEMO_BOOKED",
-      "expectedObjections": ["Integration with legacy AS400 ERP"],
-      "expectedNextTask": { "subject": "Technical deep-dive demo with IT infrastructure director" }
-    },
-    {
-      "id": "demo-deal-5-emirates",
-      "name": "Emirates Logistics Fleet",
-      "expectedContact": { "name": "Tariq Al-Mansoor", "city": "Dubai" },
-      "expectedCompany": { "name": "Gulf Express Cargo LLC" },
-      "expectedAmount": 320000,
-      "expectedCurrency": "AED",
-      "expectedStage": "QUALIFIED_TO_BUY",
-      "expectedObjections": ["GCC regional data residency compliance"],
-      "expectedNextTask": { "subject": "Prepare custom telematics quote with multi-currency billing" }
-    },
-    {
-      "id": "demo-deal-6-singapay",
-      "name": "SingaPay Fraud Engine",
-      "expectedContact": { "name": "Wei Ling Tan", "city": "Singapore" },
-      "expectedCompany": { "name": "SingaPay Financial Tech" },
-      "expectedAmount": 160000,
-      "expectedCurrency": "SGD",
-      "expectedStage": "DEMO_BOOKED",
-      "expectedObjections": ["MAS TRM guidelines compliance"],
-      "expectedNextTask": { "subject": "Schedule latency benchmark demo with engineering lead" }
-    },
-    {
-      "id": "demo-deal-7-bharat",
-      "name": "Bharat Energy IoT Grid",
-      "expectedContact": { "name": "Rajesh Singhania", "city": "Mumbai" },
-      "expectedCompany": { "name": "Bharat Energy Solutions Ltd" },
-      "expectedAmount": 12500000,
-      "expectedCurrency": "INR",
-      "expectedStage": "CONTRACT_SENT",
-      "expectedObjections": ["Local state grid protocol compatibility"],
-      "expectedNextTask": { "subject": "Send updated commercial annexure with tiered pricing" }
-    },
-    {
-      "id": "demo-deal-8-pacific",
-      "name": "Pacific Rim Supply Cloud",
-      "expectedContact": { "name": "Samantha Chen", "city": "Seattle" },
-      "expectedCompany": { "name": "Pacific Rim Maritime" },
-      "expectedAmount": 240000,
-      "expectedCurrency": "USD",
-      "expectedStage": "DECISION_MAKER_BOUGHT_IN",
-      "expectedObjections": ["Maritime satellite connectivity offline mode"],
-      "expectedNextTask": { "subject": "Confirm board sign-off and schedule kickoff call" }
-    },
-    {
-      "id": "demo-deal-9-nordic",
-      "name": "Nordic Green Tech Hub",
-      "expectedContact": { "name": "Elena Rostova", "city": "Stockholm" },
-      "expectedCompany": { "name": "Nordic CleanTech AB" },
-      "expectedAmount": 110000,
-      "expectedCurrency": "EUR",
-      "expectedStage": "UNQUALIFIED_TO_BUY",
-      "expectedObjections": ["Opted out of outreach"],
-      "expectedNextTask": null
-    },
-    {
-      "id": "demo-deal-10-omniretail",
-      "name": "OmniRetail Omnichannel Engine",
-      "expectedContact": { "name": "Marcus Vance", "city": "Chicago" },
-      "expectedCompany": { "name": "OmniRetail Global" },
-      "expectedAmount": 310000,
-      "expectedCurrency": "USD",
-      "expectedStage": "CLOSED_WON",
-      "expectedObjections": ["Black Friday peak traffic guarantees"],
-      "expectedNextTask": { "subject": "Coordinate customer success onboarding" }
-    },
-    {
-      "id": "demo-deal-11-alpine",
-      "name": "Alpine Precision Engineering",
-      "expectedContact": { "name": "Stefan Meier", "city": "Zurich" },
-      "expectedCompany": { "name": "Alpine Precision AG" },
-      "expectedAmount": 65000,
-      "expectedCurrency": "EUR",
-      "expectedStage": "CLOSED_LOST",
-      "expectedObjections": ["Selected incumbent ERP vendor for unified billing"],
-      "expectedNextTask": { "subject": "Set quarterly check-in for contract renewal cycle" }
-    },
-    {
-      "id": "demo-deal-12-zenith",
-      "name": "Zenith Medical Telehealth",
-      "expectedContact": { "name": "Dr. Aris Thorne", "city": "Boston" },
-      "expectedCompany": { "name": "Zenith Health Network" },
-      "expectedAmount": 95000,
-      "expectedCurrency": "USD",
-      "expectedStage": "UNQUALIFIED_TO_BUY",
-      "expectedObjections": ["HIPAA business associate agreement approval pending"],
-      "expectedNextTask": { "subject": "Send HIPAA compliance package" }
-    }
-  ]
+	"labeling": {
+		"method": "Hand-labelled from the fixture text only, before running the pipeline. Each label cites the fixture line(s) it rests on (cat -n numbering). Task and objection labels are keyword groups: every group must be matched by at least one of its alternatives, case-insensitive, so a correct answer in English or in the conversation's language both count.",
+		"stageRule": "Highest stage whose entry criterion the conversation itself shows: Lead = inquiry only; Qualified = need plus budget or timeline confirmed; Meeting/Demo = a meeting or demo booked; Proposal = a written quote/proposal actually sent; Negotiation = buyer negotiating terms of a sent proposal. A price mentioned in chat with the formal offer still to be sent is not Proposal.",
+		"labelledOn": "2026-10-16"
+	},
+	"fixtures": [
+		{
+			"id": "fixture-saas-us",
+			"sourceFile": "fixtures/saas-pipeline-us.txt",
+			"contact": { "name": "Sarah Jenkins", "lines": [2] },
+			"company": { "name": "Datacore Cloud", "lines": [2] },
+			"amount": {
+				"value": 48000,
+				"currency": "USD",
+				"lines": [6, 7],
+				"note": "Budget $48,000 and Enterprise list price $48,000 agree."
+			},
+			"stage": {
+				"value": "DEMO_BOOKED",
+				"lines": [10, 11],
+				"note": "Demo requested for tomorrow 2 PM and confirmed by the seller."
+			},
+			"nextTask": { "groups": [["demo", "invite", "calendar"]], "lines": [11] },
+			"objections": [{ "groups": [["soc2", "soc 2"], ["27001"]], "lines": [8] }]
+		},
+		{
+			"id": "fixture-manufacturing-de",
+			"sourceFile": "fixtures/manufacturing-de-whatsapp.txt",
+			"contact": { "name": "Heinrich Weber", "lines": [2] },
+			"company": { "name": "Weber Maschinenbau GmbH", "lines": [2] },
+			"amount": {
+				"value": 72000,
+				"currency": "EUR",
+				"lines": [6],
+				"note": "Seller's offer 72,000 EUR; the buyer's budget frame is ca. 75,000 EUR (line 5). The deal value is the offered price."
+			},
+			"stage": {
+				"value": "QUALIFIED_TO_BUY",
+				"lines": [3, 5, 9, 10],
+				"note": "Need, volume, timeline and budget confirmed; the formal PDF offer is requested but not yet sent. Ambiguous: a price was stated in chat (line 6)."
+			},
+			"nextTask": {
+				"groups": [["angebot", "offer", "quotation", "quote", "proposal"]],
+				"lines": [9, 10]
+			},
+			"objections": [{ "groups": [["10204", "3.1"]], "lines": [7] }]
+		},
+		{
+			"id": "fixture-call-recording-uk",
+			"sourceFile": "fixtures/call-recording-uk.txt",
+			"contact": { "name": "Oliver Smith", "lines": [2] },
+			"company": { "name": "Apex Fleet Logistics", "lines": [2] },
+			"amount": {
+				"value": 32500,
+				"currency": "GBP",
+				"lines": [6, 7],
+				"note": "Pro Fleet tier £32,500/yr, accepted ('That pricing works'). Budget £35,000 (line 5)."
+			},
+			"stage": {
+				"value": "QUALIFIED_TO_BUY",
+				"lines": [4, 5, 9, 10],
+				"note": "Need and budget confirmed; proposal and contract requested, promised for Thursday, not yet sent."
+			},
+			"nextTask": { "groups": [["proposal", "contract"]], "lines": [10] },
+			"objections": [
+				{
+					"groups": [["residency", "uk-based", "uk based", "gdpr"]],
+					"lines": [7]
+				}
+			]
+		},
+		{
+			"id": "fixture-coaching-in",
+			"sourceFile": "fixtures/coaching-institute.txt",
+			"contact": { "name": "Sunita Rao", "lines": [2] },
+			"company": {
+				"name": null,
+				"sellerName": "Apex IIT Academy",
+				"lines": [4],
+				"note": "Consumer buyer; Apex IIT Academy is the seller and must not be filed as the buyer's company."
+			},
+			"amount": { "value": 180000, "currency": "INR", "lines": [6] },
+			"stage": {
+				"value": "DEMO_BOOKED",
+				"lines": [12, 13],
+				"note": "Diagnostic test and demo session booked for Saturday 11 AM and confirmed."
+			},
+			"nextTask": {
+				"groups": [["diagnostic", "demo", "visit", "centre", "center"]],
+				"lines": [12]
+			},
+			"objections": [
+				{ "groups": [["batch"]], "lines": [7] },
+				{ "groups": [["timing", "timings", "clash", "school"]], "lines": [8] }
+			]
+		},
+		{
+			"id": "fixture-valves-in",
+			"sourceFile": "fixtures/valves-enquiry.txt",
+			"contact": { "name": "Vikram Malhotra", "lines": [2] },
+			"company": { "name": "Apex Flow Controls", "lines": [2, 8] },
+			"amount": {
+				"value": 450000,
+				"currency": "INR",
+				"lines": [9],
+				"note": "Buyer budget 4,50,000 INR; no seller price was quoted."
+			},
+			"stage": {
+				"value": "QUALIFIED_TO_BUY",
+				"lines": [3, 9, 10, 17],
+				"note": "Need, budget and timeline confirmed, payment terms agreed; the formal quotation is still to be sent."
+			},
+			"nextTask": {
+				"groups": [["quotation", "quote", "proposal", "offer"]],
+				"lines": [17, 18]
+			},
+			"objections": [
+				{ "groups": [["mtc", "test certificate", "hydro"]], "lines": [12] },
+				{ "groups": [["credit", "payment", "advance"]], "lines": [13] }
+			]
+		}
+	]
 }

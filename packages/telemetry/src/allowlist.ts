@@ -166,6 +166,11 @@ export function permittedTool(name: string | null | undefined): string {
 }
 
 export const EVIDENCE_KINDS = [
+	"whatsapp.message",
+	"voice.transcript",
+	"voice.live-call",
+	"agent.inference",
+	"web.grounded",
 	"profile.email-match",
 	"linkedin.employer-and-name",
 	"crm.thread-reply",

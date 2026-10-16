@@ -10,9 +10,14 @@ import {
 	OutboundDraftStatus,
 } from "../src/generated/prisma/enums";
 import { writePlaybook, writeRevivalSlas } from "../src/settings";
+import { formatDealStage } from "../src/stage";
 import {
 	DEMO_ORG_ID,
+	DEMO_ORG_NAME,
 	DEMO_ORG_SLUG,
+	DEMO_REP_EMAIL,
+	DEMO_REP_ID,
+	DEMO_REP_NAME,
 	DEMO_USER_EMAIL,
 	DEMO_USER_ID,
 	resetDemoOrg,
@@ -25,45 +30,66 @@ function daysAgo(days: number): Date {
 	return new Date(NOW - days * DAY_MS);
 }
 
-export async function seedDemoOrg(): Promise<void> {
-	await resetDemoOrg();
+const SIGNATURE = `${DEMO_REP_NAME}\n${DEMO_ORG_NAME}`;
 
-	console.log(`\nSeeding Northwind Systems demo org (${DEMO_ORG_SLUG})...`);
-
-	const org = await db.organization.create({
-		data: {
-			id: DEMO_ORG_ID,
-			name: "Northwind Systems",
-			slug: DEMO_ORG_SLUG,
-			createdAt: daysAgo(30),
-			website: "https://northwind.io",
-			metadata: JSON.stringify({
-				onboardedAt: daysAgo(30).toISOString(),
-				repName: "Alex Morgan",
-			}),
-		},
-	});
-
-	const user = await db.user.create({
-		data: {
-			id: DEMO_USER_ID,
-			name: "Judge Reviewer",
-			email: DEMO_USER_EMAIL,
+async function upsertDemoUser(id: string, name: string, email: string) {
+	const user = await db.user.upsert({
+		where: { id },
+		create: {
+			id,
+			name,
+			email,
 			emailVerified: true,
 			createdAt: daysAgo(30),
 			updatedAt: daysAgo(1),
 		},
+		update: { name, email },
 	});
-
-	await db.member.create({
-		data: {
-			id: `member-${DEMO_USER_ID}`,
-			organizationId: org.id,
-			userId: user.id,
-			role: "admin",
+	await db.member.upsert({
+		where: {
+			organizationId_userId: { organizationId: DEMO_ORG_ID, userId: id },
+		},
+		create: {
+			id: `member-${id}`,
+			organizationId: DEMO_ORG_ID,
+			userId: id,
+			role: "member",
 			createdAt: daysAgo(30),
 		},
+		update: {},
 	});
+	return user;
+}
+
+export async function seedDemoOrg(): Promise<void> {
+	await resetDemoOrg();
+
+	console.log(
+		`\nSeeding ${DEMO_ORG_NAME} demo workspace (${DEMO_ORG_SLUG})...`,
+	);
+
+	const onboarded = JSON.stringify({ onboardedAt: daysAgo(30).toISOString() });
+	await db.organization.upsert({
+		where: { id: DEMO_ORG_ID },
+		create: {
+			id: DEMO_ORG_ID,
+			name: DEMO_ORG_NAME,
+			slug: DEMO_ORG_SLUG,
+			createdAt: daysAgo(30),
+			website: "https://northwind.example",
+			metadata: onboarded,
+		},
+		update: {
+			name: DEMO_ORG_NAME,
+			slug: DEMO_ORG_SLUG,
+			website: "https://northwind.example",
+		},
+	});
+
+	// The judge signs in; deals belong to a rep so drafts are signed by a
+	// salesperson, never by the judge account.
+	await upsertDemoUser(DEMO_USER_ID, "Judge Reviewer", DEMO_USER_EMAIL);
+	const user = await upsertDemoUser(DEMO_REP_ID, DEMO_REP_NAME, DEMO_REP_EMAIL);
 
 	await writeRevivalSlas(db, {
 		UNQUALIFIED_TO_BUY: 3,
@@ -89,11 +115,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "San Francisco",
 			countryCode: "US",
 			companyName: "Acme Cloud Inc",
-			domain: "acmecloud.com",
+			domain: "acmecloud.example",
 			contactFirst: "David",
 			contactLast: "Miller",
 			contactPhone: "+1 415 555 0192",
-			contactEmail: "david.miller@acmecloud.com",
+			contactEmail: "david.miller@acmecloud.example",
 			timezone: "America/Los_Angeles",
 			language: "en",
 			optedOut: false,
@@ -142,11 +168,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "New York",
 			countryCode: "US",
 			companyName: "FinTech Scale Corp",
-			domain: "fintechscale.io",
+			domain: "fintechscale.example",
 			contactFirst: "Sarah",
 			contactLast: "Jenkins",
 			contactPhone: "+1 212 555 8391",
-			contactEmail: "s.jenkins@fintechscale.io",
+			contactEmail: "s.jenkins@fintechscale.example",
 			timezone: "America/New_York",
 			language: "en",
 			optedOut: false,
@@ -182,20 +208,20 @@ export async function seedDemoOrg(): Promise<void> {
 			},
 		},
 		{
-			id: "demo-deal-3-monzo",
-			name: "Monzo Systems Ltd",
+			id: "demo-deal-3-kestrel",
+			name: "Kestrel Payments Ltd",
 			stage: DealStage.CONTRACT_SENT,
 			amount: 95000,
 			currency: "GBP",
 			country: "United Kingdom",
 			city: "London",
 			countryCode: "GB",
-			companyName: "Monzo Systems Ltd",
-			domain: "monzosystems.co.uk",
+			companyName: "Kestrel Payments Ltd",
+			domain: "kestrelpayments.example",
 			contactFirst: "Alistair",
-			contactLast: "Campbell",
+			contactLast: "Hughes",
 			contactPhone: "+44 20 7946 0912",
-			contactEmail: "a.campbell@monzosystems.co.uk",
+			contactEmail: "a.hughes@kestrelpayments.example",
 			timezone: "Europe/London",
 			language: "en",
 			optedOut: false,
@@ -225,10 +251,10 @@ export async function seedDemoOrg(): Promise<void> {
 				},
 			],
 			stalled: {
-				reason: "Unanswered pricing question exceeded SLA in CONTRACT_SENT",
+				reason:
+					"Unanswered pricing question from the lead (Proposal stage, SLA 5 days)",
 				strategy: "answer_or_route",
-				draftText:
-					"Subject: Clarification on multi-region failover\n\nHello Alistair,\n\nI wanted to confirm that multi-region data failover is fully included in your £95k enterprise package with zero hidden fees. Let me know if you would like me to update the agreement schedule accordingly.\n\nBest regards,\nJudge Reviewer\nNorthwind Systems",
+				draftText: `Subject: Multi-region failover in the £95k annual tier\n\nHello Alistair,\n\nThank you for your question on whether multi-region data failover is included in the £95k annual tier or billed separately. I am confirming the exact answer with our solutions team and will come back to you in writing, so the agreement schedule reflects it correctly.\n\nWould a short call this week help to walk through the SLA schedule together?\n\nBest regards,\n${SIGNATURE}`,
 			},
 		},
 		{
@@ -241,11 +267,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "Cambridge",
 			countryCode: "GB",
 			companyName: "Cambridge AI Diagnostics",
-			domain: "cambridge-ai.org.uk",
+			domain: "cambridge-ai.example",
 			contactFirst: "Fiona",
 			contactLast: "Gallagher",
 			contactPhone: "+44 1223 555 019",
-			contactEmail: "fiona@cambridge-ai.org.uk",
+			contactEmail: "fiona@cambridge-ai.example",
 			timezone: "Europe/London",
 			language: "en",
 			optedOut: false,
@@ -278,11 +304,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "Munich",
 			countryCode: "DE",
 			companyName: "Klaus & Weber Industrietechnik GmbH",
-			domain: "klausweber-industrie.de",
+			domain: "klausweber-industrie.example",
 			contactFirst: "Klaus",
 			contactLast: "Weber",
 			contactPhone: "+49 89 2441 5501",
-			contactEmail: "k.weber@klausweber-industrie.de",
+			contactEmail: "k.weber@klausweber-industrie.example",
 			timezone: "Europe/Berlin",
 			language: "de",
 			optedOut: false,
@@ -312,27 +338,27 @@ export async function seedDemoOrg(): Promise<void> {
 				},
 			],
 			stalled: {
-				reason: "Inactivity exceeded 4 days in stage UNQUALIFIED_TO_BUY",
+				reason: "No reply for 4 days in the Lead stage (SLA 3 days)",
 				strategy: "confirm_next_step",
 				draftText:
-					"Betreff: Spezifikationen und nächste Schritte\n\nGuten Tag Herr Weber,\n\nich wollte kurz nachfragen, ob Sie Zeit für ein kurzes Telefonat zu den Konditionen und unseren Zertifizierungen haben.\n\nMit freundlichen Grüßen,\nJudge Reviewer\nNorthwind Systems",
+					"Betreff: Spezifikationen und nächste Schritte\n\nGuten Tag Herr Weber,\n\nich wollte kurz nachfragen, ob Sie Zeit für ein kurzes Telefonat zu den Konditionen und unseren Zertifizierungen haben.\n\nMit freundlichen Grüßen,\nAlex Morgan\nNorthwind Systems",
 			},
 		},
 		{
-			id: "demo-deal-6-siemens",
-			name: "Siemens Mobility AG",
+			id: "demo-deal-6-vossberg",
+			name: "Vossberg Mobility AG",
 			stage: DealStage.CLOSED_WON,
 			amount: 320000,
 			currency: "EUR",
 			country: "Germany",
 			city: "Munich",
 			countryCode: "DE",
-			companyName: "Siemens Mobility AG",
-			domain: "siemens.com",
+			companyName: "Vossberg Mobility AG",
+			domain: "vossberg-mobility.example",
 			contactFirst: "Stefan",
 			contactLast: "Meier",
 			contactPhone: "+49 30 8392 4110",
-			contactEmail: "stefan.meier@siemens.com",
+			contactEmail: "stefan.meier@vossberg-mobility.example",
 			timezone: "Europe/Berlin",
 			language: "de",
 			optedOut: false,
@@ -352,7 +378,7 @@ export async function seedDemoOrg(): Promise<void> {
 				},
 			],
 			task: {
-				subject: "Kickoff deployment call with Siemens project lead",
+				subject: "Kickoff deployment call with Vossberg project lead",
 				dueDaysAgo: -2,
 			},
 		},
@@ -366,11 +392,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "Paris",
 			countryCode: "FR",
 			companyName: "Veloce Logistique SAS",
-			domain: "veloce-logistique.fr",
+			domain: "veloce-logistique.example",
 			contactFirst: "Camille",
 			contactLast: "Laurent",
 			contactPhone: "+33 1 42 68 55 00",
-			contactEmail: "c.laurent@veloce-logistique.fr",
+			contactEmail: "c.laurent@veloce-logistique.example",
 			timezone: "Europe/Paris",
 			language: "fr",
 			optedOut: false,
@@ -399,20 +425,20 @@ export async function seedDemoOrg(): Promise<void> {
 			},
 		},
 		{
-			id: "demo-deal-8-dassault",
-			name: "Dassault Systems Partners",
+			id: "demo-deal-8-lumiere",
+			name: "Lumière Systèmes Partenaires",
 			stage: DealStage.CONTRACT_SENT,
 			amount: 210000,
 			currency: "EUR",
 			country: "France",
 			city: "Paris",
 			countryCode: "FR",
-			companyName: "Dassault Systems Partners",
-			domain: "dassault-partners.fr",
+			companyName: "Lumière Systèmes Partenaires",
+			domain: "lumiere-systemes.example",
 			contactFirst: "Marc",
 			contactLast: "Dupont",
 			contactPhone: "+33 1 53 10 22 00",
-			contactEmail: "m.dupont@dassault-partners.fr",
+			contactEmail: "m.dupont@lumiere-systemes.example",
 			timezone: "Europe/Paris",
 			language: "fr",
 			optedOut: false,
@@ -432,27 +458,27 @@ export async function seedDemoOrg(): Promise<void> {
 				},
 			],
 			stalled: {
-				reason: "Proposal inactive for 6 days exceeding 5-day SLA",
+				reason: "No reply for 7 days in the Proposal stage (SLA 5 days)",
 				strategy: "confirm_next_step",
 				draftText:
-					"Objet: Suivi de notre proposition tarifaire\n\nBonjour Marc,\n\nJe voulais faire un suivi concernant notre proposition transmise la semaine dernière. Êtes-vous disponible pour un court échange afin de répondre à vos questions ?\n\nCordialement,\nJudge Reviewer\nNorthwind Systems",
+					"Objet: Suivi de notre proposition tarifaire\n\nBonjour Marc,\n\nJe voulais faire un suivi concernant notre proposition transmise la semaine dernière. Êtes-vous disponible pour un court échange afin de répondre à vos questions ?\n\nCordialement,\nAlex Morgan\nNorthwind Systems",
 			},
 		},
 		{
-			id: "demo-deal-9-alfuttaim",
-			name: "Al-Futtaim Logistics Tech",
+			id: "demo-deal-9-alnoor",
+			name: "Al-Noor Logistics Tech",
 			stage: DealStage.DECISION_MAKER_BOUGHT_IN,
 			amount: 450000,
 			currency: "AED",
 			country: "United Arab Emirates",
 			city: "Dubai",
 			countryCode: "AE",
-			companyName: "Al-Futtaim Logistics Tech",
-			domain: "alfuttaim-logistics.ae",
+			companyName: "Al-Noor Logistics Tech",
+			domain: "alnoor-logistics.example",
 			contactFirst: "Tariq",
 			contactLast: "Mansoor",
 			contactPhone: "+971 4 208 5555",
-			contactEmail: "t.mansoor@alfuttaim-logistics.ae",
+			contactEmail: "t.mansoor@alnoor-logistics.example",
 			timezone: "Asia/Dubai",
 			language: "en",
 			optedOut: false,
@@ -491,11 +517,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "Abu Dhabi",
 			countryCode: "AE",
 			companyName: "Emirates Retail Solutions",
-			domain: "emiratesretail.ae",
+			domain: "emiratesretail.example",
 			contactFirst: "Aisha",
 			contactLast: "Al-Hashemi",
 			contactPhone: "+971 2 444 8900",
-			contactEmail: "aisha@emiratesretail.ae",
+			contactEmail: "aisha@emiratesretail.example",
 			timezone: "Asia/Dubai",
 			language: "en",
 			optedOut: true,
@@ -516,20 +542,20 @@ export async function seedDemoOrg(): Promise<void> {
 			],
 		},
 		{
-			id: "demo-deal-11-singapay",
-			name: "SingaPay Digital",
+			id: "demo-deal-11-merlion",
+			name: "Merlion Pay Digital",
 			stage: DealStage.DEMO_BOOKED,
 			amount: 175000,
 			currency: "SGD",
 			country: "Singapore",
 			city: "Singapore",
 			countryCode: "SG",
-			companyName: "SingaPay Digital Pte Ltd",
-			domain: "singapay.com.sg",
+			companyName: "Merlion Pay Digital Pte Ltd",
+			domain: "merlionpay.example",
 			contactFirst: "Kenneth",
 			contactLast: "Tan",
 			contactPhone: "+65 6789 0123",
-			contactEmail: "kenneth.tan@singapay.com.sg",
+			contactEmail: "kenneth.tan@merlionpay.example",
 			timezone: "Asia/Singapore",
 			language: "en",
 			optedOut: false,
@@ -563,11 +589,11 @@ export async function seedDemoOrg(): Promise<void> {
 			city: "Mumbai",
 			countryCode: "IN",
 			companyName: "Apex Cloud Enterprise India Ltd",
-			domain: "apexcloud.in",
+			domain: "apexcloud.example",
 			contactFirst: "Rajesh",
 			contactLast: "Sharma",
 			contactPhone: "+91 98200 12345",
-			contactEmail: "rsharma@apexcloud.in",
+			contactEmail: "rsharma@apexcloud.example",
 			timezone: "Asia/Kolkata",
 			language: "en",
 			optedOut: false,
@@ -657,8 +683,9 @@ export async function seedDemoOrg(): Promise<void> {
 			});
 		}
 
+		const factIds: string[] = [];
 		for (const fact of data.facts) {
-			await db.contactFact.create({
+			const created = await db.contactFact.create({
 				data: {
 					dealId: deal.id,
 					contactId: contact.id,
@@ -667,11 +694,12 @@ export async function seedDemoOrg(): Promise<void> {
 					score: 0.95,
 					band: FactBand.VERIFIED,
 					status: FactStatus.APPLIED,
-					method: "intake-pipeline",
+					// Seeded, not extracted: the ledger says so.
+					method: "demo-seed",
 					evidence: [
 						{
 							evidenceId: `ev_${randomUUID().slice(0, 8)}`,
-							kind: "communication.inbound",
+							kind: "whatsapp.message",
 							quote: fact.quote,
 							weight: 0.95,
 							primary: true,
@@ -679,6 +707,7 @@ export async function seedDemoOrg(): Promise<void> {
 					],
 				},
 			});
+			factIds.push(created.id);
 		}
 
 		if ("task" in data && data.task) {
@@ -704,24 +733,22 @@ export async function seedDemoOrg(): Promise<void> {
 					status: OutboundDraftStatus.PENDING_APPROVAL,
 					stalledReason: data.stalled.reason,
 					strategy: data.stalled.strategy,
-					contextRationale: `Deal inactive in ${data.stage} stage exceeding SLA.`,
+					contextRationale: `Deal inactive in the ${formatDealStage(data.stage)} stage beyond its SLA.`,
 					draftText: data.stalled.draftText,
 					confidence: 0.92,
 					priorityScore: 78,
-					citedEvidence: [
-						{
-							evidenceId: `ev_draft_${randomUUID().slice(0, 6)}`,
-							kind: "communication.inbound",
-							quote: data.facts[0]?.quote ?? data.messages[0]?.body ?? "",
-						},
-					],
+					citedEvidence: data.facts.slice(0, 2).map((fact, i) => ({
+						evidenceId: factIds[i],
+						kind: "fact",
+						quote: `${fact.field}: ${fact.value}`,
+					})),
 				},
 			});
 		}
 	}
 
 	console.log(
-		`Successfully seeded Northwind Systems with ${dealsData.length} global deals across US, UK, DE, FR, UAE, SG, IN!`,
+		`Seeded ${DEMO_ORG_NAME} with ${dealsData.length} global deals across US, UK, DE, FR, UAE, SG, IN!`,
 	);
 }
 

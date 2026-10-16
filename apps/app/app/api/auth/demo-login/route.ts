@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { SESSION_COOKIE_NAME } from "@crm/auth";
 import { db } from "@crm/db";
 import { cookies } from "next/headers";
@@ -31,7 +31,28 @@ function checkRateLimit(ip: string): boolean {
 	return true;
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+
+// Better Auth reads `__Secure-<prefix>.session_token` when secure cookies are
+// on (production) and only accepts a value signed with BETTER_AUTH_SECRET.
+const COOKIE_NAME = isProduction
+	? `__Secure-${SESSION_COOKIE_NAME}`
+	: SESSION_COOKIE_NAME;
+
+function signedSessionToken(token: string, secret: string): string {
+	const signature = createHmac("sha256", secret).update(token).digest("base64");
+	return `${token}.${signature}`;
+}
+
 export async function POST(req: NextRequest) {
+	const secret = process.env.BETTER_AUTH_SECRET;
+	if (!secret) {
+		return NextResponse.json(
+			{ error: "Demo login is not configured." },
+			{ status: 503 },
+		);
+	}
+
 	const ip =
 		req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
 		req.headers.get("x-real-ip") ||
@@ -81,11 +102,11 @@ export async function POST(req: NextRequest) {
 	});
 
 	const cookieStore = await cookies();
-	cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
+	cookieStore.set(COOKIE_NAME, signedSessionToken(sessionToken, secret), {
 		httpOnly: true,
 		path: "/",
 		sameSite: "lax",
-		secure: process.env.NODE_ENV === "production",
+		secure: isProduction,
 		expires: sessionExpiry,
 	});
 

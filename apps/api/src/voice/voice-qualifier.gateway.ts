@@ -1,7 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { URL } from "node:url";
-import { auth, WORKSPACE_ID } from "@crm/auth";
+import { auth, env, WORKSPACE_ID } from "@crm/auth";
 import type { Db } from "@crm/db";
 import {
 	Injectable,
@@ -16,6 +16,7 @@ import {
 	type LiveSessionBridge,
 	VoiceQualifierService,
 } from "./voice-qualifier.service";
+import { verifyVoiceTicket } from "./voice-ticket";
 
 @Injectable()
 export class VoiceQualifierGateway implements OnApplicationBootstrap {
@@ -61,6 +62,28 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 		);
 	}
 
+	/**
+	 * Who is calling. A ticket from `voice.liveTicket` is the normal path; a
+	 * session cookie also works when the socket shares the API's origin, but
+	 * only from a trusted origin, so another site cannot ride the cookie.
+	 */
+	private async authenticate(
+		req: IncomingMessage,
+		url: URL,
+		dealId: string,
+	): Promise<string | null> {
+		const ticket = url.searchParams.get("ticket");
+		if (ticket) return verifyVoiceTicket(ticket, dealId)?.userId ?? null;
+
+		const origin = req.headers.origin;
+		if (!origin || !env.trustedOrigins.includes(origin)) return null;
+
+		const session = await auth.api
+			.getSession({ headers: fromNodeHeaders(req.headers) })
+			.catch(() => null);
+		return session?.user?.id ?? null;
+	}
+
 	private async handleConnection(ws: WebSocket, req: IncomingMessage) {
 		const url = new URL(
 			req.url || "",
@@ -79,38 +102,32 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 			return;
 		}
 
-		let orgId: string | undefined;
-		const isProd = process.env.NODE_ENV === "production";
-
 		try {
-			const session = await auth.api
-				.getSession({ headers: fromNodeHeaders(req.headers) })
-				.catch(() => null);
+			const userId = await this.authenticate(req, url, dealId);
+			const member = userId
+				? await this.db.member.findUnique({
+						where: {
+							organizationId_userId: {
+								organizationId: WORKSPACE_ID,
+								userId,
+							},
+						},
+						select: { organizationId: true },
+					})
+				: null;
 
-			if (session?.user?.id) {
-				const member = await this.db.member.findFirst({
-					where: { userId: session.user.id },
-					select: { organizationId: true },
-				});
-				orgId = member?.organizationId || WORKSPACE_ID;
-			} else if (!isProd) {
-				const org = await this.db.organization.findFirst({
-					where: { id: WORKSPACE_ID },
-					select: { id: true },
-				});
-				orgId = org?.id || WORKSPACE_ID;
-			} else {
+			if (!member) {
 				ws.send(
 					JSON.stringify({
 						type: "error",
-						message: "Unauthorized: Active session required.",
+						message: "Unauthorized: sign in to this workspace to start a call.",
 					}),
 				);
 				ws.close(1008, "Unauthorized");
 				return;
 			}
 
-			const context = await this.voiceService.getDealContext(dealId, orgId);
+			const context = await this.voiceService.getDealContext(dealId);
 
 			ws.send(
 				JSON.stringify({

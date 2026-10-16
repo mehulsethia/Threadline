@@ -89,6 +89,10 @@ export function VoiceQualifierModal({
 		trpc.voice.dealContext.queryOptions({ dealId }, { enabled: open }),
 	);
 
+	const liveTicketMutation = useMutation(
+		trpc.voice.liveTicket.mutationOptions(),
+	);
+
 	useEffect(() => {
 		if (contextQuery.data) {
 			setProposedScore(contextQuery.data.qualificationScore);
@@ -212,14 +216,16 @@ export function VoiceQualifierModal({
 			});
 			micStreamRef.current = stream;
 
-			const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-			const wsHost =
-				process.env.NODE_ENV === "development"
-					? "localhost:3001"
-					: window.location.host;
-			const wsUrl = `${protocol}//${wsHost}/api/voice/live?dealId=${encodeURIComponent(dealId)}`;
+			// A one-minute ticket from the signed-in session opens the socket on
+			// the API host; no credential beyond it reaches the browser.
+			const { ticket, wsUrl } = await liveTicketMutation.mutateAsync({
+				dealId,
+			});
+			const socketUrl = new URL(wsUrl);
+			socketUrl.searchParams.set("dealId", dealId);
+			socketUrl.searchParams.set("ticket", ticket);
 
-			const ws = new WebSocket(wsUrl);
+			const ws = new WebSocket(socketUrl);
 			wsRef.current = ws;
 
 			ws.onopen = () => {
@@ -335,11 +341,21 @@ export function VoiceQualifierModal({
 				}
 			};
 		} catch (err) {
-			console.error("Microphone access failed", err);
+			console.error("Could not start the live call", err);
 			setStatus("error");
-			toast.error("Microphone access denied or audio device unavailable.");
+			toast.error(
+				"Could not start the live call (microphone or connection). Try the fallback recorder.",
+			);
 		}
-	}, [dealId, muted, playAudioChunk, status, cache, endCall]);
+	}, [
+		dealId,
+		muted,
+		playAudioChunk,
+		status,
+		cache,
+		endCall,
+		liveTicketMutation,
+	]);
 
 	const transcribeMutation = useMutation(
 		trpc.voice.transcribeQualify.mutationOptions({

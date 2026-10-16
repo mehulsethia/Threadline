@@ -1,14 +1,16 @@
 import { createDecipheriv, createHash } from "node:crypto";
 import { db, formatDealStage } from "@crm/db";
+import { WORKSPACE_ID } from "@crm/db/workspace";
 
 function decryptBotToken(encryptedPayload: string): string {
 	const parts = encryptedPayload.split(":");
 	if (parts.length !== 3) return encryptedPayload;
 	const [ivHex, tagHex, contentHex] = parts;
 	const secret =
-		process.env.SLACK_STATE_SECRET ||
-		process.env.BETTER_AUTH_SECRET ||
-		"default-secret-key-32-chars-long!!";
+		process.env.SLACK_STATE_SECRET || process.env.BETTER_AUTH_SECRET;
+	if (!secret) {
+		throw new Error("SLACK_STATE_SECRET or BETTER_AUTH_SECRET must be set.");
+	}
 	const key = createHash("sha256").update(secret).digest();
 	const iv = Buffer.from(ivHex as string, "hex");
 	const tag = Buffer.from(tagHex as string, "hex");
@@ -38,10 +40,18 @@ export async function postDraftToSlack(draftId: string): Promise<{
 	}
 
 	const install = await db.slackInstallation.findFirst({
+		where: {
+			OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+		},
 		orderBy: { createdAt: "desc" },
 	});
 
-	let botToken = process.env.SLACK_BOT_TOKEN;
+	// The env token is a local Socket Mode convenience; in production a
+	// workspace posts only through its own OAuth installation.
+	let botToken =
+		process.env.NODE_ENV === "production"
+			? undefined
+			: process.env.SLACK_BOT_TOKEN;
 	if (install?.botToken) {
 		try {
 			botToken = decryptBotToken(install.botToken);
@@ -54,28 +64,13 @@ export async function postDraftToSlack(draftId: string): Promise<{
 		return { posted: false, reason: "No Slack bot token available." };
 	}
 
-	let channel = install?.alertsChannelId;
+	// Only the channel an admin picked in settings; never a guessed one.
+	const channel = install?.alertsChannelId;
 	if (!channel) {
-		try {
-			const res = await fetch(
-				"https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=100",
-				{ headers: { authorization: `Bearer ${botToken}` } },
-			);
-			const data = (await res.json()) as {
-				ok: boolean;
-				channels?: Array<{ id: string; name: string }>;
-			};
-			if (data.ok && data.channels) {
-				const threadlineDeals = data.channels.find(
-					(c) => c.name === "threadline-deals" || c.name === "deals",
-				);
-				channel = threadlineDeals?.id || data.channels[0]?.id;
-			}
-		} catch {}
-	}
-
-	if (!channel) {
-		return { posted: false, reason: "No destination channel found in Slack." };
+		return {
+			posted: false,
+			reason: "No Slack alerts channel selected in settings.",
+		};
 	}
 
 	const quotes: string[] = [];

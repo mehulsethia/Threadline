@@ -7,6 +7,16 @@ import {
 	timingSafeEqual,
 } from "node:crypto";
 
+/** The key for Slack token encryption and OAuth state; there is no default. */
+export function slackSecret(): string {
+	const secret =
+		process.env.SLACK_STATE_SECRET || process.env.BETTER_AUTH_SECRET;
+	if (!secret) {
+		throw new Error("SLACK_STATE_SECRET or BETTER_AUTH_SECRET must be set.");
+	}
+	return secret;
+}
+
 export type SlackOAuthState = {
 	orgId: string;
 	userId: string;
@@ -15,11 +25,7 @@ export type SlackOAuthState = {
 };
 
 function getEncryptionKey(): Buffer {
-	const secret =
-		process.env.SLACK_STATE_SECRET ||
-		process.env.BETTER_AUTH_SECRET ||
-		"default-secret-key-32-chars-long!!";
-	return createHash("sha256").update(secret).digest();
+	return createHash("sha256").update(slackSecret()).digest();
 }
 
 export function encryptToken(plainText: string): string {
@@ -49,10 +55,7 @@ export function decryptToken(encryptedPayload: string): string {
 }
 
 export function signSlackState(payload: SlackOAuthState): string {
-	const secret =
-		process.env.SLACK_STATE_SECRET ||
-		process.env.BETTER_AUTH_SECRET ||
-		"default-slack-state-secret";
+	const secret = slackSecret();
 	const jsonStr = JSON.stringify(payload);
 	const dataB64 = Buffer.from(jsonStr, "utf8").toString("base64url");
 	const signature = createHmac("sha256", secret)
@@ -67,10 +70,7 @@ export function verifySlackState(stateString: string): SlackOAuthState | null {
 	const [dataB64, signature] = parts;
 	if (!dataB64 || !signature) return null;
 
-	const secret =
-		process.env.SLACK_STATE_SECRET ||
-		process.env.BETTER_AUTH_SECRET ||
-		"default-slack-state-secret";
+	const secret = slackSecret();
 	const expected = createHmac("sha256", secret)
 		.update(dataB64)
 		.digest("base64url");

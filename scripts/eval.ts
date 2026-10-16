@@ -1,510 +1,410 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+/**
+ * Intake accuracy evaluation against hand-made gold labels.
+ *
+ * Runs the real intake pipeline (Gemini on Vertex) over each fixture in a
+ * dedicated, freshly migrated database, then scores what the job itself
+ * created. Nothing is looked up by the expected answer, quotes must appear
+ * verbatim in the source, and every PASS/FAIL is computed.
+ *
+ *   DATABASE_URL=postgresql://.../crm_eval bun scripts/eval.ts
+ */
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { db } from "../packages/db/src";
 import { AgentTriggerService } from "../apps/api/src/agent/agent-trigger.service";
 import { IntakeService } from "../apps/api/src/intake/intake.service";
 import { runAdkIntakeTask } from "../apps/agent/adk/intake/agent";
+import { ActivityType, db } from "../packages/db/src";
+import { WORKSPACE_ID } from "../packages/db/src/workspace";
 
-type GoldContact = {
-	name: string;
-	city?: string;
-	role?: string;
-};
-
-type GoldCompany = {
-	name: string | null;
-	isSeller?: boolean;
-	sellerName?: string;
-};
+type Groups = string[][];
 
 type GoldFixture = {
 	id: string;
 	sourceFile: string;
-	expectedContact: GoldContact;
-	expectedCompany: GoldCompany;
-	expectedAmount: number;
-	expectedCurrency: string;
-	expectedStage: string;
-	expectedObjections: string[];
-	expectedNextTask: {
-		subject: string;
-		relativeTime?: string;
-	} | null;
+	contact: { name: string };
+	company: { name: string | null; sellerName?: string };
+	amount: { value: number; currency: string };
+	stage: { value: string };
+	nextTask: { groups: Groups };
+	objections: Array<{ groups: Groups }>;
 };
 
-type GoldLabelsFile = {
-	fixtures: GoldFixture[];
-	demoDeals: Array<{
-		id: string;
-		name: string;
-		expectedContact: { name: string; city: string };
-		expectedCompany: { name: string };
-		expectedAmount: number;
-		expectedCurrency: string;
-		expectedStage: string;
-		expectedObjections: string[];
-		expectedNextTask: { subject: string } | null;
-	}>;
-};
+type Check = { field: string; expected: string; got: string; pass: boolean };
 
-type FixtureEvalResult = {
-	fixtureId: string;
+type FixtureResult = {
+	id: string;
 	sourceFile: string;
-	contactMatch: boolean;
-	companyMatch: boolean;
-	amountMatch: boolean;
-	currencyMatch: boolean;
-	stageMatch: boolean;
-	objectionsMatch: boolean;
-	taskMatch: boolean;
-	totalFields: number;
-	correctFields: number;
-	totalQuotes: number;
-	verifiedQuotes: number;
-	totalInferences: number;
-	correctlyProposedInferences: number;
-	extractedValues: {
-		contactName: string;
-		companyName: string | null;
-		amount: number | null;
-		currency: string | null;
-		stage: string | null;
-		objectionsCount: number;
-		taskSubject: string | null;
-	};
+	jobStatus: string;
+	checks: Check[];
+	quotes: { total: number; verified: number; failures: string[] };
+	inferences: { total: number; proposed: number; appliedFields: string[] };
 };
 
-function normalizeText(text: string): string {
+const INFERENCE_KINDS = new Set(["agent.inference", "web.grounded"]);
+const EVAL_EMAIL = "eval@threadline.example";
+const EVAL_USER_ID = "user-eval";
+
+function assertEvalDatabase(): void {
+	const url = process.env.DATABASE_URL ?? "";
+	const name = url.split("/").pop()?.split("?")[0] ?? "";
+	if (!name.includes("eval")) {
+		throw new Error(
+			`Refusing to run: DATABASE_URL points at "${name}". Use a dedicated database whose name contains "eval".`,
+		);
+	}
+}
+
+function normalize(text: string): string {
 	return text
+		.normalize("NFC")
 		.toLowerCase()
-		.replace(/[\u2018\u2019]/g, "'")
-		.replace(/[\u201C\u201D]/g, '"')
+		.replace(/[‘’]/g, "'")
+		.replace(/[“”]/g, '"')
 		.replace(/\s+/g, " ")
 		.trim();
 }
 
-async function findTaskForJob(jobId: string) {
-	const tasks = await db.agentTask.findMany({
-		where: { kind: "intake", finishedAt: null },
-		orderBy: { createdAt: "desc" },
-	});
-	return tasks.find(
-		(t) =>
-			t.payload &&
-			typeof t.payload === "object" &&
-			(t.payload as Record<string, unknown>).jobId === jobId,
+function fullName(c: { firstName: string; lastName: string | null }): string {
+	return `${c.firstName} ${c.lastName ?? ""}`.trim();
+}
+
+function matchesGroups(text: string, groups: Groups): boolean {
+	const hay = normalize(text);
+	return groups.every((alternatives) =>
+		alternatives.some((alt) => hay.includes(alt.toLowerCase())),
 	);
 }
 
-async function ensureFixtureIngested(fixture: GoldFixture): Promise<void> {
-	const firstName = fixture.expectedContact.name.split(" ")[0];
-	const existing = await db.contact.findFirst({
-		where: { firstName: { contains: firstName } },
-		select: { id: true },
-	});
-	if (existing) return;
+/** The quote inside an intake evidence item: `"<quote>" (speaker: X)`. */
+function quoteOf(item: Record<string, unknown>): string | null {
+	if (typeof item.quote === "string") return item.quote;
+	if (typeof item.detail !== "string") return null;
+	const match = item.detail.match(/^"([\s\S]*)" \(speaker: [^)]*\)$/);
+	return match?.[1] ?? null;
+}
 
-	console.log(`Ingesting missing fixture: ${fixture.sourceFile}...`);
-	const filePath = resolve(fixture.sourceFile);
-	const fileBytes = readFileSync(filePath);
-
-	const triggerService = new AgentTriggerService(db);
-	const intakeService = new IntakeService(db, triggerService);
-
-	const upload = await intakeService.uploadAndCreateJob(
-		{
-			originalname: fixture.sourceFile.split("/").pop()!,
-			buffer: fileBytes,
-			mimetype: "text/plain",
-			size: fileBytes.length,
+async function ensureWorkspace(): Promise<void> {
+	await db.organization.upsert({
+		where: { id: WORKSPACE_ID },
+		create: {
+			id: WORKSPACE_ID,
+			name: "Threadline Eval",
+			slug: "threadline-eval",
+			createdAt: new Date(),
 		},
-		{ autoStart: false },
+		update: {},
+	});
+	await db.user.upsert({
+		where: { id: EVAL_USER_ID },
+		create: {
+			id: EVAL_USER_ID,
+			name: "Eval Runner",
+			email: EVAL_EMAIL,
+			emailVerified: true,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		},
+		update: {},
+	});
+}
+
+async function ingest(sourceFile: string): Promise<string> {
+	const bytes = readFileSync(resolve(sourceFile));
+	const intake = new IntakeService(db, new AgentTriggerService(db));
+
+	const upload = await intake.uploadAndCreateJob(
+		{
+			originalname: sourceFile.split("/").pop() ?? sourceFile,
+			buffer: bytes,
+			mimetype: "text/plain",
+			size: bytes.length,
+		},
+		{ autoStart: false, userId: EVAL_USER_ID },
 	);
+	const preview = await intake.previewParticipants({ jobId: upload.jobId });
+	await intake.start({ jobId: upload.jobId, me: preview.me });
 
-	const preview = await intakeService.previewParticipants({
-		jobId: upload.jobId,
+	const task = (
+		await db.agentTask.findMany({
+			where: { kind: "intake", finishedAt: null },
+			orderBy: { createdAt: "desc" },
+		})
+	).find(
+		(t) =>
+			(t.payload as Record<string, unknown> | null)?.jobId === upload.jobId,
+	);
+	if (!task) throw new Error(`No intake task queued for ${sourceFile}.`);
+
+	// biome-ignore lint/suspicious/noExplicitAny: the leased-task shape is internal to the agent.
+	await runAdkIntakeTask(task as any);
+	return upload.jobId;
+}
+
+async function scoreFixture(gold: GoldFixture): Promise<FixtureResult> {
+	console.log(`\nIngesting ${gold.sourceFile}...`);
+	const jobId = await ingest(gold.sourceFile);
+	const job = await db.intakeJob.findUniqueOrThrow({ where: { id: jobId } });
+
+	const deal = job.createdDealIds[0]
+		? await db.deal.findUnique({
+				where: { id: job.createdDealIds[0] },
+				include: { company: true, contacts: { include: { contact: true } } },
+			})
+		: null;
+	const contacts = await db.contact.findMany({
+		where: { id: { in: job.createdContactIds } },
+		include: { company: true },
+	});
+	const people = deal ? deal.contacts.map((dc) => dc.contact) : contacts;
+	const contactIds = [
+		...new Set([...people.map((p) => p.id), ...job.createdContactIds]),
+	];
+
+	const factWhere = {
+		OR: [
+			{ contactId: { in: contactIds } },
+			...(deal ? [{ dealId: deal.id }] : []),
+		],
+	};
+	const facts = await db.contactFact.findMany({ where: factWhere });
+	const tasks = await db.activity.findMany({
+		where: { ...factWhere, type: ActivityType.TASK },
 	});
 
-	await intakeService.start({
-		jobId: upload.jobId,
-		me: preview.me,
+	const checks: Check[] = [];
+	const names = people.map(fullName);
+	checks.push({
+		field: "contact",
+		expected: gold.contact.name,
+		got: names.join(", ") || "(none)",
+		pass: names.some((n) => normalize(n) === normalize(gold.contact.name)),
 	});
 
-	const task = await findTaskForJob(upload.jobId);
-	if (task) {
-		await runAdkIntakeTask(task as any);
+	const companyName =
+		deal?.company?.name ??
+		contacts.find((c) => c.company)?.company?.name ??
+		null;
+	checks.push({
+		field: "company",
+		expected: gold.company.name ?? `(none; not ${gold.company.sellerName})`,
+		got: companyName ?? "(none)",
+		pass:
+			gold.company.name === null
+				? !companyName ||
+					normalize(companyName) !== normalize(gold.company.sellerName ?? "")
+				: normalize(companyName ?? "") === normalize(gold.company.name),
+	});
+
+	const amount = deal?.amount == null ? null : Number(deal.amount);
+	checks.push({
+		field: "amount",
+		expected: String(gold.amount.value),
+		got: String(amount),
+		pass: amount === gold.amount.value,
+	});
+	checks.push({
+		field: "currency",
+		expected: gold.amount.currency,
+		got: deal?.currency ?? "(none)",
+		pass: (deal?.currency ?? "").toUpperCase() === gold.amount.currency,
+	});
+	checks.push({
+		field: "stage",
+		expected: gold.stage.value,
+		got: deal?.stage ?? "(none)",
+		pass: deal?.stage === gold.stage.value,
+	});
+
+	const openTasks = tasks.filter((t) => !t.completedAt && t.subject);
+	checks.push({
+		field: "nextTask",
+		expected: gold.nextTask.groups.map((g) => g.join(" or ")).join(" + "),
+		got: openTasks.map((t) => t.subject).join(" / ") || "(none)",
+		pass: openTasks.some((t) =>
+			matchesGroups(t.subject ?? "", gold.nextTask.groups),
+		),
+	});
+
+	const objectionFacts = facts.filter((f) =>
+		/objection|requirement|concern|blocker|compliance/i.test(f.field),
+	);
+	gold.objections.forEach((objection, i) => {
+		checks.push({
+			field: `objection ${i + 1}`,
+			expected: objection.groups.map((g) => g.join(" or ")).join(" + "),
+			got: objectionFacts.map((f) => f.value).join(" / ") || "(none)",
+			pass: objectionFacts.some((f) =>
+				matchesGroups(f.value, objection.groups),
+			),
+		});
+	});
+
+	const source = normalize(readFileSync(resolve(gold.sourceFile), "utf8"));
+	const quotes = { total: 0, verified: 0, failures: [] as string[] };
+	const inferences = { total: 0, proposed: 0, appliedFields: [] as string[] };
+
+	for (const fact of facts) {
+		const evidence = Array.isArray(fact.evidence) ? fact.evidence : [];
+		let inferred = false;
+		for (const raw of evidence) {
+			if (!raw || typeof raw !== "object") continue;
+			const item = raw as Record<string, unknown>;
+			if (typeof item.kind === "string" && INFERENCE_KINDS.has(item.kind)) {
+				inferred = true;
+			}
+			const quote = quoteOf(item);
+			if (!quote || item.kind === "web.grounded") continue;
+			quotes.total++;
+			if (source.includes(normalize(quote))) {
+				quotes.verified++;
+			} else {
+				quotes.failures.push(`${fact.field}: "${quote.slice(0, 90)}"`);
+			}
+		}
+		if (inferred) {
+			inferences.total++;
+			if (fact.status === "APPLIED") {
+				inferences.appliedFields.push(`${fact.field} = ${fact.value}`);
+			} else {
+				inferences.proposed++;
+			}
+		}
 	}
+
+	return {
+		id: gold.id,
+		sourceFile: gold.sourceFile,
+		jobStatus: job.status,
+		checks,
+		quotes,
+		inferences,
+	};
+}
+
+async function duplicateCheck(sourceFile: string) {
+	const count = async () => ({
+		contacts: await db.contact.count(),
+		deals: await db.deal.count(),
+		messages: await db.whatsAppMessage.count(),
+		tasks: await db.activity.count({ where: { type: ActivityType.TASK } }),
+	});
+	const before = await count();
+	console.log(`\nRe-importing ${sourceFile} to check idempotency...`);
+	await ingest(sourceFile);
+	const after = await count();
+	return {
+		contacts: after.contacts - before.contacts,
+		deals: after.deals - before.deals,
+		messages: after.messages - before.messages,
+		tasks: after.tasks - before.tasks,
+	};
+}
+
+function pct(n: number, d: number): string {
+	return d === 0 ? "n/a" : `${((n / d) * 100).toFixed(1)}%`;
 }
 
 async function main() {
-	console.log("=== THREADLINE ACCURACY EVALUATION (PART G) ===\n");
+	assertEvalDatabase();
+	await ensureWorkspace();
 
-	const goldPath = resolve("test/eval-gold-labels.json");
-	if (!existsSync(goldPath)) {
-		throw new Error(`Gold labels file not found at ${goldPath}`);
+	const gold = JSON.parse(
+		readFileSync(resolve("test/eval-gold-labels.json"), "utf8"),
+	) as { fixtures: GoldFixture[] };
+
+	const results: FixtureResult[] = [];
+	for (const fixture of gold.fixtures) {
+		results.push(await scoreFixture(fixture));
 	}
+	const dupes = await duplicateCheck("fixtures/saas-pipeline-us.txt");
 
-	const goldData: GoldLabelsFile = JSON.parse(readFileSync(goldPath, "utf-8"));
-	const fixtureResults: FixtureEvalResult[] = [];
+	const checks = results.flatMap((r) => r.checks);
+	const coreFields = ["contact", "company", "amount", "currency", "stage"];
+	const core = checks.filter((c) => coreFields.includes(c.field));
+	const taskChecks = checks.filter((c) => c.field === "nextTask");
+	const objectionChecks = checks.filter((c) => c.field.startsWith("objection"));
+	const passed = (list: Check[]) => list.filter((c) => c.pass).length;
 
-	for (const fixture of goldData.fixtures) {
-		await ensureFixtureIngested(fixture);
+	const quotesTotal = results.reduce((a, r) => a + r.quotes.total, 0);
+	const quotesOk = results.reduce((a, r) => a + r.quotes.verified, 0);
+	const infTotal = results.reduce((a, r) => a + r.inferences.total, 0);
+	const infOk = results.reduce((a, r) => a + r.inferences.proposed, 0);
+	const dupTotal = dupes.contacts + dupes.deals + dupes.messages + dupes.tasks;
 
-		const sourceRaw = readFileSync(resolve(fixture.sourceFile), "utf-8");
-		const sourceNormalized = normalizeText(sourceRaw);
+	const summary = [
+		["All scored fields", passed(checks), checks.length],
+		[
+			"Core fields (contact, company, amount, currency, stage)",
+			passed(core),
+			core.length,
+		],
+		["Next task", passed(taskChecks), taskChecks.length],
+		["Objections", passed(objectionChecks), objectionChecks.length],
+		["Evidence quotes found verbatim in the source", quotesOk, quotesTotal],
+		["Inferences held as PROPOSED (not applied)", infOk, infTotal],
+	] as const;
 
-		const firstName = fixture.expectedContact.name.split(" ")[0];
-		const contact = await db.contact.findFirst({
-			where: { firstName: { contains: firstName } },
-			include: { company: true },
-		});
-
-		if (!contact) {
-			console.error(`Contact not found for fixture ${fixture.id}`);
-			continue;
-		}
-
-		const dealContact = await db.dealContact.findFirst({
-			where: { contactId: contact.id },
-			include: { deal: true },
-		});
-		const deal = dealContact?.deal;
-
-		const facts = await db.contactFact.findMany({
-			where: {
-				OR: [
-					{ contactId: contact.id },
-					...(deal ? [{ dealId: deal.id }] : []),
-				],
-			},
-		});
-
-		const tasks = await db.activity.findMany({
-			where: {
-				OR: [
-					{ contactId: contact.id },
-					...(deal ? [{ dealId: deal.id }] : []),
-				],
-				type: "TASK",
-			},
-		});
-
-		const fullName = `${contact.firstName} ${contact.lastName || ""}`.trim();
-		const contactMatch = fullName
-			.toLowerCase()
-			.includes(fixture.expectedContact.name.toLowerCase());
-
-		let companyMatch = false;
-		if (fixture.expectedCompany.name === null) {
-			companyMatch =
-				!contact.company?.name ||
-				contact.company.name !== fixture.expectedCompany.sellerName;
-		} else {
-			companyMatch =
-				contact.company?.name?.toLowerCase() ===
-				fixture.expectedCompany.name.toLowerCase();
-		}
-
-		const extractedAmount = deal?.amount ? Number(deal.amount) : null;
-		const amountMatch = extractedAmount === fixture.expectedAmount;
-		const extractedCurrency = deal?.currency || null;
-		const currencyMatch =
-			extractedCurrency?.toUpperCase() ===
-			fixture.expectedCurrency.toUpperCase();
-
-		const extractedStage = deal?.stage || null;
-		const stageMatch = extractedStage === fixture.expectedStage;
-
-		const objectionFacts = facts.filter(
-			(f) =>
-				f.field.includes("objection") ||
-				f.field.includes("compliance") ||
-				f.value.toLowerCase().includes("concern") ||
-				f.value.toLowerCase().includes("require"),
-		);
-		const objectionsMatch =
-			objectionFacts.length >= fixture.expectedObjections.length;
-
-		const taskMatch =
-			fixture.expectedNextTask === null
-				? tasks.length === 0
-				: tasks.length > 0;
-
-		let totalQuotes = 0;
-		let verifiedQuotes = 0;
-
-		for (const fact of facts) {
-			const evidence = Array.isArray(fact.evidence) ? fact.evidence : [];
-			for (const item of evidence) {
-				if (typeof item === "object" && item) {
-					let rawQuote: string | null = null;
-					if ("quote" in item && typeof (item as any).quote === "string") {
-						rawQuote = (item as any).quote;
-					} else if (
-						"detail" in item &&
-						typeof (item as any).detail === "string"
-					) {
-						const match = (item as any).detail.match(/"([^"]+)"/);
-						if (match?.[1]) {
-							rawQuote = match[1];
-						}
-					}
-
-					if (rawQuote && rawQuote.length > 5) {
-						totalQuotes++;
-						const normalizedQuote = normalizeText(rawQuote);
-						if (sourceNormalized.includes(normalizedQuote)) {
-							verifiedQuotes++;
-						} else {
-							const words = normalizedQuote.split(" ");
-							const subSnippet = words
-								.slice(0, Math.min(5, words.length))
-								.join(" ");
-							if (sourceNormalized.includes(subSnippet)) {
-								verifiedQuotes++;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		let totalInferences = 0;
-		let correctlyProposedInferences = 0;
-
-		for (const fact of facts) {
-			const isInferred =
-				fact.method === "agent.inference" ||
-				fact.field.includes("sentiment") ||
-				fact.field.includes("stageSuggestion") ||
-				fact.field.includes("persona") ||
-				fact.field.includes("qualification");
-
-			if (isInferred) {
-				totalInferences++;
-				if (fact.status === "PROPOSED") {
-					correctlyProposedInferences++;
-				}
-			}
-		}
-
-		const totalFields = 6;
-		let correctFields = 0;
-		if (contactMatch) correctFields++;
-		if (companyMatch) correctFields++;
-		if (amountMatch) correctFields++;
-		if (currencyMatch) correctFields++;
-		if (stageMatch) correctFields++;
-		if (taskMatch) correctFields++;
-
-		fixtureResults.push({
-			fixtureId: fixture.id,
-			sourceFile: fixture.sourceFile,
-			contactMatch,
-			companyMatch,
-			amountMatch,
-			currencyMatch,
-			stageMatch,
-			objectionsMatch,
-			taskMatch,
-			totalFields,
-			correctFields,
-			totalQuotes,
-			verifiedQuotes,
-			totalInferences,
-			correctlyProposedInferences,
-			extractedValues: {
-				contactName: fullName,
-				companyName: contact.company?.name || null,
-				amount: extractedAmount,
-				currency: extractedCurrency,
-				stage: extractedStage,
-				objectionsCount: objectionFacts.length,
-				taskSubject: tasks[0]?.subject || null,
-			},
-		});
+	for (const [label, n, d] of summary) {
+		console.log(`${label}: ${pct(n, d)} (${n}/${d})`);
 	}
+	console.log(`Records duplicated on re-import: ${dupTotal}`, dupes);
 
-	console.log("Running Idempotency Verification on saas-pipeline-us.txt...");
-	const saasFixtureBytes = readFileSync(
-		resolve("fixtures/saas-pipeline-us.txt"),
-	);
-	const messagesBefore = await db.whatsAppMessage.count();
-	const contactsBefore = await db.contact.count({
-		where: { firstName: { contains: "Sarah" } },
-	});
-	const tasksBefore = await db.activity.count({
-		where: { type: "TASK" },
-	});
+	const fixtureSections = results
+		.map((r) => {
+			const rows = r.checks
+				.map(
+					(c) =>
+						`| ${c.field} | ${c.expected} | ${c.got.replace(/\|/g, "/")} | ${c.pass ? "pass" : "**FAIL**"} |`,
+				)
+				.join("\n");
+			const quoteMisses = r.quotes.failures.length
+				? `\n\nQuotes not found verbatim:\n${r.quotes.failures.map((f) => `- ${f}`).join("\n")}`
+				: "";
+			const applied = r.inferences.appliedFields.length
+				? `\n\nInferences that were APPLIED:\n${r.inferences.appliedFields.map((f) => `- ${f}`).join("\n")}`
+				: "";
+			return `### ${r.id} (\`${r.sourceFile}\`, job ${r.jobStatus})
 
-	const triggerService = new AgentTriggerService(db);
-	const intakeService = new IntakeService(db, triggerService);
-
-	const uploadReimport = await intakeService.uploadAndCreateJob(
-		{
-			originalname: "saas-pipeline-us.txt",
-			buffer: saasFixtureBytes,
-			mimetype: "text/plain",
-			size: saasFixtureBytes.length,
-		},
-		{ autoStart: false },
-	);
-
-	const previewReimport = await intakeService.previewParticipants({
-		jobId: uploadReimport.jobId,
-	});
-
-	await intakeService.start({
-		jobId: uploadReimport.jobId,
-		me: previewReimport.me,
-	});
-
-	const taskReimport = await findTaskForJob(uploadReimport.jobId);
-	if (taskReimport) {
-		await runAdkIntakeTask(taskReimport as any);
-	}
-
-	const messagesAfter = await db.whatsAppMessage.count();
-	const contactsAfter = await db.contact.count({
-		where: { firstName: { contains: "Sarah" } },
-	});
-	const tasksAfter = await db.activity.count({
-		where: { type: "TASK" },
-	});
-
-	const messagesDiff = messagesAfter - messagesBefore;
-	const contactsDiff = contactsAfter - contactsBefore;
-	const tasksDiff = tasksAfter - tasksBefore;
-	const duplicateRecords = messagesDiff + contactsDiff + tasksDiff;
-	const duplicateRate = duplicateRecords === 0 ? 0.0 : duplicateRecords;
-
-	const totalFieldsSum = fixtureResults.reduce(
-		(acc, r) => acc + r.totalFields,
-		0,
-	);
-	const correctFieldsSum = fixtureResults.reduce(
-		(acc, r) => acc + r.correctFields,
-		0,
-	);
-	const fieldAccuracyRate = (correctFieldsSum / totalFieldsSum) * 100;
-
-	const totalQuotesSum = fixtureResults.reduce(
-		(acc, r) => acc + r.totalQuotes,
-		0,
-	);
-	const verifiedQuotesSum = fixtureResults.reduce(
-		(acc, r) => acc + r.verifiedQuotes,
-		0,
-	);
-	const quoteVerificationRate =
-		totalQuotesSum > 0 ? (verifiedQuotesSum / totalQuotesSum) * 100 : 100;
-
-	const totalInferencesSum = fixtureResults.reduce(
-		(acc, r) => acc + r.totalInferences,
-		0,
-	);
-	const correctlyProposedSum = fixtureResults.reduce(
-		(acc, r) => acc + r.correctlyProposedInferences,
-		0,
-	);
-	const inferenceProposedRate =
-		totalInferencesSum > 0
-			? (correctlyProposedSum / totalInferencesSum) * 100
-			: 100;
-
-	console.log("\n=======================================================");
-	console.log("THREADLINE ACCURACY EVALUATION RESULTS");
-	console.log("=======================================================");
-	console.log(`Evaluated Fixtures: ${fixtureResults.length}`);
-	console.log(`Field-Level Accuracy: ${fieldAccuracyRate.toFixed(1)}% (${correctFieldsSum}/${totalFieldsSum})`);
-	console.log(`Quote-Verification Rate: ${quoteVerificationRate.toFixed(1)}% (${verifiedQuotesSum}/${totalQuotesSum})`);
-	console.log(`Inference-Correctly-PROPOSED Rate: ${inferenceProposedRate.toFixed(1)}% (${correctlyProposedSum}/${totalInferencesSum})`);
-	console.log(`Duplicate Rate on Re-import: ${duplicateRate.toFixed(1)}% (${duplicateRecords} duplicates)`);
-	console.log("=======================================================\n");
-
-	console.log("DETAILED PER-FIXTURE BREAKDOWN:");
-	for (const r of fixtureResults) {
-		console.log(`\nFixture: ${r.fixtureId} (${r.sourceFile})`);
-		console.log(`  Contact: ${r.extractedValues.contactName} [${r.contactMatch ? "PASS" : "FAIL"}]`);
-		console.log(`  Company: ${r.extractedValues.companyName || "None"} [${r.companyMatch ? "PASS" : "FAIL"}]`);
-		console.log(`  Amount: ${r.extractedValues.amount} ${r.extractedValues.currency} [${r.amountMatch && r.currencyMatch ? "PASS" : "FAIL"}]`);
-		console.log(`  Stage: ${r.extractedValues.stage} [${r.stageMatch ? "PASS" : "FAIL"}]`);
-		console.log(`  Next Task: ${r.extractedValues.taskSubject} [${r.taskMatch ? "PASS" : "FAIL"}]`);
-		console.log(`  Quotes Verified: ${r.verifiedQuotes}/${r.totalQuotes}`);
-		console.log(`  Inferences Proposed: ${r.correctlyProposedInferences}/${r.totalInferences}`);
-	}
-
-	const markdown = `# Threadline Accuracy Evaluation Report
-
-This document reports the empirical evaluation metrics for Threadline's autonomous intake pipeline and evidence ledger across real multilingual B2B conversation fixtures.
-
-## Executive Summary
-
-| Evaluation Metric | Measured Rate | Target | Status |
+| Field | Gold | Pipeline | Result |
 | :--- | :--- | :--- | :--- |
-| **Field-Level Extraction Accuracy** | **${fieldAccuracyRate.toFixed(1)}%** (${correctFieldsSum}/${totalFieldsSum}) | > 90.0% | **PASS** |
-| **Quote-Verification Rate** | **${quoteVerificationRate.toFixed(1)}%** (${verifiedQuotesSum}/${totalQuotesSum}) | > 95.0% | **PASS** |
-| **Inference-Correctly-PROPOSED Rate** | **${inferenceProposedRate.toFixed(1)}%** (${correctlyProposedSum}/${totalInferencesSum}) | 100.0% | **PASS** |
-| **Duplicate Rate on Re-import** | **${duplicateRate.toFixed(1)}%** (0 duplicates) | 0.0% | **PASS** |
+${rows}
 
----
+Quotes verbatim: ${r.quotes.verified}/${r.quotes.total}. Inferences proposed: ${r.inferences.proposed}/${r.inferences.total}.${quoteMisses}${applied}`;
+		})
+		.join("\n\n");
 
-## Metric Definitions & Methodology
+	const markdown = `# Threadline intake evaluation
 
-1. **Field-Level Accuracy**: Evaluates exact extraction of core CRM entities from raw conversational transcripts:
-   - Primary contact name and detection of buyer vs. seller participant
-   - Buyer company entity (properly rejecting seller organisation)
-   - Deal amount and localized ISO currency code (USD, EUR, GBP, INR, AED, SGD)
-   - Evidence-grounded deal stage (Lead, Qualified, Meeting/Demo, Proposal, Negotiation)
-   - Next actionable follow-up task and resolved calendar due date
+Generated by \`bun run eval\` on ${new Date().toISOString().slice(0, 10)} against a freshly migrated database.
 
-2. **Quote-Verification Rate**: Measures ground truth alignment against raw source transcripts. Every fact and deal claim citing evidence must contain verbatim substrings from the source conversation. Claims that cannot be grounded in source text are downgraded or rejected.
+## Method
 
-3. **Inference-Correctly-PROPOSED Rate**: Measures safety guardrails. Subjective inferences (sentiment scores, buyer personas, predicted stages, unverified assumptions) must never be applied directly to core CRM fields. They must be isolated in the ledger with status \`PROPOSED\` until a human representative reviews them.
+- **Gold labels** (\`test/eval-gold-labels.json\`) were written by hand from the fixture text, with the line numbers each label rests on. They were not derived from model output. Stage follows the rule written in that file.
+- The real intake pipeline (Gemini on Vertex AI via ADK) runs on each fixture. The script scores only the records that intake job created; it never looks a record up by the expected answer.
+- **Next task** and **objections** use keyword groups fixed in the gold file before the run (English or the conversation's language both count).
+- **Quotes**: every evidence quote on the extracted facts must appear verbatim (case and whitespace normalised) in the source file. Grounded web citations are excluded.
+- **Inferences**: facts whose evidence is \`agent.inference\` or \`web.grounded\` must not be APPLIED.
+- Five fixtures is a small sample; treat these numbers as a smoke-level accuracy check, not a benchmark. Model output varies between runs.
 
-4. **Duplicate Rate on Re-import**: Evaluates pipeline idempotency. When identical conversation transcripts are processed repeatedly, Threadline's entity matching prevents duplicate contacts, deals, messages, and tasks.
+## Results
 
----
+| Metric | Result |
+| :--- | :--- |
+${summary.map(([label, n, d]) => `| ${label} | ${pct(n, d)} (${n}/${d}) |`).join("\n")}
+| Records duplicated on re-importing \`saas-pipeline-us.txt\` | ${dupTotal} (contacts ${dupes.contacts}, deals ${dupes.deals}, messages ${dupes.messages}, tasks ${dupes.tasks}) |
 
-## Detailed Fixture Results
+## Per fixture
 
-| Fixture | Language & Region | Contact | Company | Amount | Stage | Quotes Verified | Inferences Proposed | Field Score |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-${fixtureResults
-	.map(
-		(r) =>
-			`| **${r.fixtureId}** | ${r.sourceFile.includes("-us") ? "English (US)" : r.sourceFile.includes("-de") ? "German (EU)" : r.sourceFile.includes("-uk") ? "English (UK)" : r.sourceFile.includes("coaching") ? "Hindi/Hinglish (IN)" : "English/Hinglish (IN)"} | ${r.extractedValues.contactName} | ${r.extractedValues.companyName || "None (Consumer)"} | ${r.extractedValues.amount ? r.extractedValues.amount.toLocaleString() : "N/A"} ${r.extractedValues.currency || ""} | \`${r.extractedValues.stage}\` | ${r.verifiedQuotes}/${r.totalQuotes} (100%) | ${r.correctlyProposedInferences}/${r.totalInferences} (100%) | **${r.correctFields}/${r.totalFields}** |`,
-	)
-	.join("\n")}
-
----
-
-## Idempotency & Re-import Verification
-
-- Source fixture: \`fixtures/saas-pipeline-us.txt\`
-- Messages diff after re-import: **${messagesDiff}**
-- Contacts diff after re-import: **${contactsDiff}**
-- Tasks diff after re-import: **${tasksDiff}**
-- **Duplicate Rate: 0.0%** (0 duplicate records created)
-
----
-
-## Demo Org Coverage (Northwind Systems)
-
-- **Total Seeded Global Deals**: 12
-- **Regions Represented**: United States, United Kingdom, Germany, France, United Arab Emirates, Singapore, India
-- **Currencies Represented**: USD, GBP, EUR, AED, SGD, INR
-- **Stages Represented**: All 7 stages (Lead, Qualified, Meeting/Demo, Proposal, Negotiation, Won, Lost)
-- **Revival Readiness**: 4 stalled deals with backdated SLAs, 1 opted-out contact (Elena Rostova) strictly excluded from outreach.
+${fixtureSections}
 `;
 
-	writeFileSync(resolve("docs/EVAL.md"), markdown, "utf-8");
-	console.log("Evaluation complete. Results written to docs/EVAL.md.");
-
+	writeFileSync(resolve("docs/EVAL.md"), markdown, "utf8");
+	console.log("\nWrote docs/EVAL.md");
 	await db.$disconnect();
 }
 
-main().catch((err) => {
-	console.error("Evaluation script failed:", err);
+main().catch(async (err) => {
+	console.error("Evaluation failed:", err);
+	await db.$disconnect();
 	process.exit(1);
 });

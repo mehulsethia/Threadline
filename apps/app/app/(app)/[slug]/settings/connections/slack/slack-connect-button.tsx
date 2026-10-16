@@ -26,9 +26,10 @@ const CONNECT_ERRORS = new Map([
 	],
 ]);
 
+// Same-origin: the app proxies /api/* to the API with the session cookie, so
+// the install is tied to the signed-in member.
 function startSlackOAuth(slug: string) {
-	const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-	window.location.href = `${apiUrl}/api/slack/install?slug=${encodeURIComponent(slug)}`;
+	window.location.href = `/api/slack/install?slug=${encodeURIComponent(slug)}`;
 }
 
 export function SlackReconnectButton({ slug }: { slug: string }) {

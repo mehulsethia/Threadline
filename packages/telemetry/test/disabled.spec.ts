@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { DISABLE_VARIABLES, telemetryDisabled } from "../src/disabled";
 
 describe("telemetryDisabled", () => {
-	it("is off by default", () => {
-		expect(telemetryDisabled({})).toBe(false);
+	it("sends nothing unless explicitly enabled", () => {
+		expect(telemetryDisabled({})).toBe(true);
+		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "0" })).toBe(true);
+		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1" })).toBe(false);
 	});
 
 	it("sends nothing from a test run, whatever else is set", () => {
@@ -11,11 +13,18 @@ describe("telemetryDisabled", () => {
 	});
 
 	it("honours CRM_TELEMETRY_DISABLED", () => {
-		expect(telemetryDisabled({ CRM_TELEMETRY_DISABLED: "1" })).toBe(true);
+		expect(
+			telemetryDisabled({
+				CRM_TELEMETRY_ENABLED: "1",
+				CRM_TELEMETRY_DISABLED: "1",
+			}),
+		).toBe(true);
 	});
 
 	it("honours DO_NOT_TRACK", () => {
-		expect(telemetryDisabled({ DO_NOT_TRACK: "1" })).toBe(true);
+		expect(
+			telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1", DO_NOT_TRACK: "1" }),
+		).toBe(true);
 	});
 
 	it("takes any of the obvious ways to say yes", () => {
@@ -26,7 +35,12 @@ describe("telemetryDisabled", () => {
 
 	it("does not read an empty or negative value as a yes", () => {
 		for (const value of ["", " ", "0", "false", "no"]) {
-			expect(telemetryDisabled({ CRM_TELEMETRY_DISABLED: value })).toBe(false);
+			expect(
+				telemetryDisabled({
+					CRM_TELEMETRY_ENABLED: "1",
+					CRM_TELEMETRY_DISABLED: value,
+				}),
+			).toBe(false);
 		}
 	});
 
