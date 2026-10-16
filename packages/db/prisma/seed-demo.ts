@@ -9,7 +9,7 @@ import {
 	FactStatus,
 	OutboundDraftStatus,
 } from "../src/generated/prisma/enums";
-import { writePlaybook, writeRevivalSlas } from "../src/settings";
+import { SETTINGS_ID, writePlaybook, writeRevivalSlas } from "../src/settings";
 import { formatDealStage } from "../src/stage";
 import {
 	DEMO_ORG_ID,
@@ -90,6 +90,21 @@ export async function seedDemoOrg(): Promise<void> {
 	// salesperson, never by the judge account.
 	await upsertDemoUser(DEMO_USER_ID, "Judge Reviewer", DEMO_USER_EMAIL);
 	const user = await upsertDemoUser(DEMO_REP_ID, DEMO_REP_NAME, DEMO_REP_EMAIL);
+
+	// The legacy Context.dev research step is replaced by Gemini grounded
+	// search; mark it skipped (never overwriting a real key) so the app does
+	// not send the judge through that onboarding step.
+	const settings = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { contextDevApiKey: true },
+	});
+	if (!settings?.contextDevApiKey) {
+		await db.appSetting.upsert({
+			where: { id: SETTINGS_ID },
+			create: { id: SETTINGS_ID, contextDevApiKey: "skipped" },
+			update: { contextDevApiKey: "skipped" },
+		});
+	}
 
 	await writeRevivalSlas(db, {
 		UNQUALIFIED_TO_BUY: 3,
