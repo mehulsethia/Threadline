@@ -315,7 +315,7 @@ export type DealHistory = {
 		owner: string | null;
 		createdAt: string;
 	};
-	company: { id: string; name: string; domain: string | null };
+	company: { id: string; name: string; domain: string | null } | null;
 	people: {
 		id: string;
 		name: string;
@@ -386,15 +386,18 @@ export async function readDealHistory(
 
 	const contactIds = deal.contacts.map(({ contact }) => contact.id);
 
+	const companyId = deal.company?.id;
 	const relatedThreads =
 		contactIds.length > 0
 			? {
 					OR: [
 						{ contactId: { in: contactIds } },
-						{ companyId: deal.company.id },
+						...(companyId ? [{ companyId }] : []),
 					],
 				}
-			: { companyId: deal.company.id };
+			: companyId
+				? { companyId }
+				: { id: "__none__" };
 
 	const [stageChanges, threads, meetings, notes, lastInbound] =
 		await Promise.all([
@@ -441,10 +444,12 @@ export async function readDealHistory(
 											{
 												attendees: { some: { contactId: { in: contactIds } } },
 											},
-											{ companyId: deal.company.id },
+											...(companyId ? [{ companyId }] : []),
 										],
 									}
-								: { companyId: deal.company.id },
+								: companyId
+									? { companyId }
+									: { id: "__none__" },
 						orderBy: { startsAt: "desc" },
 						take: 10,
 						select: {

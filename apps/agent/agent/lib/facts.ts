@@ -16,12 +16,15 @@ const FIELDS = {
 	tenure: { column: null },
 	need: { column: null },
 	budget: { column: null },
+	leadBudget: { column: null },
+	quotedValue: { column: null },
 	timeline: { column: null },
 	stage: { column: null },
 	language: { column: null },
 	objections: { column: null },
 	nextStep: { column: null },
 	sentiment: { column: null },
+	possibleDuplicate: { column: null },
 } as const;
 
 export type FactField = keyof typeof FIELDS;
@@ -172,7 +175,26 @@ export async function recordFact(
 		(fact) => fact.status === FactStatus.APPLIED,
 	);
 
-	if (currentApplied && sameValue(currentApplied.value, trimmed)) {
+	if (
+		field !== "objections" &&
+		currentApplied &&
+		sameValue(currentApplied.value, trimmed)
+	) {
+		return {
+			...base,
+			stored: false,
+			applied: false,
+			reason: "Already on the record, from this same source. Nothing changed.",
+		};
+	}
+
+	if (
+		field === "objections" &&
+		existing.some(
+			(fact) =>
+				fact.status === FactStatus.APPLIED && sameValue(fact.value, trimmed),
+		)
+	) {
 		return {
 			...base,
 			stored: false,
@@ -193,9 +215,14 @@ export async function recordFact(
 		};
 	}
 
+	const isInferenceOnly =
+		input.evidence.length > 0 &&
+		input.evidence.every((item) => item.kind === "agent.inference");
+
 	const applies =
-		scored.band === FactBand.VERIFIED ||
-		(contact ? fillsBlank({ field, contact, hasAgentFact }) : false);
+		!isInferenceOnly &&
+		(scored.band === FactBand.VERIFIED ||
+			(contact ? fillsBlank({ field, contact, hasAgentFact }) : false));
 
 	if (
 		!applies &&
@@ -216,7 +243,7 @@ export async function recordFact(
 	const sessionId = currentFocus().sessionId;
 
 	await db.$transaction(async (tx) => {
-		if (applies) {
+		if (applies && field !== "objections") {
 			await tx.contactFact.updateMany({
 				where: {
 					...(contactId ? { contactId } : { dealId }),

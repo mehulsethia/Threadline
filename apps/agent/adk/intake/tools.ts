@@ -222,15 +222,21 @@ export async function findMatchingContact(input: {
 			}
 		}
 
-		if (nameCandidates.length === 1 && nameCandidates[0]) {
+		if (nameCandidates.length >= 1 && nameCandidates[0]) {
 			const single = nameCandidates[0];
+			const fullName = `${single.firstName} ${single.lastName || ""}`.trim();
 			await emitIntakeEvent(
 				input.jobId,
 				"find_matching_contact",
-				`Found existing contact by unique name match: ${single.firstName} ${single.lastName || ""} (${single.id})`,
+				`Name match without company found: ${fullName} (${single.id}). Creating new contact and proposing duplicate suggestion.`,
 				single.id,
 			);
-			return { contactId: single.id, matchedBy: "name_unique" };
+			return {
+				contactId: null,
+				matchedBy: null,
+				possibleDuplicateContactId: single.id,
+				possibleDuplicateName: fullName,
+			};
 		}
 	}
 
@@ -367,20 +373,7 @@ export async function upsertDeal(input: {
 			: DealStage.QUALIFIED_TO_BUY
 	) as DealStage;
 
-	let finalCompanyId = input.companyId;
-	if (!finalCompanyId) {
-		const defaultComp = await db.company.findFirst({
-			where: { name: "Direct Customers" },
-		});
-		if (defaultComp) {
-			finalCompanyId = defaultComp.id;
-		} else {
-			const createdComp = await db.company.create({
-				data: { name: "Direct Customers" },
-			});
-			finalCompanyId = createdComp.id;
-		}
-	}
+	const finalCompanyId = input.companyId || null;
 
 	const defaultUser = await db.user.findFirst({ select: { id: true } });
 	const ownerId = defaultUser?.id || "system";

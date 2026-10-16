@@ -929,8 +929,8 @@ model Deal {
   conversations AgentConversation[]
   name          String
   description   String?
-  companyId     String
-  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId     String?
+  company       Company?            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownerId       String
   owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
 

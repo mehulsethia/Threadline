@@ -514,6 +514,27 @@ export function validateAndEnrichFacts(
 		"us",
 	);
 
+	if (facts.deal.leadBudget.value !== null) {
+		if (facts.deal.leadBudget.evidence?.speaker === "us") {
+			if (!facts.deal.quotedValue.value) {
+				facts.deal.quotedValue = {
+					value: facts.deal.leadBudget.value,
+					evidence: facts.deal.leadBudget.evidence,
+				};
+			}
+			facts.deal.leadBudget = { value: null, evidence: null };
+		} else if (
+			facts.deal.quotedValue.value !== null &&
+			facts.deal.leadBudget.value === facts.deal.quotedValue.value
+		) {
+			const quote = facts.deal.leadBudget.evidence?.quote ?? "";
+			const hasNumericBudget = /\b(\d+|lakh|crore|thousand|k)\b/i.test(quote);
+			if (!hasNumericBudget) {
+				facts.deal.leadBudget = { value: null, evidence: null };
+			}
+		}
+	}
+
 	facts.deal.currency.evidence = validateItem(
 		"deal.currency",
 		facts.deal.currency.evidence,
