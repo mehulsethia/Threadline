@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import { basename } from "node:path";
 import { unzipSync } from "fflate";
 
 export type WhatsAppMessageItem = {
@@ -184,7 +182,7 @@ function parseTextLines(
 				const directKey = Object.keys(attachments).find(
 					(k) =>
 						k === attachmentPath ||
-						basename(k) === basename(attachmentPath as string),
+						getBasename(k) === getBasename(attachmentPath as string),
 				);
 				if (directKey) attachmentPath = directKey;
 			}
@@ -222,6 +220,10 @@ function parseTextLines(
 	};
 }
 
+function getBasename(pathStr: string): string {
+	return pathStr.split(/[/\\]/).pop() ?? pathStr;
+}
+
 function isZipBuffer(bytes: Uint8Array): boolean {
 	return (
 		bytes.length >= 4 &&
@@ -235,21 +237,6 @@ export function parseWhatsAppExport(
 	input: string | Uint8Array | Buffer,
 ): ParsedWhatsAppExport {
 	if (typeof input === "string") {
-		const isPathCandidate =
-			input.length < 1024 &&
-			(input.endsWith(".zip") ||
-				input.endsWith(".txt") ||
-				input.includes("/") ||
-				input.includes("\\"));
-
-		if (isPathCandidate && existsSync(input)) {
-			const fileBytes = readFileSync(input);
-			if (input.endsWith(".zip") || isZipBuffer(fileBytes)) {
-				return parseZipExport(fileBytes);
-			}
-			return parseTextLines(fileBytes.toString("utf-8"));
-		}
-
 		return parseTextLines(input);
 	}
 

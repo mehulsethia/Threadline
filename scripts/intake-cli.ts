@@ -80,7 +80,8 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const parsed = parseWhatsAppExport(absolutePath);
+	const fileBytes = readFileSync(absolutePath);
+	const parsed = parseWhatsAppExport(fileBytes);
 
 	let combinedTranscript: AudioTranscriptionResult | undefined;
 
