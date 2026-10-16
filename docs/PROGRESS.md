@@ -813,3 +813,21 @@ Evaluation complete. Results written to docs/EVAL.md.
 
 - **Open Issues**: None.
 
+
+---
+
+## Phase 1 (final push): Audit of earlier claims + fixes
+
+- **Status**: DONE
+- **Date**: 2026-10-16
+- **Corrections to earlier entries** (verified in code or by running it):
+  - Part G's 100% eval was not trustworthy: `nextTask` passed if *any* task existed, PASS/“(100%)” were hardcoded, quotes passed on a 5-word prefix, contacts were found by first name across the whole DB, and the `demoDeals` gold labels did not match the seed. Gold labels rewritten by hand with line citations; scorer rewritten (strict, job-scoped, computed statuses). Re-run on a fresh DB: 37/37 fields, 39/39 verbatim quotes, 19/19 inferences PROPOSED, 0 duplicates (see `docs/EVAL.md`; 5 fixtures, smoke-level).
+  - Migrations had drifted from `schema.prisma` (dev DB was built with `db push`); a fresh `migrate deploy` lacked `contact.timezone`, Slack install columns, revival settings. Added `20261016200000_sync_schema_drift`.
+  - Judge login set an unsigned `crm.session_token`; Better Auth only accepts a signed cookie (and `__Secure-` in prod). Fixed and verified locally (session resolves to the judge).
+  - The demo lived in a second org (`org-northwind-systems`) while the CRM is single-workspace (`organizationId = "workspace"` in 58 places). Demo now *is* the workspace (Northwind Systems); judge + rep “Alex Morgan” are members; reset only touches `demo-*` rows and judge/rep-owned data.
+  - Slack HTTP routes were mounted at `/slack/*` while the UI/OAuth used `/api/slack/*`, were blocked by the global auth guard, had no body parser, and interactivity processed requests whose signature failed. Now `/api/slack/*`, anonymous only for Slack callbacks, raw-body HMAC verified, fail closed; install requires a signed-in member; no guessed channels; no hardcoded crypto fallback keys.
+  - Voice WebSocket could not work in prod (Next proxy cannot upgrade) and allowed unauthenticated dev access. Now a 60 s HMAC ticket from `voice.liveTicket`; socket rejects missing/tampered/other-deal tickets (verified), then opens Gemini Live (verified).
+  - `/api/intake/upload` was anonymous (anyone could start paid Gemini jobs). Now requires a session.
+  - Revival: primary contact was an unordered `contacts[0]`; org name came from an arbitrary org (drafts signed “CRM”); invented “Alex Morgan” fallback; citations could carry fabricated ids/quotes; CE-cert guard passed on any “ce”; `\bstop\b`/`\bcancel\b` opted leads out wrongly. All fixed with unit tests (`apps/agent/test/revival-isolation.spec.ts`).
+  - Usage telemetry went to Comp AI's PostHog by default; now opt-in (`CRM_TELEMETRY_ENABLED`). Demo seed used real companies (Siemens, Monzo, Dassault, Al-Futtaim) with invented quotes; renamed to fictional ones on `.example` domains.
+- **Tests**: 15 pre-existing failures remain (legacy mailbox-sync and enrichment-lane tests; identical on the untouched HEAD), plus one env-dependent auth e2e (needs `GOOGLE_CLIENT_ID`).

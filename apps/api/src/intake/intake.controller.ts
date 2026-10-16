@@ -11,11 +11,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiConsumes, ApiOperation, ApiTags } from "@nestjs/swagger";
-import {
-	AllowAnonymous,
-	Session,
-	type UserSession,
-} from "@thallesp/nestjs-better-auth";
+import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { IntakeService, type UploadedFileRecord } from "./intake.service";
 
 type CrmSession = UserSession<typeof auth>;
@@ -25,8 +21,9 @@ type CrmSession = UserSession<typeof auth>;
 export class IntakeController {
 	constructor(private readonly intake: IntakeService) {}
 
+	// Signed-in members only: an upload starts paid Gemini work and writes
+	// records, so it is never open to the internet.
 	@Post("upload")
-	@AllowAnonymous()
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
 		summary: "Upload conversation export or audio recording for intake",
@@ -38,10 +35,10 @@ export class IntakeController {
 		}),
 	)
 	async upload(
+		@Session() session: CrmSession,
 		@UploadedFile() file: UploadedFileRecord | undefined,
 		@Body("me") me?: string,
 		@Body("autoStart") autoStart?: string | boolean,
-		@Session() session?: CrmSession,
 	) {
 		if (!file) {
 			throw new BadRequestException("No file provided in request");
@@ -53,7 +50,7 @@ export class IntakeController {
 		return this.intake.uploadAndCreateJob(file, {
 			me,
 			autoStart: autoStartBool,
-			userId: session?.user?.id ?? null,
+			userId: session.user.id,
 		});
 	}
 }

@@ -35,6 +35,34 @@ export async function createApp(): Promise<NestExpressApplication> {
 		}),
 	);
 
+	// Slack signs the exact bytes it sends, so its webhooks get the raw body as
+	// a string (capped at 1 MB) and the controller parses it after verifying.
+	for (const path of ["/api/slack/events", "/api/slack/interactivity"]) {
+		app.use(path, (req: Request, res: Response, next: NextFunction) => {
+			if (req.method !== "POST") {
+				next();
+				return;
+			}
+			const chunks: Buffer[] = [];
+			let size = 0;
+			req.on("data", (chunk: Buffer) => {
+				size += chunk.length;
+				if (size > 1_000_000) {
+					res.status(413).end();
+					req.destroy();
+					return;
+				}
+				chunks.push(chunk);
+			});
+			req.on("end", () => {
+				(req as Request & { rawBody?: string }).rawBody =
+					Buffer.concat(chunks).toString("utf8");
+				next();
+			});
+			req.on("error", next);
+		});
+	}
+
 	let restBridge: ((req: Request, res: Response) => Promise<void>) | undefined;
 	app.use(
 		REST_BRIDGE_PATH,

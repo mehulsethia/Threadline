@@ -145,6 +145,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	CRM_TELEMETRY_ENABLED?: string;
+
+	@IsOptional()
+	@IsString()
 	GOOGLE_GENAI_USE_VERTEXAI?: string;
 
 	@IsOptional()
@@ -178,6 +182,10 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	GEMINI_LIVE_LOCATION?: string;
+
+	@IsOptional()
+	@IsString()
+	VOICE_WS_URL?: string;
 
 	@IsOptional()
 	@IsString()

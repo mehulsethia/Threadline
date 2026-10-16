@@ -3,10 +3,12 @@ import {
 	ActivityType,
 	db,
 	EmailDirection,
+	formatDealStage,
 	OutboundDraftStatus,
 	type Prisma,
 } from "@crm/db";
 import { readPlaybook } from "@crm/db/settings";
+import { WORKSPACE_ID } from "@crm/db/workspace";
 import { getSmartClient } from "../extraction";
 import {
 	assertGreetingMatchesContact,
@@ -15,7 +17,7 @@ import {
 	stripUnsupportedClaims,
 	verifyFactualClaims,
 } from "./claim-guard";
-import type { StalledDealInfo } from "./detector";
+import { messagesForContact, type StalledDealInfo } from "./detector";
 import { postDraftToSlack } from "./slack";
 
 export type RevivalStrategy =
@@ -100,38 +102,87 @@ function determineSituationalStrategy(
 	};
 }
 
-function parseStructuredCitations(
+function normalizeQuote(text: string): string {
+	return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Turns the model's citations into ledger references. A citation is kept only
+ * when it resolves to a real fact, message or task on this deal, by id or by a
+ * quote that appears in that record; the stored quote is always the record's
+ * own text, so a citation can never carry words the source does not contain.
+ */
+export function parseStructuredCitations(
 	rawCitations: unknown,
 	facts: Array<{ id: string; field: string; value: string }>,
 	messages: Array<{ id: string; body: string }>,
+	tasks: Array<{ id: string; subject: string | null }> = [],
 ): CitedEvidenceItem[] {
 	const structured: CitedEvidenceItem[] = [];
+	const seen = new Set<string>();
+
+	const push = (item: CitedEvidenceItem) => {
+		if (seen.has(item.evidenceId)) return;
+		seen.add(item.evidenceId);
+		structured.push(item);
+	};
+
+	const resolve = (id: string, quote: string): CitedEvidenceItem | null => {
+		const fact = facts.find((f) => f.id === id);
+		if (fact) {
+			return {
+				evidenceId: fact.id,
+				kind: "fact",
+				quote: `${fact.field}: ${fact.value}`,
+			};
+		}
+		const message = messages.find((m) => m.id === id);
+		if (message) {
+			return { evidenceId: message.id, kind: "message", quote: message.body };
+		}
+		const task = tasks.find((t) => t.id === id);
+		if (task?.subject) {
+			return { evidenceId: task.id, kind: "task", quote: task.subject };
+		}
+
+		const needle = normalizeQuote(quote);
+		if (needle.length < 8) return null;
+		const quotedMessage = messages.find((m) =>
+			normalizeQuote(m.body).includes(needle),
+		);
+		if (quotedMessage) {
+			return {
+				evidenceId: quotedMessage.id,
+				kind: "message",
+				quote: quotedMessage.body,
+			};
+		}
+		const quotedFact = facts.find((f) => {
+			const hay = normalizeQuote(`${f.field} ${f.value}`);
+			return hay.includes(needle) || needle.includes(normalizeQuote(f.value));
+		});
+		if (quotedFact) {
+			return {
+				evidenceId: quotedFact.id,
+				kind: "fact",
+				quote: `${quotedFact.field}: ${quotedFact.value}`,
+			};
+		}
+		return null;
+	};
 
 	if (Array.isArray(rawCitations)) {
 		for (const item of rawCitations) {
 			if (item && typeof item === "object") {
 				const rec = item as Record<string, unknown>;
-				const evidenceId = String(rec.evidenceId || rec.id || randomUUID());
-				const kind = String(rec.kind || "fact");
-				const quote = String(rec.quote || rec.detail || "");
-				if (quote) {
-					structured.push({ evidenceId, kind, quote });
-				}
+				const resolved = resolve(
+					String(rec.evidenceId ?? rec.id ?? ""),
+					String(rec.quote ?? rec.detail ?? ""),
+				);
+				if (resolved) push(resolved);
 			} else if (typeof item === "string" && item.trim()) {
-				const foundFact = facts.find((f) => f.id === item || f.field === item);
-				if (foundFact) {
-					structured.push({
-						evidenceId: foundFact.id,
-						kind: "fact",
-						quote: foundFact.value,
-					});
-				} else {
-					structured.push({
-						evidenceId: randomUUID(),
-						kind: "message",
-						quote: item.trim(),
-					});
-				}
+				const resolved = resolve(item.trim(), item.trim());
+				if (resolved) push(resolved);
 			}
 		}
 	}
@@ -255,6 +306,7 @@ export async function generateRevivalDraft(
 						orderBy: { timestamp: "asc" },
 						take: 30,
 					},
+					_count: { select: { contacts: true } },
 				},
 			}),
 			db.contactFact.findMany({
@@ -290,12 +342,23 @@ export async function generateRevivalDraft(
 				take: 3,
 			}),
 			readPlaybook(db),
-			db.organization.findFirst({ select: { name: true } }),
+			db.organization.findUnique({
+				where: { id: WORKSPACE_ID },
+				select: { name: true },
+			}),
 		]);
 
 	if (!contact || !deal || contact.optedOut) {
 		return null;
 	}
+
+	// Only this contact's own thread feeds the prompt, the language and the
+	// citations; another contact's messages on the same deal never leak in.
+	const threadMessages = messagesForContact(
+		deal.whatsAppMessages,
+		stalled.contactId,
+		deal._count.contacts,
+	);
 
 	const hasPhone = Boolean(contact.phone?.trim());
 	const hasEmail = Boolean(contact.email?.trim());
@@ -308,17 +371,20 @@ export async function generateRevivalDraft(
 		(f) => f.field === "language" && f.contactId === stalled.contactId,
 	);
 	const language = detectContactInboundLanguage(
-		deal.whatsAppMessages,
+		threadMessages,
 		stalled.contactId,
 		contactLanguageFact?.value,
 	);
 
-	const repName = deal.owner?.name || "Alex Morgan";
-	const sellerCompany = organization?.name || "Threadline";
+	// Threadline is the CRM, never the seller; with no owner the draft is
+	// signed by the workspace alone rather than an invented rep.
+	const sellerCompany = organization?.name?.trim() || "";
+	const repName = deal.owner?.name?.trim() || "";
+	const signature = [repName, sellerCompany].filter(Boolean).join("\n");
 
-	const historyLines = deal.whatsAppMessages.map(
+	const historyLines = threadMessages.map(
 		(m) =>
-			`[${m.timestamp.toISOString()}] (${m.direction === EmailDirection.INBOUND ? stalled.contactName : repName}): ${m.body}`,
+			`Message #${m.id} [${m.timestamp.toISOString()}] (${m.direction === EmailDirection.INBOUND ? stalled.contactName : repName || sellerCompany || "Seller"}): ${m.body}`,
 	);
 
 	const factsSummary = facts.map(
@@ -336,12 +402,7 @@ export async function generateRevivalDraft(
 	);
 
 	const { strategy: situationalStrategy, rationale: situationalRationale } =
-		determineSituationalStrategy(
-			stalled,
-			deal.stage,
-			facts,
-			deal.whatsAppMessages,
-		);
+		determineSituationalStrategy(stalled, deal.stage, facts, threadMessages);
 
 	const prompt = [
 		"You are an autonomous B2B follow-up revival agent representing the seller.",
@@ -349,7 +410,7 @@ export async function generateRevivalDraft(
 		"",
 		`DEAL INFORMATION:`,
 		`- Deal Name: ${deal.name}`,
-		`- Stage: ${deal.stage}`,
+		`- Stage: ${formatDealStage(deal.stage)}`,
 		`- Value: ${deal.amount ?? "unknown"} ${deal.currency}`,
 		`- Contact: ${stalled.contactName} (${contact.phone || contact.email || "No direct handle"})`,
 		`- GREETING MANDATE: The draft greeting MUST address ${contact.firstName || contact.lastName || stalled.contactName}. Never address any other person.`,
@@ -357,8 +418,8 @@ export async function generateRevivalDraft(
 		`- Stalled Reason: ${stalled.stalledReason}`,
 		`- Target Channel: ${channel}`,
 		`- Target Language: ${language}`,
-		`- Owning Sales Representative: ${repName}`,
-		`- Seller Company: ${sellerCompany}`,
+		`- Owning Sales Representative: ${repName || "(none assigned)"}`,
+		`- Seller Company: ${sellerCompany || "(not set)"}`,
 		"",
 		`WORKSPACE SALES PLAYBOOK (Guidance, Tone, Product Notes):`,
 		playbook || "Professional, consultative, concise. No aggressive pressure.",
@@ -385,10 +446,10 @@ export async function generateRevivalDraft(
 		"1. Choose exactly one strategy from: ['answer_or_route', 'confirm_next_step', 'value_nudge', 'address_objection', 'polite_close_out'].",
 		`   Recommended default for this deal: '${situationalStrategy}' (${situationalRationale}).`,
 		`2. Write the ENTIRE draft, including greeting, message body, call to action, and sign-off, in the customer's native language (${language}).`,
-		`3. SIGN-OFF RULE: NEVER write 'The Threadline Team'. Threadline is the CRM software, NOT the seller. Sign as the owning representative: ${repName}, ${sellerCompany} (e.g. for German: 'Mit freundlichen Grüßen,\\n${repName}\\n${sellerCompany}').`,
+		`3. SIGN-OFF RULE: NEVER write 'The Threadline Team' or 'Threadline'. Threadline is the CRM software, NOT the seller. End with a closing in the customer's language followed by exactly these signature lines: ${JSON.stringify(signature)}. Never invent a name.`,
 		`4. Channel format: If channel is EMAIL, generate a professional subject line in ${language}. If WHATSAPP, subject must be null.`,
 		"5. GROUNDED CLAIMS ONLY: NEVER invent dates, meetings, appointments, prices, discounts, timelines, 'fast deployment', 'schnelle Bereitstellung', or certifications not present in the facts ledger or transcript.",
-		'6. Return citedEvidence as an array of objects: [{"evidenceId": string, "kind": string, "quote": string}]. Never return raw strings.',
+		'6. Return citedEvidence as an array of objects: [{"evidenceId": string, "kind": string, "quote": string}]. evidenceId MUST be a Fact #, Message # or Task # id shown above, and quote MUST be copied verbatim from that record. Never return raw strings.',
 		"",
 		"Return a valid JSON object conforming exactly to this schema:",
 		JSON.stringify({
@@ -472,7 +533,7 @@ export async function generateRevivalDraft(
 
 	const evidenceContext: EvidenceSourceContext = {
 		facts: facts.map((f) => ({ field: f.field, value: f.value, id: f.id })),
-		messages: deal.whatsAppMessages.map((m) => ({
+		messages: threadMessages.map((m) => ({
 			body: m.body,
 			sender: m.senderName || m.senderPhone || "",
 			timestamp: m.timestamp.toISOString(),
@@ -491,14 +552,10 @@ export async function generateRevivalDraft(
 		model,
 	);
 
-	if (
-		draftText.includes("The Threadline Team") ||
-		draftText.includes("Threadline Team")
-	) {
-		draftText = draftText
-			.replace(/The\s+Threadline\s+Team/gi, `${repName}, ${sellerCompany}`)
-			.replace(/Threadline\s+Team/gi, `${repName}, ${sellerCompany}`);
-	}
+	draftText = draftText.replace(
+		/(?:The\s+)?Threadline\s+Team/gi,
+		signature || sellerCompany,
+	);
 
 	const greetingCheck = assertGreetingMatchesContact(draftText, contact);
 	if (!greetingCheck.matches) {
@@ -511,7 +568,8 @@ export async function generateRevivalDraft(
 	const structuredCitations = parseStructuredCitations(
 		rawCitedEvidence,
 		facts,
-		deal.whatsAppMessages,
+		threadMessages,
+		tasks,
 	);
 
 	let waLink: string | null = null;

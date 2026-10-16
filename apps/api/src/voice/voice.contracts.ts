@@ -17,6 +17,11 @@ export const voiceDealContextInput = z.object({
 
 export type VoiceDealContextInput = z.infer<typeof voiceDealContextInput>;
 
+export const voiceLiveTicketOutput = z.object({
+	ticket: z.string(),
+	wsUrl: z.string(),
+});
+
 export const voiceDealContextOutput = z.object({
 	dealId: z.string(),
 	dealName: z.string(),

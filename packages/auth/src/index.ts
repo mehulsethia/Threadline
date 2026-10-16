@@ -9,6 +9,7 @@ export { AUTH_COOKIE_PREFIX, SESSION_COOKIE_NAME } from "./cookies";
 export {
 	apiUrl,
 	appUrl,
+	env,
 	isGoogleConfigured,
 	isMicrosoftConfigured,
 	isSlackConfigured,

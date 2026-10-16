@@ -120,9 +120,13 @@ export function isClaimSupportedByEvidence(
 		);
 	}
 	if (claim.label === "CE-Zertifizierung") {
+		// normalizeText turns "CE-Zertifizierung" into "ce zertifizierung".
+		return /\bce (?:zertifi|certifi|mark|kennzeichnung)/.test(normalizedCorpus);
+	}
+	if (claim.label === "HIPAA") return normalizedCorpus.includes("hipaa");
+	if (claim.label === "GDPR") {
 		return (
-			normalizedCorpus.includes("ce") ||
-			normalizedCorpus.includes("zertifizier")
+			normalizedCorpus.includes("gdpr") || normalizedCorpus.includes("dsgvo")
 		);
 	}
 
@@ -285,13 +289,22 @@ export function assertGreetingMatchesContact(
 		return { matches: true };
 	}
 
+	// A salutation either opens with a known greeting or is a short line that
+	// ends in a comma ("Frau Rostova,"), in any script.
 	const isGreeting =
-		/^(?:hi|hello|hey|dear|hallo|guten tag|sehr geehrte[rn]?|liebe[r]?|bonjour|cher|chère|hola|estimad[oa])/i.test(
+		/^(?:hi|hello|hey|dear|good (?:morning|afternoon|evening)|hallo|guten (?:tag|morgen|abend)|sehr geehrte[rn]?|liebe[r]?|bonjour|bonsoir|cher|chère|madame|monsieur|hola|estimad[oa]|buen[oa]s|ciao|gentile|olá|caro|namaste|नमस्ते|marhaba|مرحبا)/i.test(
 			greetingLine,
-		);
+		) ||
+		(greetingLine.length <= 60 && /[,،]\s*$/.test(greetingLine));
 
 	if (!isGreeting) {
 		return { matches: true };
+	}
+
+	// A name transliterated into another script ("सुनीता") cannot be compared
+	// with the Latin record; only Latin-script salutations are checked.
+	if (!/[a-z]{2,}/i.test(greetingLine.replace(/^(?:namaste|marhaba)\b/i, ""))) {
+		return { matches: true, greetingLine };
 	}
 
 	const lowerGreeting = greetingLine.toLowerCase();

@@ -1,9 +1,9 @@
-import { WORKSPACE_ID } from "@crm/auth";
+import { auth, WORKSPACE_ID } from "@crm/auth";
 import type { Db } from "@crm/db";
 import {
 	BadRequestException,
-	Body,
 	Controller,
+	ForbiddenException,
 	Get,
 	Headers,
 	HttpCode,
@@ -13,7 +13,11 @@ import {
 	Query,
 	Req,
 	Res,
+	ServiceUnavailableException,
+	UnauthorizedException,
 } from "@nestjs/common";
+import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
+import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import { InjectDatabase } from "../database/database.constants";
 import {
@@ -38,7 +42,15 @@ const BOT_SCOPES = [
 
 const USER_SCOPES = ["channels:read", "groups:read"].join(",");
 
-@Controller("slack")
+type SlackWebhookRequest = Request & { rawBody?: string };
+
+/** Slack's OAuth redirect lands here, so it must be the API's public URL. */
+function slackRedirectUri(): string {
+	const apiUrl = process.env.API_URL || "http://localhost:3001";
+	return `${apiUrl}/api/slack/oauth/callback`;
+}
+
+@Controller("api/slack")
 export class SlackController {
 	private readonly logger = new Logger(SlackController.name);
 
@@ -47,10 +59,43 @@ export class SlackController {
 		private readonly revival: SlackRevivalService,
 	) {}
 
+	/**
+	 * Every Slack webhook must carry a valid signature from this app's signing
+	 * secret. Without a configured secret the endpoints refuse all traffic.
+	 */
+	private assertSlackSignature(
+		req: SlackWebhookRequest,
+		timestamp: string | undefined,
+		signature: string | undefined,
+	): void {
+		const signingSecret = process.env.SLACK_SIGNING_SECRET;
+		if (!signingSecret) {
+			throw new ServiceUnavailableException(
+				"SLACK_SIGNING_SECRET is not configured.",
+			);
+		}
+		if (
+			!timestamp ||
+			!signature ||
+			typeof req.rawBody !== "string" ||
+			!verifySlackSignature({
+				signingSecret,
+				timestamp,
+				body: req.rawBody,
+				signature,
+			})
+		) {
+			this.logger.warn(
+				"Rejected Slack request with a missing or bad signature.",
+			);
+			throw new UnauthorizedException("Invalid Slack signature.");
+		}
+	}
+
 	@Get("install")
 	async install(
 		@Query("slug") slug: string | undefined,
-		@Query("orgId") orgId: string | undefined,
+		@Req() req: Request,
 		@Res() res: Response,
 	) {
 		const clientId = process.env.SLACK_CLIENT_ID;
@@ -58,13 +103,31 @@ export class SlackController {
 			throw new BadRequestException("SLACK_CLIENT_ID is not configured.");
 		}
 
-		const apiUrl = process.env.API_URL || "http://localhost:3001";
-		const redirectUri = `${apiUrl}/api/slack/oauth/callback`;
-		const targetOrgId = orgId || WORKSPACE_ID;
+		// The workspace being connected comes from the signed-in member, never
+		// from the query string.
+		const session = await auth.api
+			.getSession({ headers: fromNodeHeaders(req.headers) })
+			.catch(() => null);
+		if (!session?.user?.id) {
+			throw new UnauthorizedException("Sign in to connect Slack.");
+		}
+		const member = await this.db.member.findUnique({
+			where: {
+				organizationId_userId: {
+					organizationId: WORKSPACE_ID,
+					userId: session.user.id,
+				},
+			},
+			select: { organizationId: true },
+		});
+		if (!member) {
+			throw new ForbiddenException("Only workspace members can connect Slack.");
+		}
 
+		const redirectUri = slackRedirectUri();
 		const state = signSlackState({
-			orgId: targetOrgId,
-			userId: "installer",
+			orgId: member.organizationId,
+			userId: session.user.id,
 			slug: slug || "threadline",
 			timestamp: Date.now(),
 		});
@@ -79,6 +142,9 @@ export class SlackController {
 		res.redirect(authorizeUrl.toString());
 	}
 
+	// Slack calls this, not a signed-in browser; the signed state / request
+	// signature is the authentication.
+	@AllowAnonymous()
 	@Get("oauth/callback")
 	async oauthCallback(
 		@Query("code") code: string | undefined,
@@ -91,22 +157,19 @@ export class SlackController {
 		if (error || !code || !stateStr) {
 			this.logger.warn(`Slack OAuth error or cancelled: ${error}`);
 			return res.redirect(
-				`${appUrl}/settings/connections/slack?error=${error || "missing_code"}`,
+				`${appUrl}/?slack_error=${encodeURIComponent(error || "missing_code")}`,
 			);
 		}
 
 		const state = verifySlackState(stateStr);
 		if (!state) {
 			this.logger.warn("Invalid or expired Slack OAuth state.");
-			return res.redirect(
-				`${appUrl}/settings/connections/slack?error=invalid_state`,
-			);
+			return res.redirect(`${appUrl}/?slack_error=invalid_state`);
 		}
 
 		const clientId = process.env.SLACK_CLIENT_ID;
 		const clientSecret = process.env.SLACK_CLIENT_SECRET;
-		const apiUrl = process.env.API_URL || "http://localhost:3001";
-		const redirectUri = `${apiUrl}/api/slack/oauth/callback`;
+		const redirectUri = slackRedirectUri();
 
 		if (!clientId || !clientSecret) {
 			throw new BadRequestException("Slack client credentials not configured.");
@@ -181,61 +244,49 @@ export class SlackController {
 		);
 	}
 
+	// Slack calls this, not a signed-in browser; the signed state / request
+	// signature is the authentication.
+	@AllowAnonymous()
 	@Post("events")
 	@HttpCode(HttpStatus.OK)
 	async events(
-		@Body() body: Record<string, unknown>,
 		@Headers("x-slack-request-timestamp") timestamp: string | undefined,
 		@Headers("x-slack-signature") signature: string | undefined,
-		@Req() req: Request & { rawBody?: string },
+		@Req() req: SlackWebhookRequest,
 	) {
-		if (body?.type === "url_verification") {
-			return { challenge: body.challenge };
-		}
+		// Slack signs the url_verification handshake too, so it is checked
+		// like every other event.
+		this.assertSlackSignature(req, timestamp, signature);
 
-		const signingSecret = process.env.SLACK_SIGNING_SECRET;
-		if (signingSecret && timestamp && signature) {
-			const rawBody = req.rawBody || JSON.stringify(body);
-			const valid = verifySlackSignature({
-				signingSecret,
-				timestamp,
-				body: rawBody,
-				signature,
-			});
-			if (!valid) {
-				throw new BadRequestException("Invalid Slack event signature.");
-			}
+		let body: Record<string, unknown>;
+		try {
+			body = JSON.parse(req.rawBody ?? "{}") as Record<string, unknown>;
+		} catch {
+			throw new BadRequestException("Malformed Slack event.");
+		}
+		if (body.type === "url_verification") {
+			return { challenge: body.challenge };
 		}
 
 		return { ok: true };
 	}
 
+	// Slack calls this, not a signed-in browser; the signed state / request
+	// signature is the authentication.
+	@AllowAnonymous()
 	@Post("interactivity")
 	@HttpCode(HttpStatus.OK)
 	async interactivity(
-		@Body() body: Record<string, unknown>,
 		@Headers("x-slack-request-timestamp") timestamp: string | undefined,
 		@Headers("x-slack-signature") signature: string | undefined,
-		@Req() req: Request & { rawBody?: string },
+		@Req() req: SlackWebhookRequest,
 	) {
-		const signingSecret = process.env.SLACK_SIGNING_SECRET;
-		if (signingSecret && timestamp && signature) {
-			const rawBody = req.rawBody || req.body?.toString?.() || "";
-			const valid = verifySlackSignature({
-				signingSecret,
-				timestamp,
-				body: rawBody,
-				signature,
-			});
-			if (!valid) {
-				this.logger.warn(
-					"Rejected Slack interactivity with invalid signature.",
-				);
-			}
-		}
+		this.assertSlackSignature(req, timestamp, signature);
 
-		const payloadStr =
-			typeof body?.payload === "string" ? body.payload : JSON.stringify(body);
+		const payloadStr = new URLSearchParams(req.rawBody ?? "").get("payload");
+		if (!payloadStr) {
+			throw new BadRequestException("Missing Slack interactivity payload.");
+		}
 		try {
 			const payload = JSON.parse(payloadStr);
 			if (payload.type === "block_actions") {

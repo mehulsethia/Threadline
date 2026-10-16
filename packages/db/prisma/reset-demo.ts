@@ -1,22 +1,41 @@
 import { db } from "../src/client";
+import { WORKSPACE_ID } from "../src/workspace";
 
-export const DEMO_ORG_ID = "org-northwind-systems";
+// The CRM is one workspace per deployment (every CRM table is workspace-wide),
+// so the demo is that workspace, named Northwind Systems, not a second org.
+export const DEMO_ORG_ID = WORKSPACE_ID;
 export const DEMO_ORG_SLUG = "northwind-systems";
+export const DEMO_ORG_NAME = "Northwind Systems";
 export const DEMO_USER_ID = "user-demo-judge";
-export const DEMO_USER_EMAIL = "judge@northwind.io";
+export const DEMO_USER_EMAIL = "judge@northwind.example";
+export const DEMO_REP_ID = "user-demo-rep";
+export const DEMO_REP_NAME = "Alex Morgan";
+export const DEMO_REP_EMAIL = "alex.morgan@northwind.example";
 
+const DEMO_PREFIX = "demo-";
+
+const DEMO_USERS = [DEMO_USER_ID, DEMO_REP_ID];
+
+/**
+ * Removes the seeded demo records and whatever the judge account imported.
+ * Only rows the demo seed created (ids prefixed `demo-`) or that the demo
+ * users own are touched; the workspace and its real members are left alone.
+ * The demo users themselves stay, so a judge's open session survives.
+ */
 export async function resetDemoOrg(): Promise<void> {
-	console.log(`Resetting demo org "${DEMO_ORG_SLUG}"...`);
+	console.log(`Resetting demo workspace "${DEMO_ORG_SLUG}"...`);
 
-	const demoDeals = await db.deal.findMany({
-		where: { ownerId: DEMO_USER_ID },
-		select: { id: true, companyId: true },
-	});
-
-	const dealIds = demoDeals.map((d) => d.id);
-	const companyIds = demoDeals
-		.map((d) => d.companyId)
-		.filter((id): id is string => Boolean(id));
+	const dealIds = (
+		await db.deal.findMany({
+			where: {
+				OR: [
+					{ id: { startsWith: DEMO_PREFIX } },
+					{ ownerId: { in: DEMO_USERS } },
+				],
+			},
+			select: { id: true },
+		})
+	).map((d) => d.id);
 
 	if (dealIds.length > 0) {
 		await db.outboundDraft.deleteMany({ where: { dealId: { in: dealIds } } });
@@ -26,37 +45,43 @@ export async function resetDemoOrg(): Promise<void> {
 		await db.dealContact.deleteMany({ where: { dealId: { in: dealIds } } });
 		await db.deal.deleteMany({ where: { id: { in: dealIds } } });
 	}
+	await db.activity.deleteMany({ where: { createdById: { in: DEMO_USERS } } });
 
-	if (companyIds.length > 0) {
-		const contacts = await db.contact.findMany({
-			where: { companyId: { in: companyIds } },
+	const contactIds = (
+		await db.contact.findMany({
+			where: {
+				OR: [
+					{ id: { startsWith: DEMO_PREFIX } },
+					{ ownerId: { in: DEMO_USERS } },
+				],
+			},
 			select: { id: true },
+		})
+	).map((c) => c.id);
+
+	if (contactIds.length > 0) {
+		await db.outboundDraft.deleteMany({
+			where: { contactId: { in: contactIds } },
 		});
-		const contactIds = contacts.map((c) => c.id);
-
-		if (contactIds.length > 0) {
-			await db.contactFact.deleteMany({
-				where: { contactId: { in: contactIds } },
-			});
-			await db.whatsAppMessage.deleteMany({
-				where: { contactId: { in: contactIds } },
-			});
-			await db.contact.deleteMany({ where: { id: { in: contactIds } } });
-		}
-
-		await db.company.deleteMany({ where: { id: { in: companyIds } } });
+		await db.contactFact.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.whatsAppMessage.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.contact.deleteMany({ where: { id: { in: contactIds } } });
 	}
 
-	await db.member.deleteMany({ where: { organizationId: DEMO_ORG_ID } });
-	await db.slackInstallation.deleteMany({
-		where: { organizationId: DEMO_ORG_ID },
+	await db.company.deleteMany({
+		where: {
+			OR: [
+				{ id: { startsWith: DEMO_PREFIX } },
+				{ ownerId: { in: DEMO_USERS } },
+			],
+		},
 	});
-	await db.session.deleteMany({ where: { userId: DEMO_USER_ID } });
-	await db.account.deleteMany({ where: { userId: DEMO_USER_ID } });
-	await db.user.deleteMany({ where: { id: DEMO_USER_ID } });
-	await db.organization.deleteMany({ where: { id: DEMO_ORG_ID } });
 
-	console.log(`Demo org "${DEMO_ORG_SLUG}" reset complete.`);
+	console.log(`Demo workspace "${DEMO_ORG_SLUG}" reset complete.`);
 }
 
 if (import.meta.main) {

@@ -10,6 +10,8 @@ const FX_RATES_TO_USD: Record<string, number> = {
 	AUD: 0.65,
 	JPY: 0.0066,
 	CHF: 1.12,
+	AED: 0.27,
+	SGD: 0.74,
 };
 
 const STAGE_WEIGHTS: Record<DealStage, number> = {
@@ -25,15 +27,65 @@ const STAGE_WEIGHTS: Record<DealStage, number> = {
 const OPT_OUT_PATTERNS = [
 	/\bnot interested\b/i,
 	/\bunsubscribe\b/i,
-	/\bstop\b/i,
+	// A bare "STOP" reply, or an explicit request to stop messaging. A plain
+	// /\bstop\b/ opted out "we can't stop the rollout".
+	/^\s*stop\s*[.!]?\s*$/i,
+	/\bstop (?:messaging|contacting|emailing|texting) (?:me|us)\b/i,
 	/\bleave me alone\b/i,
 	/\bdon'?t contact\b/i,
 	/\bkein interesse\b/i,
 	/\bno me interesa\b/i,
 	/\bpas int[eé]ress[eé]\b/i,
-	/\bcancel\b/i,
 	/\bremove me\b/i,
 ];
+
+type RevivalCandidate = {
+	contactId: string;
+	role: string | null;
+	contact: { firstName: string; lastName: string | null };
+};
+
+/**
+ * The one contact a revival draft is addressed to: whoever on the deal wrote
+ * to us most recently, else the contact marked primary, else a stable pick.
+ * `deal.contacts[0]` used to be unordered, so a multi-contact deal could get
+ * a draft greeting one person in another person's language.
+ */
+export function pickRevivalContact<C extends RevivalCandidate>(
+	contacts: C[],
+	inboundNewestFirst: Array<{ contactId: string | null }>,
+): C | undefined {
+	if (contacts.length <= 1) return contacts[0];
+
+	const byId = new Map(contacts.map((c) => [c.contactId, c]));
+	for (const message of inboundNewestFirst) {
+		const match = message.contactId ? byId.get(message.contactId) : undefined;
+		if (match) return match;
+	}
+
+	const primary = contacts.find((c) => /primary/i.test(c.role ?? ""));
+	if (primary) return primary;
+
+	return [...contacts].sort((a, b) =>
+		a.contactId.localeCompare(b.contactId),
+	)[0];
+}
+
+/**
+ * Messages that belong to this contact's thread. An unattributed message only
+ * counts when the deal has a single contact, so it cannot be someone else's.
+ */
+export function messagesForContact<M extends { contactId: string | null }>(
+	messages: M[],
+	contactId: string,
+	dealContactCount: number,
+): M[] {
+	return messages.filter(
+		(m) =>
+			m.contactId === contactId ||
+			(m.contactId === null && dealContactCount <= 1),
+	);
+}
 
 export type StalledDealInfo = {
 	dealId: string;
@@ -111,14 +163,26 @@ export async function detectStalledDeals(): Promise<StalledDealInfo[]> {
 		if (deal.id.startsWith("seed-deal-")) continue;
 		if (deal.whatsAppMessages.length === 0) continue;
 
-		const primaryContact = deal.contacts[0]?.contact;
+		const allInbound = deal.whatsAppMessages.filter(
+			(m) => m.direction === EmailDirection.INBOUND,
+		);
+		const primaryContact = pickRevivalContact(
+			deal.contacts,
+			allInbound,
+		)?.contact;
 		if (!primaryContact) continue;
 
 		if (primaryContact.optedOut) continue;
 
-		const leadMessages = deal.whatsAppMessages.filter(
+		const contactMessages = messagesForContact(
+			deal.whatsAppMessages,
+			primaryContact.id,
+			deal.contacts.length,
+		);
+		const leadMessages = contactMessages.filter(
 			(m) => m.direction === EmailDirection.INBOUND,
 		);
+		if (leadMessages.length === 0) continue;
 		const hasOptOut = leadMessages.some((m) =>
 			OPT_OUT_PATTERNS.some((pattern) => pattern.test(m.body)),
 		);
@@ -166,7 +230,7 @@ export async function detectStalledDeals(): Promise<StalledDealInfo[]> {
 					lastInboundMsg.body,
 				);
 			if (isQuestion) {
-				const laterOutbound = deal.whatsAppMessages.find(
+				const laterOutbound = contactMessages.find(
 					(m) =>
 						m.direction === EmailDirection.OUTBOUND &&
 						m.timestamp.getTime() > lastInboundMsg.timestamp.getTime(),
