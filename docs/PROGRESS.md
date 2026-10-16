@@ -831,3 +831,10 @@ Evaluation complete. Results written to docs/EVAL.md.
   - Revival: primary contact was an unordered `contacts[0]`; org name came from an arbitrary org (drafts signed “CRM”); invented “Alex Morgan” fallback; citations could carry fabricated ids/quotes; CE-cert guard passed on any “ce”; `\bstop\b`/`\bcancel\b` opted leads out wrongly. All fixed with unit tests (`apps/agent/test/revival-isolation.spec.ts`).
   - Usage telemetry went to Comp AI's PostHog by default; now opt-in (`CRM_TELEMETRY_ENABLED`). Demo seed used real companies (Siemens, Monzo, Dassault, Al-Futtaim) with invented quotes; renamed to fictional ones on `.example` domains.
 - **Tests**: 15 pre-existing failures remain (legacy mailbox-sync and enrichment-lane tests; identical on the untouched HEAD), plus one env-dependent auth e2e (needs `GOOGLE_CLIENT_ID`).
+
+### Phase 1 addendum: API scales to zero; voice warm-up
+
+- All three Cloud Run services will run with min-instances 0 (no always-on API).
+- The deal sheet fires `GET /api/health` (same-origin via the app proxy; also pings the DB) on load and again when the qualification panel opens, throttled to once a minute, so the API is warm before the call socket connects. `HealthController` now also answers at `/api/health`.
+- The gateway sends `{type:"ready"}` once the Gemini Live session is set up. The call button shows "Connecting…" (with Cancel) until then, fails after 45 s, and offers "Retry call" with the reason. Fixed a stale-closure bug where a dropped socket never cleaned up the mic.
+- Verified locally: health via proxy 200; socket open → connected → ready in ~2.5 s with a warm API.

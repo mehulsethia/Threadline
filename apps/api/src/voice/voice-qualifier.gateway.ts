@@ -185,6 +185,11 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 				},
 			});
 
+			// Gemini Live is set up: the client may start streaming the mic.
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({ type: "ready" }));
+			}
+
 			ws.on("message", (data: WebSocket.RawData) => {
 				try {
 					const msg = JSON.parse(data.toString()) as {
