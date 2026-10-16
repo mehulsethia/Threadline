@@ -82,7 +82,9 @@ type RevivalDraft = {
 	draftText: string;
 	subject: string | null;
 	confidence: number | null;
-	citedEvidence: string[] | null;
+	citedEvidence: Array<
+		string | { evidenceId?: string; kind?: string; quote?: string }
+	> | null;
 	stalledReason: string | null;
 	priorityScore: number | null;
 	status: string;
@@ -288,7 +290,7 @@ function RevivalDraftCard({
 		? formatMoney(amountCents, draft.dealCurrency)
 		: "Unknown";
 
-	const citations: string[] = draft.citedEvidence ?? [];
+	const citations = draft.citedEvidence ?? [];
 
 	const isPending = draft.status === "PENDING_APPROVAL";
 
@@ -395,25 +397,44 @@ function RevivalDraftCard({
 						<span className="text-xs font-medium text-muted-foreground">
 							Cited evidence:
 						</span>
-						{citations.map((cite) => (
-							<Popover key={cite}>
-								<PopoverTrigger asChild>
-									<button
-										type="button"
-										className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:bg-muted/80 transition-colors"
-									>
-										<Information className="size-3" />
-										{cite}
-									</button>
-								</PopoverTrigger>
-								<PopoverContent className="w-80 text-xs">
-									<div className="font-semibold mb-1">
-										Grounded Evidence Citation
-									</div>
-									<div className="text-muted-foreground">{cite}</div>
-								</PopoverContent>
-							</Popover>
-						))}
+						{citations.map((cite, idx) => {
+							const citeId =
+								typeof cite === "string"
+									? cite
+									: cite.evidenceId || String(idx);
+							const quoteText =
+								typeof cite === "string"
+									? cite
+									: cite.quote || "Evidence quote";
+							const citeLabel =
+								typeof cite === "string"
+									? cite.slice(0, 24)
+									: `[${cite.kind || "evidence"}] ${quoteText.slice(0, 24)}...`;
+							const citeDetail =
+								typeof cite === "string"
+									? cite
+									: cite.quote || "Evidence citation";
+
+							return (
+								<Popover key={citeId}>
+									<PopoverTrigger asChild>
+										<button
+											type="button"
+											className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:bg-muted/80 transition-colors"
+										>
+											<Information className="size-3" />
+											{citeLabel}
+										</button>
+									</PopoverTrigger>
+									<PopoverContent className="w-80 text-xs">
+										<div className="font-semibold mb-1">
+											Grounded Evidence Citation
+										</div>
+										<div className="text-muted-foreground">{citeDetail}</div>
+									</PopoverContent>
+								</Popover>
+							);
+						})}
 					</div>
 				)}
 

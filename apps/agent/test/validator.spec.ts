@@ -563,7 +563,13 @@ describe("validateAndEnrichFacts", () => {
 			},
 		};
 
-		expect(isBusinessSideOrganization("Apex IIT Academy", coachingMessages, "Amit Verma")).toBe(true);
+		expect(
+			isBusinessSideOrganization(
+				"Apex IIT Academy",
+				coachingMessages,
+				"Amit Verma",
+			),
+		).toBe(true);
 
 		validateAndEnrichFacts(
 			facts,
@@ -578,10 +584,24 @@ describe("validateAndEnrichFacts", () => {
 	});
 
 	it("extracts monetary amounts deterministically from evidence quotes", () => {
-		expect(parseDeterministicAmount("Total course fee 1,80,000 INR hai including study material")).toBe(180000);
-		expect(parseDeterministicAmount("Hamara total budget approx 4,50,000 INR hai for this lot")).toBe(450000);
-		expect(parseDeterministicAmount("Our approved budget for this fiscal year is $48,000 USD")).toBe(48000);
-		expect(parseDeterministicAmount("unser Angebot bei 72.000 EUR")).toBe(72000);
+		expect(
+			parseDeterministicAmount(
+				"Total course fee 1,80,000 INR hai including study material",
+			),
+		).toBe(180000);
+		expect(
+			parseDeterministicAmount(
+				"Hamara total budget approx 4,50,000 INR hai for this lot",
+			),
+		).toBe(450000);
+		expect(
+			parseDeterministicAmount(
+				"Our approved budget for this fiscal year is $48,000 USD",
+			),
+		).toBe(48000);
+		expect(parseDeterministicAmount("unser Angebot bei 72.000 EUR")).toBe(
+			72000,
+		);
 		expect(parseDeterministicAmount("budget of £35,000 GBP")).toBe(35000);
 		expect(parseDeterministicAmount("comes to £32,500 per year")).toBe(32500);
 		expect(parseDeterministicAmount("total fee 1.8 lakh")).toBe(180000);
@@ -607,7 +627,8 @@ describe("validateAndEnrichFacts", () => {
 			evidence: {
 				sourceKind: "whatsapp.message",
 				speaker: "us",
-				quote: "Total course fee 1,80,000 INR hai including study material and test series.",
+				quote:
+					"Total course fee 1,80,000 INR hai including study material and test series.",
 				lineNos: [2],
 			},
 		};

@@ -84,31 +84,38 @@ export function parseDeterministicAmount(
 		return Math.round(val * 10000000);
 	}
 
-	const kMatch = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp)?\s*(\d+(?:\.\d+)?)\s*k\b/i);
+	const kMatch = norm.match(
+		/(?:[$€£₹]|inr|usd|eur|gbp)?\s*(\d+(?:\.\d+)?)\s*k\b/i,
+	);
 	if (kMatch?.[1]) {
 		const val = parseFloat(kMatch[1]);
 		return Math.round(val * 1000);
 	}
 
-	const commaFormatted = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp|fee|fees|budget|price|angebot|total)?\s*(\d{1,3}(?:,\d{2,3})+)(?:\s*(?:inr|usd|eur|gbp|rs\.?|euro|euros|dollars|pounds))?/i);
+	const commaFormatted = norm.match(
+		/(?:[$€£₹]|inr|usd|eur|gbp|fee|fees|budget|price|angebot|total)?\s*(\d{1,3}(?:,\d{2,3})+)(?:\s*(?:inr|usd|eur|gbp|rs\.?|euro|euros|dollars|pounds))?/i,
+	);
 	if (commaFormatted?.[1]) {
 		const raw = commaFormatted[1].replace(/,/g, "");
 		const num = parseInt(raw, 10);
-		if (!isNaN(num) && num > 0) return num;
+		if (!Number.isNaN(num) && num > 0) return num;
 	}
 
-	const deDotFormatted = norm.match(/(?:[$€£₹]|eur|angebot|budget)?\s*(\d{1,3}(?:\.\d{3})+)(?:\s*(?:eur|euro|euros))?/i);
+	const deDotFormatted = norm.match(
+		/(?:[$€£₹]|eur|angebot|budget)?\s*(\d{1,3}(?:\.\d{3})+)(?:\s*(?:eur|euro|euros))?/i,
+	);
 	if (deDotFormatted?.[1]) {
 		const raw = deDotFormatted[1].replace(/\./g, "");
 		const num = parseInt(raw, 10);
-		if (!isNaN(num) && num > 0) return num;
+		if (!Number.isNaN(num) && num > 0) return num;
 	}
 
-	const plainCurrency = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp)\s*(\d{3,9})(?:\.00)?/i) ||
+	const plainCurrency =
+		norm.match(/(?:[$€£₹]|inr|usd|eur|gbp)\s*(\d{3,9})(?:\.00)?/i) ||
 		norm.match(/(\d{3,9})\s*(?:inr|usd|eur|gbp)/i);
 	if (plainCurrency?.[1]) {
 		const num = parseInt(plainCurrency[1], 10);
-		if (!isNaN(num) && num > 0) return num;
+		if (!Number.isNaN(num) && num > 0) return num;
 	}
 
 	return null;
@@ -568,299 +575,311 @@ export function validateAndEnrichFacts(
 		return evidence;
 	};
 
-	if (facts.contact.name.value === me) {
-		facts.contact.name.value = lead;
-		const firstLeadMsg = messages.find((m) => m.sender === lead);
-		if (firstLeadMsg) {
-			facts.contact.name.evidence = {
-				sourceKind: "whatsapp.message",
-				speaker: "lead",
-				quote: firstLeadMsg.text.slice(0, 100),
-				lineNos: [firstLeadMsg.lineNo],
-			};
-		}
-	}
-
-	const isPhoneNumber = /^\+?[\d\s-]{8,20}$/.test(lead.trim());
-	if (isPhoneNumber && !facts.contact.phone.value) {
-		const clean = lead.replace(/[\s-]/g, "");
-		const firstLeadMsg = messages.find((m) => m.sender === lead);
-		facts.contact.phone = {
-			value: clean,
-			evidence: {
-				sourceKind: "whatsapp.message",
-				speaker: "lead",
-				quote: lead,
-				lineNos: firstLeadMsg ? [firstLeadMsg.lineNo] : [1],
-			},
-		};
-	}
-
-	facts.contact.name.evidence = validateItem(
-		"contact.name",
-		facts.contact.name.evidence,
-		false,
-		"lead",
-	);
-	facts.contact.phone.evidence = validateItem(
-		"contact.phone",
-		facts.contact.phone.evidence,
-		false,
-		"lead",
-	);
-	facts.contact.role.evidence = validateItem(
-		"contact.role",
-		facts.contact.role.evidence,
-		false,
-		"lead",
-	);
-
-	facts.company.name.evidence = validateItem(
-		"company.name",
-		facts.company.name.evidence,
-		false,
-		"lead",
-	);
-
-	if (facts.company.name.value) {
-		const isBusinessOrg = isBusinessSideOrganization(
-			facts.company.name.value,
-			messages,
-			me,
-		);
-		const leadMessages = messages.filter((m) => m.sender === lead);
-		const leadMentioned = leadMessages.some((m) =>
-			normalize(m.text).includes(normalize(facts.company.name.value || "")),
-		);
-		const spokenByUs = facts.company.name.evidence?.speaker === "us";
-
-		if (isBusinessOrg || (spokenByUs && !leadMentioned)) {
-			facts.company.name = { value: null, evidence: null };
-			summary.fixed++;
-			summary.details.push({
-				field: "company.name",
-				status: "fixed",
-				reason: "Cleared business-side participant organisation from lead company",
-			});
-		}
-	}
-
-	facts.company.city.evidence = validateItem(
-		"company.city",
-		facts.company.city.evidence,
-		false,
-		"lead",
-	);
-
-	facts.deal.need.evidence = validateItem(
-		"deal.need",
-		facts.deal.need.evidence,
-		false,
-		"lead",
-	);
-	facts.deal.quantity.evidence = validateItem(
-		"deal.quantity",
-		facts.deal.quantity.evidence,
-		false,
-		"lead",
-	);
-
-	facts.deal.leadBudget.evidence = validateItem(
-		"deal.leadBudget",
-		facts.deal.leadBudget.evidence,
-		false,
-		"lead",
-	);
-
-	facts.deal.quotedValue.evidence = validateItem(
-		"deal.quotedValue",
-		facts.deal.quotedValue.evidence,
-		false,
-		"us",
-	);
-
-	if (facts.deal.quotedValue.evidence?.quote) {
-		const parsedAmount = parseDeterministicAmount(
-			facts.deal.quotedValue.evidence.quote,
-		);
-		if (parsedAmount !== null && parsedAmount !== facts.deal.quotedValue.value) {
-			facts.deal.quotedValue.value = parsedAmount;
-			summary.fixed++;
-			summary.details.push({
-				field: "deal.quotedValue",
-				status: "fixed",
-				reason: `Deterministically extracted amount ${parsedAmount} from quote`,
-			});
-		}
-	}
-
-	if (facts.deal.leadBudget.evidence?.quote) {
-		const parsedAmount = parseDeterministicAmount(
-			facts.deal.leadBudget.evidence.quote,
-		);
-		if (parsedAmount !== null && parsedAmount !== facts.deal.leadBudget.value) {
-			facts.deal.leadBudget.value = parsedAmount;
-			summary.fixed++;
-			summary.details.push({
-				field: "deal.leadBudget",
-				status: "fixed",
-				reason: `Deterministically extracted amount ${parsedAmount} from quote`,
-			});
-		}
-	}
-
-	if (facts.deal.leadBudget.value !== null) {
-		if (facts.deal.leadBudget.evidence?.speaker === "us") {
-			if (!facts.deal.quotedValue.value) {
-				facts.deal.quotedValue = {
-					value: facts.deal.leadBudget.value,
-					evidence: facts.deal.leadBudget.evidence,
+	function validateContactAndCompany(): void {
+		if (facts.contact.name.value === me) {
+			facts.contact.name.value = lead;
+			const firstLeadMsg = messages.find((m) => m.sender === lead);
+			if (firstLeadMsg) {
+				facts.contact.name.evidence = {
+					sourceKind: "whatsapp.message",
+					speaker: "lead",
+					quote: firstLeadMsg.text.slice(0, 100),
+					lineNos: [firstLeadMsg.lineNo],
 				};
 			}
-			facts.deal.leadBudget = { value: null, evidence: null };
-		} else if (
-			facts.deal.quotedValue.value !== null &&
-			facts.deal.leadBudget.value === facts.deal.quotedValue.value
-		) {
-			const quote = facts.deal.leadBudget.evidence?.quote ?? "";
-			const hasNumericBudget = /\b(\d+|lakh|crore|thousand|k)\b/i.test(quote);
-			if (!hasNumericBudget) {
-				facts.deal.leadBudget = { value: null, evidence: null };
+		}
+
+		const isPhoneNumber = /^\+?[\d\s-]{8,20}$/.test(lead.trim());
+		if (isPhoneNumber && !facts.contact.phone.value) {
+			const clean = lead.replace(/[\s-]/g, "");
+			const firstLeadMsg = messages.find((m) => m.sender === lead);
+			facts.contact.phone = {
+				value: clean,
+				evidence: {
+					sourceKind: "whatsapp.message",
+					speaker: "lead",
+					quote: lead,
+					lineNos: firstLeadMsg ? [firstLeadMsg.lineNo] : [1],
+				},
+			};
+		}
+
+		facts.contact.name.evidence = validateItem(
+			"contact.name",
+			facts.contact.name.evidence,
+			false,
+			"lead",
+		);
+		facts.contact.phone.evidence = validateItem(
+			"contact.phone",
+			facts.contact.phone.evidence,
+			false,
+			"lead",
+		);
+		facts.contact.role.evidence = validateItem(
+			"contact.role",
+			facts.contact.role.evidence,
+			false,
+			"lead",
+		);
+		facts.company.name.evidence = validateItem(
+			"company.name",
+			facts.company.name.evidence,
+			false,
+			"lead",
+		);
+
+		if (facts.company.name.value) {
+			const isBusinessOrg = isBusinessSideOrganization(
+				facts.company.name.value,
+				messages,
+				me,
+			);
+			const leadMessages = messages.filter((m) => m.sender === lead);
+			const leadMentioned = leadMessages.some((m) =>
+				normalize(m.text).includes(normalize(facts.company.name.value || "")),
+			);
+			const spokenByUs = facts.company.name.evidence?.speaker === "us";
+
+			if (isBusinessOrg || (spokenByUs && !leadMentioned)) {
+				facts.company.name = { value: null, evidence: null };
+				summary.fixed++;
+				summary.details.push({
+					field: "company.name",
+					status: "fixed",
+					reason:
+						"Cleared business-side participant organisation from lead company",
+				});
 			}
 		}
+
+		facts.company.city.evidence = validateItem(
+			"company.city",
+			facts.company.city.evidence,
+			false,
+			"lead",
+		);
 	}
 
-	if (facts.deal.quotedValue.value === null && facts.deal.leadBudget.value === null) {
-		for (const msg of messages) {
-			if (msg.sender === me) {
-				const amt = parseDeterministicAmount(msg.text);
-				if (amt !== null) {
+	function validateDealAmounts(): void {
+		facts.deal.need.evidence = validateItem(
+			"deal.need",
+			facts.deal.need.evidence,
+			false,
+			"lead",
+		);
+		facts.deal.quantity.evidence = validateItem(
+			"deal.quantity",
+			facts.deal.quantity.evidence,
+			false,
+			"lead",
+		);
+		facts.deal.leadBudget.evidence = validateItem(
+			"deal.leadBudget",
+			facts.deal.leadBudget.evidence,
+			false,
+			"lead",
+		);
+		facts.deal.quotedValue.evidence = validateItem(
+			"deal.quotedValue",
+			facts.deal.quotedValue.evidence,
+			false,
+			"us",
+		);
+
+		if (facts.deal.quotedValue.evidence?.quote) {
+			const parsedAmount = parseDeterministicAmount(
+				facts.deal.quotedValue.evidence.quote,
+			);
+			if (
+				parsedAmount !== null &&
+				parsedAmount !== facts.deal.quotedValue.value
+			) {
+				facts.deal.quotedValue.value = parsedAmount;
+				summary.fixed++;
+				summary.details.push({
+					field: "deal.quotedValue",
+					status: "fixed",
+					reason: `Deterministically extracted amount ${parsedAmount} from quote`,
+				});
+			}
+		}
+
+		if (facts.deal.leadBudget.evidence?.quote) {
+			const parsedAmount = parseDeterministicAmount(
+				facts.deal.leadBudget.evidence.quote,
+			);
+			if (
+				parsedAmount !== null &&
+				parsedAmount !== facts.deal.leadBudget.value
+			) {
+				facts.deal.leadBudget.value = parsedAmount;
+				summary.fixed++;
+				summary.details.push({
+					field: "deal.leadBudget",
+					status: "fixed",
+					reason: `Deterministically extracted amount ${parsedAmount} from quote`,
+				});
+			}
+		}
+
+		if (facts.deal.leadBudget.value !== null) {
+			if (facts.deal.leadBudget.evidence?.speaker === "us") {
+				if (!facts.deal.quotedValue.value) {
 					facts.deal.quotedValue = {
-						value: amt,
-						evidence: {
-							sourceKind: "whatsapp.message",
-							speaker: "us",
-							quote: msg.text,
-							lineNos: [msg.lineNo],
-						},
+						value: facts.deal.leadBudget.value,
+						evidence: facts.deal.leadBudget.evidence,
 					};
-					summary.fixed++;
-					summary.details.push({
-						field: "deal.quotedValue",
-						status: "fixed",
-						reason: `Extracted quoted amount ${amt} from seller message`,
-					});
-					break;
+				}
+				facts.deal.leadBudget = { value: null, evidence: null };
+			} else if (
+				facts.deal.quotedValue.value !== null &&
+				facts.deal.leadBudget.value === facts.deal.quotedValue.value
+			) {
+				const quote = facts.deal.leadBudget.evidence?.quote ?? "";
+				const hasNumericBudget = /\b(\d+|lakh|crore|thousand|k)\b/i.test(quote);
+				if (!hasNumericBudget) {
+					facts.deal.leadBudget = { value: null, evidence: null };
 				}
 			}
 		}
-	}
 
-	facts.deal.currency.evidence = validateItem(
-		"deal.currency",
-		facts.deal.currency.evidence,
-		false,
-		facts.deal.quotedValue.value ? "us" : "lead",
-	);
-
-	facts.deal.timeline.evidence = validateItem(
-		"deal.timeline",
-		facts.deal.timeline.evidence,
-		false,
-		"lead",
-	);
-
-	facts.deal.timelineResolved = resolveRelativeTimeline(
-		facts.deal.timeline.value,
-		refDate,
-	);
-
-	const hasDemo = Boolean(
-		facts.nextStep.value &&
-			normalize(facts.nextStep.value).match(/demo|visit|centre|test/),
-	);
-	const hasProposal = Boolean(
-		facts.nextStep.value &&
-			normalize(facts.nextStep.value).match(/quote|quotation|proposal/),
-	);
-	const mappedStage = mapToCrmDealStage(
-		facts.deal.stageSuggestion.value as string,
-		hasDemo,
-		hasProposal,
-	);
-	facts.deal.stageSuggestion.value = mappedStage;
-	facts.deal.stageSuggestion.evidence = validateItem(
-		"deal.stageSuggestion",
-		facts.deal.stageSuggestion.evidence,
-		true,
-		"us",
-	);
-
-	facts.languagePreference.evidence = validateItem(
-		"languagePreference",
-		facts.languagePreference.evidence,
-		true,
-		"lead",
-	);
-
-	facts.sentiment.evidence = validateItem(
-		"sentiment",
-		facts.sentiment.evidence,
-		true,
-		"lead",
-	);
-
-	if (facts.nextStep.value || facts.nextStep.evidence?.quote) {
-		const combined =
-			`${facts.nextStep.value ?? ""} ${facts.nextStep.dueAt ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.trim();
-		const nextStepNorm = normalize(combined);
-		if (!facts.nextStep.owner) {
-			if (
-				nextStepNorm.includes("bhej") ||
-				nextStepNorm.includes("send") ||
-				nextStepNorm.includes("quotation") ||
-				nextStepNorm.includes("quote")
-			) {
-				facts.nextStep.owner = "us";
-			} else {
-				facts.nextStep.owner = "lead";
+		if (
+			facts.deal.quotedValue.value === null &&
+			facts.deal.leadBudget.value === null
+		) {
+			for (const msg of messages) {
+				if (msg.sender === me) {
+					const amt = parseDeterministicAmount(msg.text);
+					if (amt !== null) {
+						facts.deal.quotedValue = {
+							value: amt,
+							evidence: {
+								sourceKind: "whatsapp.message",
+								speaker: "us",
+								quote: msg.text,
+								lineNos: [msg.lineNo],
+							},
+						};
+						summary.fixed++;
+						summary.details.push({
+							field: "deal.quotedValue",
+							status: "fixed",
+							reason: `Extracted quoted amount ${amt} from seller message`,
+						});
+						break;
+					}
+				}
 			}
 		}
 
-		let resolved =
-			resolveDueAt(facts.nextStep.dueAt, refDate, timezoneOffset) ||
-			resolveDueAt(combined, refDate, timezoneOffset);
-		if (!resolved) {
-			const dueMsg = messages.find((m) =>
-				/saturday|tomorrow|kal|morgen|mañana|hour|ghante|stunde|hora|week|demo|centre|test|meeting|termin/i.test(
-					m.text,
-				),
-			);
-			if (dueMsg) {
-				resolved = resolveDueAt(dueMsg.text, refDate, timezoneOffset);
-			}
-		}
-		if (resolved) {
-			facts.nextStep.dueAt = resolved;
-		}
-		facts.nextStep.evidence = validateItem(
-			"nextStep",
-			facts.nextStep.evidence,
+		facts.deal.currency.evidence = validateItem(
+			"deal.currency",
+			facts.deal.currency.evidence,
 			false,
-			facts.nextStep.owner ?? "us",
+			facts.deal.quotedValue.value ? "us" : "lead",
 		);
 	}
 
-	for (let i = 0; i < facts.objections.length; i++) {
-		const obj = facts.objections[i];
-		if (!obj) continue;
-		obj.evidence = validateItem(
-			`objections[${i}]`,
-			obj.evidence,
+	function validateTimelineAndNextSteps(): void {
+		facts.deal.timeline.evidence = validateItem(
+			"deal.timeline",
+			facts.deal.timeline.evidence,
 			false,
 			"lead",
-		) as EvidenceRef;
+		);
+		facts.deal.timelineResolved = resolveRelativeTimeline(
+			facts.deal.timeline.value,
+			refDate,
+		);
+
+		const hasDemo = Boolean(
+			facts.nextStep.value &&
+				normalize(facts.nextStep.value).match(/demo|visit|centre|test/),
+		);
+		const hasProposal = Boolean(
+			facts.nextStep.value &&
+				normalize(facts.nextStep.value).match(/quote|quotation|proposal/),
+		);
+		const mappedStage = mapToCrmDealStage(
+			facts.deal.stageSuggestion.value as string,
+			hasDemo,
+			hasProposal,
+		);
+		facts.deal.stageSuggestion.value = mappedStage;
+		facts.deal.stageSuggestion.evidence = validateItem(
+			"deal.stageSuggestion",
+			facts.deal.stageSuggestion.evidence,
+			true,
+			"us",
+		);
+
+		facts.languagePreference.evidence = validateItem(
+			"languagePreference",
+			facts.languagePreference.evidence,
+			true,
+			"lead",
+		);
+		facts.sentiment.evidence = validateItem(
+			"sentiment",
+			facts.sentiment.evidence,
+			true,
+			"lead",
+		);
+
+		if (facts.nextStep.value || facts.nextStep.evidence?.quote) {
+			const combined =
+				`${facts.nextStep.value ?? ""} ${facts.nextStep.dueAt ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.trim();
+			const nextStepNorm = normalize(combined);
+			if (!facts.nextStep.owner) {
+				facts.nextStep.owner =
+					nextStepNorm.includes("bhej") ||
+					nextStepNorm.includes("send") ||
+					nextStepNorm.includes("quotation") ||
+					nextStepNorm.includes("quote")
+						? "us"
+						: "lead";
+			}
+
+			let resolved =
+				resolveDueAt(facts.nextStep.dueAt, refDate, timezoneOffset) ||
+				resolveDueAt(combined, refDate, timezoneOffset);
+			if (!resolved) {
+				const dueMsg = messages.find((m) =>
+					/saturday|tomorrow|kal|morgen|mañana|hour|ghante|stunde|hora|week|demo|centre|test|meeting|termin/i.test(
+						m.text,
+					),
+				);
+				if (dueMsg) {
+					resolved = resolveDueAt(dueMsg.text, refDate, timezoneOffset);
+				}
+			}
+			if (resolved) {
+				facts.nextStep.dueAt = resolved;
+			}
+			facts.nextStep.evidence = validateItem(
+				"nextStep",
+				facts.nextStep.evidence,
+				false,
+				facts.nextStep.owner ?? "us",
+			);
+		}
+
+		for (let i = 0; i < facts.objections.length; i++) {
+			const obj = facts.objections[i];
+			if (!obj) continue;
+			obj.evidence = validateItem(
+				`objections[${i}]`,
+				obj.evidence,
+				false,
+				"lead",
+			) as EvidenceRef;
+		}
 	}
+
+	validateContactAndCompany();
+	validateDealAmounts();
+	validateTimelineAndNextSteps();
 
 	return summary;
 }

@@ -345,32 +345,33 @@ export function RecordFactsSection({
 													{fact.value}
 												</span>
 											</div>
-										<div className="flex shrink-0 items-center gap-1">
-											<Button
-												variant="ghost"
-												size="icon-xs"
-												disabled={isPending}
-												onClick={() => handleDecision(fact.id, "accept")}
-												aria-label="Accept suggestion"
-												className="hover:bg-primary/10 hover:text-primary"
-											>
-												<Icon icon={Checkmark} />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon-xs"
-												disabled={isPending}
-												onClick={() => handleDecision(fact.id, "dismiss")}
-												aria-label="Dismiss suggestion"
-												className="hover:bg-destructive/10 hover:text-destructive"
-											>
-												<Icon icon={Close} />
-											</Button>
+											<div className="flex shrink-0 items-center gap-1">
+												<Button
+													variant="ghost"
+													size="icon-xs"
+													disabled={isPending}
+													onClick={() => handleDecision(fact.id, "accept")}
+													aria-label="Accept suggestion"
+													className="hover:bg-primary/10 hover:text-primary"
+												>
+													<Icon icon={Checkmark} />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-xs"
+													disabled={isPending}
+													onClick={() => handleDecision(fact.id, "dismiss")}
+													aria-label="Dismiss suggestion"
+													className="hover:bg-destructive/10 hover:text-destructive"
+												>
+													<Icon icon={Close} />
+												</Button>
+											</div>
 										</div>
+										<FactEvidenceChips fact={fact} />
 									</div>
-									<FactEvidenceChips fact={fact} />
-								</div>
-							))}
+								);
+							})}
 						</div>
 					</div>
 				) : null}

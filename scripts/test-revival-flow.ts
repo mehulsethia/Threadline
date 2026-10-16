@@ -4,7 +4,7 @@ import { db } from "../packages/db/src";
 import { writePlaybook, writeRevivalSlas } from "../packages/db/src/settings";
 
 async function setupFixtures() {
-	console.log("Setting up revival test fixtures with old timestamps...\n");
+	console.log("Setting up revival test fixtures with stalled timestamps...\n");
 
 	await writeRevivalSlas(db, {
 		UNQUALIFIED_TO_BUY: 3,
@@ -16,46 +16,55 @@ async function setupFixtures() {
 
 	await writePlaybook(
 		db,
-		"Threadline B2B Playbook: Professional, consultative, transparent. Never invent discounts. Emphasize compliance (SOC2, ISO27001), high-volume reliability, and fast deployment. Sign-off: Best regards, The Threadline Team.",
+		"Global B2B Sales Playbook: Professional, consultative, transparent. Never invent discounts, timelines, or unconfirmed meetings. Address compliance (SOC2, ISO 27001) only when grounded in evidence. Sign-off as the owning representative with your company name.",
 	);
 
-	const existingContacts = await db.contact.findMany({
+	await db.outboundDraft.deleteMany({});
+
+	const seededDeals = await db.deal.findMany({
 		where: {
-			firstName: { in: ["Sarah", "Klaus", "Oliver", "Elena"] },
+			name: {
+				in: [
+					"Datacore Enterprise Security",
+					"Weber Precision Valves",
+					"Sterling Route Logistics",
+					"Nordic Supply Deal",
+				],
+			},
 		},
+		select: { id: true, contacts: { select: { contactId: true } } },
+	});
+	const seededDealIds = seededDeals.map((d) => d.id);
+	const seededContactIds = seededDeals.flatMap((d) =>
+		d.contacts.map((c) => c.contactId),
+	);
+
+	const elena = await db.contact.findFirst({
+		where: { firstName: "Elena", lastName: "Rostova" },
 		select: { id: true },
 	});
-	const contactIds = existingContacts.map((c) => c.id);
-	if (contactIds.length > 0) {
-		await db.outboundDraft.deleteMany({
-			where: { contactId: { in: contactIds } },
-		});
+	if (elena) seededContactIds.push(elena.id);
+
+	if (seededDealIds.length > 0) {
 		await db.activity.deleteMany({
-			where: { contactId: { in: contactIds } },
-		});
-		await db.dealContact.deleteMany({
-			where: { contactId: { in: contactIds } },
+			where: { dealId: { in: seededDealIds } },
 		});
 		await db.whatsAppMessage.deleteMany({
-			where: { contactId: { in: contactIds } },
+			where: { dealId: { in: seededDealIds } },
 		});
 		await db.contactFact.deleteMany({
-			where: { contactId: { in: contactIds } },
+			where: { dealId: { in: seededDealIds } },
+		});
+		await db.dealContact.deleteMany({
+			where: { dealId: { in: seededDealIds } },
 		});
 		await db.deal.deleteMany({
-			where: {
-				name: {
-					in: [
-						"Datacore Enterprise Security",
-						"Weber Precision Valves",
-						"Sterling Route Logistics",
-						"Nordic Supply Deal",
-					],
-				},
-			},
+			where: { id: { in: seededDealIds } },
 		});
+	}
+	if (seededContactIds.length > 0) {
 		await db.contact.deleteMany({
-			where: { id: { in: contactIds } },
+			where: { id: { in: seededContactIds } },
 		});
 	}
 
@@ -65,7 +74,7 @@ async function setupFixtures() {
 	const fourDaysAgo = new Date(now.getTime() - 4 * 86400 * 1000);
 	const twoDaysAgo = new Date(now.getTime() - 2 * 86400 * 1000);
 
-	const defaultUser = await db.user.findFirst({ select: { id: true } });
+	const defaultUser = await db.user.findFirst({ select: { id: true, name: true } });
 	if (!defaultUser) throw new Error("No user found in database");
 
 	const contact1 = await db.contact.create({
@@ -98,11 +107,10 @@ async function setupFixtures() {
 			field: "securityRequirement",
 			value: "SOC2 Type II and ISO 27001 certification required before signing",
 			status: "PROPOSED",
-			score: 0.9,
+			score: 0.95,
 			band: FactBand.VERIFIED,
 			method: "extraction",
-			evidence:
-				"Sarah Jenkins: compliance team requires your SOC2 Type II report and ISO 27001",
+			evidence: "Buyer states SOC2 Type II and ISO 27001 required before signing proposal",
 		},
 	});
 	await db.whatsAppMessage.create({
@@ -122,7 +130,7 @@ async function setupFixtures() {
 			firstName: "Klaus",
 			lastName: "Weber",
 			phone: "+497115558921",
-			email: "klaus.weber@weber-praezision.de",
+			email: "klaus.weber@weber-fertigung.de",
 			timezone: "Europe/Berlin",
 			optedOut: false,
 		},
@@ -245,19 +253,41 @@ async function setupFixtures() {
 		},
 	});
 
-	console.log("Created 4 test scenarios:");
-	console.log(
-		"1. US SaaS (Datacore): Proposal stage, 8d since last inbound (SLA: 5d)",
-	);
-	console.log(
-		"2. DE Manufacturing (Weber): Meeting/Demo stage, unanswered pricing question",
-	);
-	console.log(
-		"3. UK Logistics (Sterling): Qualified stage, overdue 'Check:' task (4d overdue)",
-	);
-	console.log(
-		"4. Nordic Supply (Elena): Opt-out request ('stop contacting us and unsubscribe')\n",
-	);
+	const fixtureDeals = await db.deal.findMany({
+		where: {
+			name: {
+				in: [
+					"SS316 Industrial Ball Valves (Class 150) - 2 inch and 3 inch",
+					"Industrial ball valves (2 inch and 3 inch SS316 Class 150) for chemical plant project",
+					"Class 11 & 12 JEE (Advanced) Two-Year Classroom Coaching Program",
+					"JEE Advanced 2027 2-year classroom coaching program",
+					"industrielle Durchflusssensoren und Druckventile für unsere automatisierte Fertigungsstraße",
+					"Enterprise Security Monitoring Software for Kubernetes Clusters",
+					"Enterprise security monitoring software for Kubernetes clusters",
+					"Upgrade telematics and dispatch management system",
+				],
+			},
+		},
+		select: { id: true, name: true },
+	});
+
+	for (const d of fixtureDeals) {
+		await db.deal.update({
+			where: { id: d.id },
+			data: { createdAt: eightDaysAgo },
+		});
+		await db.whatsAppMessage.updateMany({
+			where: { dealId: d.id },
+			data: { timestamp: sixDaysAgo },
+		});
+	}
+
+	console.log("Test scenarios initialized:");
+	console.log("1. US SaaS (Sarah Jenkins): Contract sent, 8d since inbound (SLA: 5d)");
+	console.log("2. DE Manufacturing (Klaus Weber): Meeting/Demo stage, unanswered question");
+	console.log("3. UK Logistics (Oliver Sterling): Qualified stage, overdue Check task (4d)");
+	console.log("4. Nordic Supply (Elena Rostova): Opt-out request ('stop contacting us and unsubscribe')");
+	console.log(`5. Imported Fixture Deals: ${fixtureDeals.length} deals aged past SLA\n`);
 }
 
 async function main() {
@@ -271,15 +301,27 @@ async function main() {
 	console.log(`Stalled Deals Detected: ${report.stalledDealsDetected}`);
 	console.log(`Drafts Generated: ${report.draftsGenerated}`);
 
+	let index = 1;
 	for (const draft of report.drafts) {
+		const deal = await db.deal.findUnique({
+			where: { id: draft.dealId },
+			select: { name: true, stage: true, owner: { select: { name: true } } },
+		});
+		const contact = await db.contact.findUnique({
+			where: { id: draft.contactId },
+			select: { firstName: true, lastName: true, company: { select: { name: true } } },
+		});
+
 		console.log("\n--------------------------------------------------");
-		console.log(`DRAFT FOR DEAL: ${draft.dealId}`);
+		console.log(`DRAFT #${index}: ${contact?.firstName} ${contact?.lastName || ""} (${deal?.name})`);
+		console.log(`Company: ${contact?.company?.name || "None"} | Stage: ${deal?.stage} | Owning Rep: ${deal?.owner?.name || "Alex Morgan"}`);
 		console.log(`Channel: ${draft.channel}`);
 		console.log(`Strategy: ${draft.strategy}`);
 		console.log(`Rationale: ${draft.rationale}`);
 		console.log(`Subject: ${draft.subject ?? "N/A"}`);
-		console.log(`Cited Evidence: ${JSON.stringify(draft.citedEvidenceIds)}`);
-		console.log(`Text:\n${draft.draftText}`);
+		console.log(`Cited Evidence: ${JSON.stringify(draft.citedEvidence)}`);
+		console.log(`Draft Text:\n${draft.draftText}`);
+		index++;
 	}
 
 	const optedOutContact = await db.contact.findFirst({
