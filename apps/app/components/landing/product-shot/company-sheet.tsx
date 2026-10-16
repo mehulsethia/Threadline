@@ -61,7 +61,7 @@ function SheetHeader({ compact }: { compact?: boolean }) {
 						Threadline
 					</p>
 					<p className="text-muted-foreground text-xs/[162.5%]">
-						threadline.example · Software
+						threadline.io · Enterprise Sales Agent
 					</p>
 				</div>
 
