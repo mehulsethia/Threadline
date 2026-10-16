@@ -56,6 +56,7 @@ async function runCompanyResearchStep(input: {
 	jobId: string;
 	companyName: string;
 	city?: string;
+	domain?: string;
 	contactId?: string;
 	dealId?: string;
 	industryContext?: string;
@@ -72,6 +73,7 @@ async function runCompanyResearchStep(input: {
 	const research = await researchCompany({
 		companyName: input.companyName,
 		city: input.city,
+		domain: input.domain,
 		industryContext: input.industryContext,
 	});
 
@@ -367,12 +369,37 @@ export async function runDeterministicIntakePipeline(
 	}
 
 	if (companyName) {
+		const extractedDomain =
+			parsedMessages
+				.map((m) => {
+					const match = m.text.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+					return match ? match[1] : null;
+				})
+				.find(
+					(d) =>
+						d &&
+						!d.includes("gmail") &&
+						!d.includes("yahoo") &&
+						!d.includes("outlook") &&
+						!d.includes("hotmail"),
+				) ||
+			parsedMessages
+				.map((m) => {
+					const match = m.text.match(
+						/\b([a-zA-Z0-9-]+\.(?:com|org|io|ai|net|co|de|uk|in))\b/i,
+					);
+					return match ? match[1] : null;
+				})
+				.find((d) => Boolean(d)) ||
+			undefined;
+
 		await runCompanyResearchStep({
 			jobId,
 			companyName,
 			city: facts.company.city.value || undefined,
 			contactId,
 			dealId,
+			domain: extractedDomain,
 			industryContext: facts.deal.need.value || undefined,
 		});
 	}

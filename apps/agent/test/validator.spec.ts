@@ -771,6 +771,22 @@ describe("validateAndEnrichFacts", () => {
 				"Amit Verma",
 			),
 		).toBe(true);
+		expect(
+			isBusinessSideOrganization(
+				"Northwind Systems Inc",
+				[],
+				"Amit Verma",
+				"Northwind Systems",
+			),
+		).toBe(true);
+		expect(
+			isBusinessSideOrganization(
+				"Siemens AG",
+				coachingMessages,
+				"Amit Verma",
+				"Northwind Systems",
+			),
+		).toBe(false);
 
 		validateAndEnrichFacts(
 			facts,

@@ -29,14 +29,14 @@ Running log tracking all parts, steps, execution status, commit hashes, and veri
 ### Real Intake Verification Outputs (Post-Fix B1, B2, B3)
 
 ```
-TEST 1: Ingesting Valves Manufacturing Enquiry (India/B2B) (valves-enquiry.txt)
+TEST 1: Ingesting Valves Manufacturing Enquiry (Apex Flow Controls) (valves-enquiry.txt)
   Contact: Vikram Malhotra (9820198201) | Company: Apex Flow Controls
   Deal: "SS316 Industrial Ball Valves (Class 150) - 2 inch and 3 inch" | Stage: Negotiation | Amount: 450000 INR
   Facts: 9 total (5 APPLIED, 4 PROPOSED)
     - [PROPOSED] companyProfile: "No confident public match found" [matchConfidence: 0.00]
   Tasks Created: 1 ("Send formal quotation PDF via email or WhatsApp" | due: 2026-10-15T06:25:00.000Z)
 
-TEST 2: Ingesting Education Course Enquiry (India/SMB) (coaching-institute.txt)
+TEST 2: Ingesting Education Course Enquiry (Classroom Coaching) (coaching-institute.txt)
   Contact: Sunita Rao (No phone) | Company: None (B2 Fixed: seller organisation "Apex IIT Academy" cleared)
   Deal: "Class 11 & 12 JEE (Advanced) Two-Year Classroom Coaching Program" | Stage: Meeting/Demo | Amount: 180000 INR (B3 Fixed: 180,000 INR deterministic extraction)
   Facts: 7 total (4 APPLIED, 3 PROPOSED)
@@ -418,7 +418,7 @@ Revival run completed successfully.
 ## PART B — Stage inference with explicit evidence criteria
 
 - **Status**: DONE
-- **Commit**: Pending
+- **Commit**: `4748155`
 - **Date**: 2026-10-16
 - **Summary**:
   - Implemented explicit evidence-based stage entry criteria in `apps/agent/adk/validator.ts` (`inferDealStageWithEvidence`) and `apps/agent/adk/extraction.ts`:
@@ -482,6 +482,48 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
   - Contacts diff: 0
   - Tasks diff: 0
   - 0 duplicate messages, contacts, or tasks created.
+```
+
+- **Open Issues**: None.
+
+---
+
+## PART C — Research check + test cleanup
+
+- **Status**: DONE
+- **Commit**: `da9ec02`
+- **Date**: 2026-10-16
+- **Summary**:
+  - **C1: Real Company Verification Test (`apps/agent/test/company-research.spec.ts`)**:
+    - Created unit & integration test suite verifying Google Search Grounding with Vertex AI for real enterprise entities with conversation domains.
+    - Test 1 (Stripe): Verified match confidence 0.95 (>= 0.70 threshold) with domain `stripe.com` and industry context. Grounded business profile attached: overview, size signals ($159B valuation, 9,383 employees, $1.9T volume), dual headquarters (San Francisco / Dublin), and 14 cited web URLs.
+    - Test 2 (Siemens): Verified match confidence 1.00 (>= 0.70 threshold) with domain `siemens.com`, Munich location, and industrial automation context. Attached structured profile with 16 cited web URLs.
+    - Test 3 (Datacore Cloud): Verified rejection of false match (confidence 0.10 < 0.70), suppressing profile and size signals.
+  - **C2: Dynamic `isBusinessSideOrganization()` Verification**:
+    - Confirmed `isBusinessSideOrganization()` is completely dynamic: zero hardcoded company names.
+    - Driven dynamically by `workspaceName` parameter and the `me` participant's messages with contextual self-reference phrases ("swagat hai", "welcome", "here at", "we at", "team at", "our branch", "our centre", "our office", "hamara", "hamare").
+    - Verified in `apps/agent/test/validator.spec.ts` that `workspaceName: "Northwind Systems"` dynamically identifies `"Northwind Systems Inc"` as a seller organisation without hardcoding.
+  - **C3: Test and Fixture Label Neutrality**:
+    - Confirmed complete removal of all "India/SMB" and "India/B2B" labels across all test suites, fixtures, and progress logs.
+    - Verified 0 remaining matches in repository.
+
+### Real Research Verification Output (Part C)
+
+```
+bun test apps/agent/test/company-research.spec.ts
+
+apps/agent/test/company-research.spec.ts:
+[ResearchCompany] Grounded research for "Stripe": matchConfidence=0.95, citations=14, latency=12957ms
+✓ Company Research Entity Verification with Search Grounding > confidently matches a real company with domain and attaches a structured profile [12959.84ms]
+[ResearchCompany] Grounded research for "Siemens": matchConfidence=1.00, citations=16, latency=13989ms
+✓ Company Research Entity Verification with Search Grounding > confidently matches Siemens with domain in conversation [13989.55ms]
+[ResearchCompany] Grounded research for "Datacore Cloud": matchConfidence=0.10, citations=2, latency=8523ms
+✓ Company Research Entity Verification with Search Grounding > rejects match below 0.70 for non-existent or ambiguous company and does not attach profile [8524.33ms]
+
+ 3 pass
+ 0 fail
+ 18 expect() calls
+Ran 3 tests across 1 file. [35.84s]
 ```
 
 - **Open Issues**: None.
