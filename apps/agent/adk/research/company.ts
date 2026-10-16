@@ -4,9 +4,13 @@ export type ResearchCompanyInput = {
 	companyName: string;
 	city?: string | null;
 	domain?: string | null;
+	industryContext?: string | null;
 };
 
 export type ResearchCompanyResult = {
+	entityMatched?: string | null;
+	matchConfidence: number;
+	matchReasons: string[];
 	overview?: string;
 	sizeSignals?: string;
 	location?: string;
@@ -26,22 +30,40 @@ export async function researchCompany(
 
 	const locationHint = input.city?.trim();
 	const domainHint = input.domain?.trim();
-
-	const queryParts = [companyName];
-	if (locationHint) queryParts.push(locationHint);
-	if (domainHint) queryParts.push(domainHint);
+	const industryHint = input.industryContext?.trim();
 
 	const prompt = [
-		`Research the business "${companyName}" (${queryParts.join(", ")}).`,
-		"Provide a concise profile covering what they do, size signals, location, and recent news.",
+		`Research the business entity "${companyName}".`,
+		locationHint ? `Known location: ${locationHint}` : "",
+		domainHint ? `Known domain: ${domainHint}` : "",
+		industryHint ? `Conversation context: ${industryHint}` : "",
+		"",
+		"Entity Match Verification Task:",
+		`1. Search for public information about the company "${companyName}".`,
+		"2. Critically verify whether any discovered web entities match this exact target business.",
+		"   - Compare the company name strictly. Do NOT confuse different companies that share a partial word (e.g. 'Datacore Cloud' is a different entity from 'DataCore Software'; do not match 'DataCore Software' when searching for 'Datacore Cloud').",
+		locationHint ? `   - Verify whether the found entity is located in or operates in "${locationHint}".` : "",
+		domainHint ? `   - Verify whether the found entity uses domain "${domainHint}".` : "",
+		industryHint ? `   - Verify whether the found entity operates in the industry or deals with the products described in: "${industryHint}".` : "",
+		"3. Assign a matchConfidence score between 0.0 and 1.0:",
+		"   - 0.80 - 1.00: High confidence exact entity match (name matches and location/domain/product align).",
+		"   - 0.70 - 0.79: Reasonable match with minor name variation but matching product and location.",
+		"   - 0.00 - 0.69: Unconfident, ambiguous, or matched a completely different company (e.g. DataCore Software for Datacore Cloud).",
+		"4. Provide matchReasons: an array of concise reasons explaining why the entity matches or why it failed to match.",
+		"5. If matchConfidence >= 0.70, provide overview, sizeSignals, location, recentNews.",
+		"   If matchConfidence < 0.70, set overview, sizeSignals, location, recentNews to null.",
+		"",
 		"Return a valid JSON object matching this schema exactly:",
 		JSON.stringify({
-			overview: "Concise 1-2 sentence description of what they sell and who to",
-			sizeSignals: "Headcount, scale, or revenue signals if found",
-			location: "Headquarters or primary cities",
-			recentNews: "Recent products, funding, or press items if found",
+			entityMatched: "Exact name of the entity found online, or null if no confident match",
+			matchConfidence: 0.85,
+			matchReasons: ["Reason 1", "Reason 2"],
+			overview: "Concise 1-2 sentence description of what they sell and who to, or null if matchConfidence < 0.7",
+			sizeSignals: "Headcount, scale, or revenue signals if found, or null",
+			location: "Headquarters or primary cities, or null",
+			recentNews: "Recent products, funding, or press items if found, or null",
 		}),
-	].join("\n");
+	].filter(Boolean).join("\n");
 
 	const { ai, model } = getSmartClient();
 	const start = Date.now();
@@ -87,10 +109,9 @@ export async function researchCompany(
 	const latencyMs = Date.now() - start;
 	const estimatedCostUsd = 0.035 + (tokenCount / 1000) * 0.005;
 
-	console.log(
-		`[ResearchCompany] Grounded research for "${companyName}": latency=${latencyMs}ms, cost=$${estimatedCostUsd.toFixed(4)}, citations=${sourceUrls.length}`,
-	);
-
+	let entityMatched: string | null = null;
+	let matchConfidence = 0.0;
+	let matchReasons: string[] = [];
 	let overview: string | undefined;
 	let sizeSignals: string | undefined;
 	let location: string | undefined;
@@ -104,25 +125,51 @@ export async function researchCompany(
 			.trim();
 		const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-		if (typeof parsed.overview === "string" && parsed.overview.trim()) {
-			overview = parsed.overview.trim();
+		if (typeof parsed.entityMatched === "string" && parsed.entityMatched.trim()) {
+			entityMatched = parsed.entityMatched.trim();
 		}
-		if (typeof parsed.sizeSignals === "string" && parsed.sizeSignals.trim()) {
-			sizeSignals = parsed.sizeSignals.trim();
+		if (typeof parsed.matchConfidence === "number") {
+			matchConfidence = Math.max(0, Math.min(1, parsed.matchConfidence));
 		}
-		if (typeof parsed.location === "string" && parsed.location.trim()) {
-			location = parsed.location.trim();
+		if (Array.isArray(parsed.matchReasons)) {
+			matchReasons = parsed.matchReasons.filter(
+				(r): r is string => typeof r === "string" && Boolean(r.trim()),
+			);
 		}
-		if (typeof parsed.recentNews === "string" && parsed.recentNews.trim()) {
-			recentNews = parsed.recentNews.trim();
+
+		if (matchConfidence >= 0.7) {
+			if (typeof parsed.overview === "string" && parsed.overview.trim()) {
+				overview = parsed.overview.trim();
+			}
+			if (typeof parsed.sizeSignals === "string" && parsed.sizeSignals.trim()) {
+				sizeSignals = parsed.sizeSignals.trim();
+			}
+			if (typeof parsed.location === "string" && parsed.location.trim()) {
+				location = parsed.location.trim();
+			}
+			if (typeof parsed.recentNews === "string" && parsed.recentNews.trim()) {
+				recentNews = parsed.recentNews.trim();
+			}
+		} else {
+			if (matchReasons.length === 0) {
+				matchReasons.push("Entity did not match target business with sufficient confidence.");
+			}
 		}
 	} catch {
 		if (rawText.trim()) {
-			overview = rawText.slice(0, 300).trim();
+			matchConfidence = 0.3;
+			matchReasons.push("Could not parse structured entity verification response.");
 		}
 	}
 
+	console.log(
+		`[ResearchCompany] Grounded research for "${companyName}": matchConfidence=${matchConfidence.toFixed(2)}, citations=${sourceUrls.length}, latency=${latencyMs}ms`,
+	);
+
 	return {
+		entityMatched,
+		matchConfidence,
+		matchReasons,
 		overview,
 		sizeSignals,
 		location,

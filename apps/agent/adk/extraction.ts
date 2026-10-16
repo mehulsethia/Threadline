@@ -288,23 +288,27 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 		"",
 		"CRITICAL EXTRACTION RULES:",
 		`1. CONTACT NAME: Must ALWAYS be the customer/lead (${participantInfo.lead}). Never create the business user (${participantInfo.me}) as a contact.`,
-		"2. MONEY FIELDS:",
+		"2. COMPANY NAME:",
+		`   - Must ONLY be the organisation/company that the customer/lead (${participantInfo.lead}) represents or works for.`,
+		`   - NEVER set the business user's ("us" / ${participantInfo.me}'s) organisation as the company. For example, if the business user welcomes the customer to their own organisation ("Apex IIT Academy me aapka swagat hai"), Apex IIT Academy is OUR organisation, NOT the customer's company.`,
+		"   - If the lead is an individual consumer, parent, student, or their employer/company is not mentioned, company.name MUST be null.",
+		"3. MONEY FIELDS:",
 		"   - 'deal.leadBudget': What the customer/lead explicitly states they can spend or have budgeted (number or null).",
 		"   - 'deal.quotedValue': What the business user quoted, agreed, or proposal / contract price (number or null).",
 		"   - 'deal.currency': ISO 4217 code (USD, EUR, GBP, INR, CAD, AUD, etc.) if stated or indicated by currency symbols ($, €, £, ₹), else null.",
-		"3. SPEAKER FIELD ON ALL EVIDENCE:",
+		"4. SPEAKER FIELD ON ALL EVIDENCE:",
 		"   - Every evidence object MUST include 'speaker': 'lead' (if spoken by customer) or 'us' (if spoken by business user).",
-		"4. INFERENCE VS LITERAL QUOTE:",
+		"5. INFERENCE VS LITERAL QUOTE:",
 		"   - 'sentiment', 'stageSuggestion', 'languagePreference' MUST use sourceKind 'agent.inference'.",
 		"   - Facts literally stated in messages/audio use 'whatsapp.message' or 'voice.transcript' with the exact quote.",
-		"5. FIELDS WITHOUT EVIDENCE MUST BE NULL: Never guess, extrapolate, or assume unmentioned values.",
-		"6. DEAL STAGES: Pick the most appropriate CRM stage name:",
+		"6. FIELDS WITHOUT EVIDENCE MUST BE NULL: Never guess, extrapolate, or assume unmentioned values.",
+		"7. DEAL STAGES: Pick the most appropriate CRM stage name:",
 		"   'DEMO_BOOKED', 'QUALIFIED_TO_BUY', 'UNQUALIFIED_TO_BUY', 'DECISION_MAKER_BOUGHT_IN', 'CONTRACT_SENT', 'CLOSED_WON', 'CLOSED_LOST'.",
-		"7. NEXT STEP:",
+		"8. NEXT STEP:",
 		"   - 'value': next step description",
 		"   - 'owner': 'us' or 'lead'",
 		"   - 'dueAt': stated timeframe, e.g. '1 hour', 'Saturday 11 AM' (or null)",
-		"8. LANGUAGE: Detect the customer's language for 'languagePreference' (e.g. 'English', 'Spanish', 'German', 'Hindi', etc.).",
+		"9. LANGUAGE: Detect the customer's language for 'languagePreference' (e.g. 'English', 'Spanish', 'German', 'Hindi', etc.).",
 		"",
 		"Return a JSON object conforming exactly to this schema:",
 		JSON.stringify(
@@ -324,22 +328,12 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 				},
 				company: {
 					name: {
-						value: "Company Name",
-						evidence: {
-							sourceKind: "whatsapp.message",
-							speaker: "lead",
-							quote: "Exact quote",
-							lineNos: [2],
-						},
+						value: null,
+						evidence: null,
 					},
 					city: {
-						value: "City",
-						evidence: {
-							sourceKind: "whatsapp.message",
-							speaker: "lead",
-							quote: "Exact quote",
-							lineNos: [2],
-						},
+						value: null,
+						evidence: null,
 					},
 				},
 				deal: {
@@ -362,22 +356,12 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 						},
 					},
 					leadBudget: {
-						value: 45000,
-						evidence: {
-							sourceKind: "whatsapp.message",
-							speaker: "lead",
-							quote: "Exact quote",
-							lineNos: [9],
-						},
+						value: null,
+						evidence: null,
 					},
 					quotedValue: {
-						value: 45000,
-						evidence: {
-							sourceKind: "whatsapp.message",
-							speaker: "us",
-							quote: "Exact quote",
-							lineNos: [11],
-						},
+						value: null,
+						evidence: null,
 					},
 					currency: {
 						value: "USD",
@@ -472,6 +456,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 				],
 				config: {
 					responseMimeType: "application/json",
+					temperature: 0,
 				},
 			});
 			break;

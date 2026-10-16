@@ -58,6 +58,7 @@ async function runCompanyResearchStep(input: {
 	city?: string;
 	contactId?: string;
 	dealId?: string;
+	industryContext?: string;
 }): Promise<void> {
 	const priorResearch = await db.contactFact.findFirst({
 		where: {
@@ -71,20 +72,51 @@ async function runCompanyResearchStep(input: {
 	const research = await researchCompany({
 		companyName: input.companyName,
 		city: input.city,
+		industryContext: input.industryContext,
 	});
 
 	if (!research) return;
 
+	if (research.matchConfidence < 0.7) {
+		await emitIntakeEvent(
+			input.jobId,
+			"research_company",
+			`Grounded company research entity match rejected for "${input.companyName}" (confidence: ${research.matchConfidence.toFixed(2)} < 0.70). Reasons: ${research.matchReasons.join(", ")}`,
+			input.contactId,
+			{
+				matchConfidence: research.matchConfidence,
+				matchReasons: research.matchReasons,
+				entityMatched: research.entityMatched,
+			},
+		);
+
+		await recordFactAction({
+			jobId: input.jobId,
+			contactId: input.contactId,
+			dealId: input.dealId,
+			field: "companyProfile",
+			value: "No confident public match found",
+			sourceKind: "web.grounded",
+			quote: `No confident public match found for "${input.companyName}". ${research.matchReasons.join("; ")}`,
+			speaker: "us",
+			matchConfidence: research.matchConfidence,
+			matchReasons: research.matchReasons,
+		});
+		return;
+	}
+
 	await emitIntakeEvent(
 		input.jobId,
 		"research_company",
-		`Grounded company research completed for "${input.companyName}" (${research.latencyMs}ms, $${research.estimatedCostUsd.toFixed(4)})`,
+		`Grounded company research completed for "${input.companyName}" (confidence: ${research.matchConfidence.toFixed(2)}, ${research.latencyMs}ms, $${research.estimatedCostUsd.toFixed(4)})`,
 		input.contactId,
 		{
 			overview: research.overview,
 			sizeSignals: research.sizeSignals,
 			location: research.location,
 			recentNews: research.recentNews,
+			matchConfidence: research.matchConfidence,
+			matchReasons: research.matchReasons,
 			citations: research.sourceUrls.length,
 		},
 	);
@@ -109,6 +141,8 @@ async function runCompanyResearchStep(input: {
 				quote: item.value,
 				speaker: "us",
 				sourceUrl: topUrl,
+				matchConfidence: research.matchConfidence,
+				matchReasons: research.matchReasons,
 			});
 		}
 	}
@@ -339,6 +373,7 @@ export async function runDeterministicIntakePipeline(
 			city: facts.company.city.value || undefined,
 			contactId,
 			dealId,
+			industryContext: facts.deal.need.value || undefined,
 		});
 	}
 

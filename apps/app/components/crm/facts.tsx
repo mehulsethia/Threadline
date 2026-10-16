@@ -22,7 +22,13 @@ export type GenericFact = {
 	value: string;
 	score: number;
 	band: string;
-	evidence: Array<{ kind: string; detail: string; sourceUrl?: string }>;
+	evidence: Array<{
+		kind: string;
+		detail: string;
+		sourceUrl?: string;
+		matchConfidence?: number;
+		matchReasons?: string[];
+	}>;
 	method: string;
 	sourceUrl?: string | null;
 	status: string;
@@ -98,12 +104,24 @@ export function FactEvidenceChips({ fact }: { fact: GenericFact }) {
 			{fact.evidence.map((item) => {
 				const parsed = parseEvidenceDetail(item.detail);
 				return (
-					<EvidenceChip
+					<div
 						key={`${fact.id}-${item.kind}-${item.detail}`}
-						quote={parsed.quote}
-						speaker={parsed.speaker}
-						timestamp={fact.observedAt}
-					/>
+						className="flex flex-wrap items-center gap-1.5"
+					>
+						<EvidenceChip
+							quote={parsed.quote}
+							speaker={parsed.speaker}
+							timestamp={fact.observedAt}
+						/>
+						{item.matchConfidence !== undefined ? (
+							<Badge
+								variant="outline"
+								className="h-4 px-1.5 py-0 font-mono text-[10px] text-emerald-600 dark:text-emerald-400"
+							>
+								Match: {Math.round(item.matchConfidence * 100)}%
+							</Badge>
+						) : null}
+					</div>
 				);
 			})}
 		</div>
@@ -220,6 +238,9 @@ const FIELD_LABELS: Record<string, string> = {
 	possibleDuplicate: "Possible duplicate",
 	competitors: "Competitors",
 	decisionMakers: "Decision makers",
+	companyProfile: "Company profile",
+	companySize: "Company scale",
+	companyNews: "Company news",
 };
 
 export function humanFieldLabel(field: string): string {
@@ -295,20 +316,35 @@ export function RecordFactsSection({
 							<span>Proposed Suggestions (Requires Approval)</span>
 						</div>
 						<div className="flex flex-col gap-2">
-							{proposed.map((fact) => (
-								<div
-									key={fact.id}
-									className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-xs"
-								>
-									<div className="flex items-start justify-between gap-2">
-										<div className="min-w-0 flex-1">
-											<span className="font-medium text-muted-foreground">
-												{humanFieldLabel(fact.field)}:
-											</span>{" "}
-											<span className="font-semibold text-foreground">
-												{fact.value}
-											</span>
-										</div>
+							{proposed.map((fact) => {
+								const matchConfidence = fact.evidence?.find(
+									(e) => e.matchConfidence !== undefined,
+								)?.matchConfidence;
+
+								return (
+									<div
+										key={fact.id}
+										className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-xs"
+									>
+										<div className="flex items-start justify-between gap-2">
+											<div className="min-w-0 flex-1">
+												<div className="flex flex-wrap items-center gap-1.5">
+													<span className="font-medium text-muted-foreground">
+														{humanFieldLabel(fact.field)}:
+													</span>
+													{matchConfidence !== undefined ? (
+														<Badge
+															variant="outline"
+															className="h-4 px-1.5 py-0 font-mono text-[10px] text-emerald-600 dark:text-emerald-400"
+														>
+															Match: {Math.round(matchConfidence * 100)}%
+														</Badge>
+													) : null}
+												</div>
+												<span className="font-semibold text-foreground">
+													{fact.value}
+												</span>
+											</div>
 										<div className="flex shrink-0 items-center gap-1">
 											<Button
 												variant="ghost"

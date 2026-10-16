@@ -111,6 +111,8 @@ export type Evidence = {
 	kind: EvidenceKind;
 	detail: string;
 	sourceUrl?: string;
+	matchConfidence?: number;
+	matchReasons?: string[];
 };
 
 export type Scored = {
