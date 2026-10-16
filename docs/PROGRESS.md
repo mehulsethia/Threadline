@@ -729,3 +729,87 @@ Successfully seeded Northwind Systems with 12 global deals across US, UK, DE, FR
 ```
 
 - **Open Issues**: None.
+
+---
+
+## Part G: Accuracy Evaluation (Completed)
+
+- **Status**: COMPLETED
+- **Commit**: `d3f6fb9`
+- **Date**: 2026-10-16
+- **Summary**:
+  - **G1. Gold Labels (`test/eval-gold-labels.json`)**:
+    - Defined benchmark expectations for all 5 fixtures and 12 Northwind Systems demo deals.
+    - Fields: expected contact, company (detecting and discarding seller organisation), amount, currency, stage, objections, and next task.
+  - **G2. Automated Evaluation Script (`scripts/eval.ts`) & Report (`docs/EVAL.md`)**:
+    - Added `"eval": "bun scripts/eval.ts"` to `package.json`.
+    - Computed exact empirical metrics across 5 global fixtures:
+      - **Field-Level Accuracy**: **100.0%** (30/30 fields matched)
+      - **Quote-Verification Rate**: **90.7%** (39/43 quotes verified verbatim against source transcripts)
+      - **Inference-Correctly-PROPOSED Rate**: **100.0%** (5/5 inferences held safely in `PROPOSED` status)
+      - **Duplicate Rate on Re-import**: **0.0%** (0 duplicate messages, contacts, deals, or tasks created)
+    - Full report and methodology written to `docs/EVAL.md`.
+
+### Real Evaluation Output (`bun run eval`)
+```text
+=======================================================
+THREADLINE ACCURACY EVALUATION RESULTS
+=======================================================
+Evaluated Fixtures: 5
+Field-Level Accuracy: 100.0% (30/30)
+Quote-Verification Rate: 90.7% (39/43)
+Inference-Correctly-PROPOSED Rate: 100.0% (5/5)
+Duplicate Rate on Re-import: 0.0% (0 duplicates)
+=======================================================
+
+DETAILED PER-FIXTURE BREAKDOWN:
+
+Fixture: fixture-saas-us (fixtures/saas-pipeline-us.txt)
+  Contact: Sarah Jenkins [PASS]
+  Company: Datacore Cloud [PASS]
+  Amount: 48000 USD [PASS]
+  Stage: DEMO_BOOKED [PASS]
+  Next Task: Send the calendar invite for the product demo [PASS]
+  Quotes Verified: 8/9
+  Inferences Proposed: 1/1
+
+Fixture: fixture-manufacturing-de (fixtures/manufacturing-de-whatsapp.txt)
+  Contact: Heinrich Weber [PASS]
+  Company: Weber Maschinenbau GmbH [PASS]
+  Amount: 72000 EUR [PASS]
+  Stage: QUALIFIED_TO_BUY [PASS]
+  Next Task: Prepare and send the formal PDF quotation via email [PASS]
+  Quotes Verified: 8/9
+  Inferences Proposed: 1/1
+
+Fixture: fixture-call-recording-uk (fixtures/call-recording-uk.txt)
+  Contact: Oliver Smith [PASS]
+  Company: Apex Fleet Logistics [PASS]
+  Amount: 32500 GBP [PASS]
+  Stage: QUALIFIED_TO_BUY [PASS]
+  Next Task: Email formal proposal and contract pack [PASS]
+  Quotes Verified: 7/8
+  Inferences Proposed: 1/1
+
+Fixture: fixture-coaching-in (fixtures/coaching-institute.txt)
+  Contact: Sunita Rao [PASS]
+  Company: None [PASS]
+  Amount: 180000 INR [PASS]
+  Stage: DEMO_BOOKED [PASS]
+  Next Task: Check: Visit Malviya Nagar, Jaipur centre for a free diagnostic test and demo session [PASS]
+  Quotes Verified: 8/8
+  Inferences Proposed: 1/1
+
+Fixture: fixture-valves-in (fixtures/valves-enquiry.txt)
+  Contact: Vikram Malhotra [PASS]
+  Company: Apex Flow Controls [PASS]
+  Amount: 450000 INR [PASS]
+  Stage: QUALIFIED_TO_BUY [PASS]
+  Next Task: Send formal quotation PDF via email or WhatsApp [PASS]
+  Quotes Verified: 8/9
+  Inferences Proposed: 1/1
+Evaluation complete. Results written to docs/EVAL.md.
+```
+
+- **Open Issues**: None.
+
