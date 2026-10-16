@@ -1,4 +1,5 @@
 import { ActivityType, type Db, OutboundDraftStatus } from "@crm/db";
+import { consumeDemoQuota } from "@crm/db/demo";
 import {
 	readPlaybook,
 	readRevivalSlas,
@@ -7,6 +8,7 @@ import {
 	writeRevivalSlas,
 } from "@crm/db/settings";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { TRPCError } from "@trpc/server";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
 import { SlackRevivalService } from "../slack/slack-revival.service";
@@ -88,7 +90,14 @@ export class RevivalService {
 		};
 	}
 
-	async runNow() {
+	/** Queues a revival cycle; `userId` is absent for the scheduler. */
+	async runNow(userId?: string) {
+		if (!(await consumeDemoQuota(this.db, userId, "revival"))) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "The demo account has used today's revival runs.",
+			});
+		}
 		await this.agentTrigger.queueRevival(true);
 		this.agentTrigger.poke();
 		return {

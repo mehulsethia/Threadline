@@ -1,6 +1,14 @@
 import { Inject } from "@nestjs/common";
-import { Input, Mutation, Query, Router, UseMiddlewares } from "nestjs-trpc";
+import {
+	Ctx,
+	Input,
+	Mutation,
+	Query,
+	Router,
+	UseMiddlewares,
+} from "nestjs-trpc";
 import type { z } from "zod";
+import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { restMeta } from "../trpc/openapi";
 import {
@@ -42,8 +50,11 @@ export class RevivalRouter {
 		output: revivalRunOutput,
 		meta: restMeta("POST", "/revival/run", ["Revival"]),
 	})
-	async runNow(@Input() _input: z.infer<typeof revivalRunInput>) {
-		return this.revival.runNow();
+	async runNow(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() _input: z.infer<typeof revivalRunInput>,
+	) {
+		return this.revival.runNow(ctx.user.id);
 	}
 
 	@Mutation({

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type Db, DealStage, FactBand, FactStatus } from "@crm/db";
+import { consumeDemoQuota } from "@crm/db/demo";
 import { GoogleGenAI } from "@google/genai";
 import {
 	ForbiddenException,
@@ -68,6 +69,11 @@ export class VoiceQualifierService {
 			contacts.find((c) => /primary/i.test(c.role ?? "")) ??
 			[...contacts].sort((a, b) => a.contactId.localeCompare(b.contactId))[0]
 		)?.contact;
+	}
+
+	/** One live call against the judge account's daily cap. */
+	consumeCallQuota(userId: string): Promise<boolean> {
+		return consumeDemoQuota(this.db, userId, "voice");
 	}
 
 	async getDealContext(

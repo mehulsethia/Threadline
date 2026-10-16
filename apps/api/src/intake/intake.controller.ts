@@ -4,6 +4,7 @@ import {
 	Body,
 	Controller,
 	HttpCode,
+	HttpException,
 	HttpStatus,
 	Post,
 	UploadedFile,
@@ -42,6 +43,12 @@ export class IntakeController {
 	) {
 		if (!file) {
 			throw new BadRequestException("No file provided in request");
+		}
+		if (!(await this.intake.consumeImportQuota(session.user.id))) {
+			throw new HttpException(
+				"The demo account has used today's imports.",
+				HttpStatus.TOO_MANY_REQUESTS,
+			);
 		}
 
 		const autoStartBool =

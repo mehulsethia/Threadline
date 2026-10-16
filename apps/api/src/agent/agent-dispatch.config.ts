@@ -2,7 +2,8 @@ const SECOND_MS = 1_000;
 const MINUTE_MS = 60 * SECOND_MS;
 
 export const AGENT_DISPATCH = {
-	poke: { timeoutMs: 2 * SECOND_MS },
+	// Fire-and-forget, long enough to ride out an agent cold start on Cloud Run.
+	poke: { timeoutMs: 30 * SECOND_MS },
 	heartbeat: { everyMs: MINUTE_MS },
 	cancel: {
 		errorCode: "CANCELLED_BY_USER",

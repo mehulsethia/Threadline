@@ -1,12 +1,14 @@
 import { db } from "../src/client";
+import { DEMO_USER_ID } from "../src/demo";
 import { WORKSPACE_ID } from "../src/workspace";
+
+export { DEMO_USER_ID };
 
 // The CRM is one workspace per deployment (every CRM table is workspace-wide),
 // so the demo is that workspace, named Northwind Systems, not a second org.
 export const DEMO_ORG_ID = WORKSPACE_ID;
 export const DEMO_ORG_SLUG = "northwind-systems";
 export const DEMO_ORG_NAME = "Northwind Systems";
-export const DEMO_USER_ID = "user-demo-judge";
 export const DEMO_USER_EMAIL = "judge@northwind.example";
 export const DEMO_REP_ID = "user-demo-rep";
 export const DEMO_REP_NAME = "Alex Morgan";
