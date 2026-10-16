@@ -20,7 +20,7 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@crm/ui/components/input-group";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -34,10 +34,23 @@ const INVITE_COMMAND = "/invite @Threadline";
 
 export function SlackChannels() {
 	const trpc = useTRPC();
+	const statusQuery = useQuery(trpc.slack.status.queryOptions());
 	const [asking, setAsking] = useState<PickerChannel | null>(null);
 	const [query, setQuery] = useState("");
 	const search = useDeferredValue(query);
 	const channels = useSlackChannels({ query: search });
+
+	const setAlerts = useMutation(
+		trpc.slack.setAlertsChannel.mutationOptions({
+			onSuccess: async (result) => {
+				await statusQuery.refetch();
+				await channels.reload();
+				toast.success(`Revival alerts channel set to #${result.channelName}`);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const join = useMutation(
 		trpc.slack.joinChannel.mutationOptions({
 			onSuccess: async (result) => {
@@ -54,9 +67,11 @@ export function SlackChannels() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+
 	const joinAction = useAsyncAction({
 		action: async (channelId: string) => join.mutateAsync({ channelId }),
 	});
+
 	const refresh = useMutation(
 		trpc.slack.refreshPeople.mutationOptions({
 			onSuccess: async () => {
@@ -70,6 +85,8 @@ export function SlackChannels() {
 	const refreshing = refresh.isPending || channels.syncing;
 	const rows = channels.channels;
 	const canInviteItself = channels.canInviteItself;
+	const currentAlertsId = statusQuery.data?.alertsChannelId ?? null;
+	const currentAlertsName = statusQuery.data?.alertsChannelName ?? null;
 
 	return (
 		<section className="flex flex-col gap-3 px-(--spacing-block-inline)">
@@ -77,7 +94,7 @@ export function SlackChannels() {
 				<div>
 					<h2 className="font-medium text-sm">Channels Threadline can reach</h2>
 					<p className="text-muted-foreground text-xs">
-						Agents pick from this list.
+						Click a channel to select it as the Lead Revival alerts channel.
 					</p>
 				</div>
 				<Button
@@ -90,9 +107,24 @@ export function SlackChannels() {
 				</Button>
 			</div>
 
+			{currentAlertsName ? (
+				<div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs">
+					<span className="font-medium text-foreground">
+						Active Revival Alerts Channel:
+					</span>
+					<span className="font-mono font-semibold text-primary">
+						#{currentAlertsName}
+					</span>
+					<span className="ml-auto text-muted-foreground">
+						Select any channel below to change
+					</span>
+				</div>
+			) : null}
+
 			{channels.stalled ? (
 				<p className="text-warning text-xs">
-					Threadline is not reading Slack right now. The list can be out of date.
+					Threadline is not reading Slack right now. The list can be out of
+					date.
 				</p>
 			) : null}
 
@@ -123,7 +155,14 @@ export function SlackChannels() {
 				}
 				onAdd={(channel) => void joinAction.run(channel.id)}
 				onRequest={(channel) => setAsking(channel)}
-				pending={joinAction.pending}
+				onSelect={(channel) => {
+					void setAlerts.mutateAsync({
+						channelId: channel.id,
+						channelName: channel.name,
+					});
+				}}
+				pending={joinAction.pending || setAlerts.isPending}
+				value={currentAlertsId}
 			/>
 
 			{channels.hasMore ? (

@@ -63,6 +63,8 @@ export const slackStatusOutput = z.object({
 	scopes: z.array(z.string()),
 	canInviteItself: z.boolean(),
 	canManage: z.boolean(),
+	alertsChannelId: z.string().nullable(),
+	alertsChannelName: z.string().nullable(),
 	agents: z.array(slackAgentSummaryOutput),
 	people: z.object({
 		matched: z.number(),
@@ -138,3 +140,23 @@ export const slackDisconnectOutput = z.object({
 });
 
 export type SlackDisconnectResult = z.infer<typeof slackDisconnectOutput>;
+
+export const slackSetAlertsChannelInput = z.object({
+	channelId: z.string().trim().min(1).max(64),
+	channelName: z.string().trim().min(1).max(120),
+});
+
+export type SlackSetAlertsChannelInput = z.infer<
+	typeof slackSetAlertsChannelInput
+>;
+
+export const slackSetAlertsChannelOutput = z.object({
+	success: z.boolean(),
+	channelId: z.string(),
+	channelName: z.string(),
+	isMember: z.boolean(),
+});
+
+export type SlackSetAlertsChannelResult = z.infer<
+	typeof slackSetAlertsChannelOutput
+>;

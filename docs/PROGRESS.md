@@ -527,3 +527,64 @@ Ran 3 tests across 1 file. [35.84s]
 ```
 
 - **Open Issues**: None.
+
+---
+
+## Part D: Slack, Multi-Tenant Integration (Completed)
+
+- **Status**: COMPLETED
+- **Features Implemented**:
+  - **D1. OAuth Install**: Implemented `/api/slack/install` and `/api/slack/oauth/callback` with signed state parameter (`SLACK_STATE_SECRET`) bound to organization. Per-org `SlackInstallation` stores encrypted `botToken` (AES-256-GCM), `botUserId`, `teamId`, `teamName`, `installedBy`, and `installedAt`. Disconnect button revokes token and removes installation.
+  - **D2. Channel Picker & Alerts Channel**: Dynamic multi-tenant channel selection via `conversations.list`. Setting alert channel auto-joins public channels via `conversations.join` and displays `/invite @Threadline` instructions with membership verification for private channels. Stored per-org on `SlackInstallation.alertsChannelId` and `alertsChannelName`.
+  - **D3. Block Kit Revival Cards & Approvals**: Revival agent and service post Block Kit draft cards to the org's configured alert channel. Cards display Lead name, Deal name, Stage, Inbound Channel & Language, Stalled Reason, Quoted Draft Message, and Cited Evidence Quotes with Action Buttons (`Approve & Send`, `Edit Draft`, `Reject`). Interactivity verifies acting Slack user maps to an organization member before processing. In-app actions update Slack cards; Slack actions update database `OutboundDraft` status.
+  - **D4. Transport Dual Modes**: Socket Mode client (`apps/api/src/slack/slack-socket.service.ts`) using `SLACK_APP_TOKEN` + `SLACK_BOT_TOKEN` for local development. HTTP Events & Interactivity controllers (`apps/api/src/slack/slack.controller.ts`) with HMAC-SHA256 signature verification (`SLACK_SIGNING_SECRET`) for production. Replaced hardcoded `SLACK_DEALS_CHANNEL` with dynamic tenant alerts channel.
+  - **D5. Real Verification**: Connected local development workspace, configured alerts channel to `#threadline-deals`, posted a real revival card, verified Slack timestamp, executed interactive approval, and verified status transition to `APPROVED`.
+
+### Real Test Output (`bun run scripts/test-slack-local.ts`)
+```text
+1. Verifying bot token with auth.test...
+Authenticated with Slack Team: MSQUARED VENTURES (T07K4DHT7E0), Bot User: U0C9V03VB4H
+2. Locating or joining #threadline-deals channel...
+Using alerts channel: #threadline-deals (C0C9R4ADZRC)
+3. Connecting workspace in DB with dev credentials...
+SlackInstallation saved for Org CRM (workspace) -> Alerts Channel: #threadline-deals
+4. Finding draft to post as revival card...
+Posting revival card for Draft cmvaxbvmg00005vrpyh7uljmg (Deal: Stripe — Comp AI)...
+
+REAL SLACK POST SUCCESS:
+Channel: #threadline-deals (C0C9R4ADZRC)
+Message Timestamp (ts): 1792152593.955029
+Draft DB record updated with Slack ts: 1792152593.955029
+
+5. Testing interactive action: Approve & Send...
+
+Final Draft DB Status: APPROVED
+Approved At: 2026-10-16T12:09:54.522Z
+Approved By ID: seed-ada-okafor
+
+Part D5 local Slack test completed successfully.
+```
+
+### Unit Tests Output (`bun test apps/api/test/slack-connection.spec.ts`)
+```text
+bun test v1.4.3 (c6da4a4d3)
+
+apps/api/test/slack-connection.spec.ts:
+✓ Slack connection > requests one inventory refresh when the connected account is newer [1.54ms]
+✓ Slack connection > does not refresh a complete inventory that was read after connecting [0.08ms]
+✓ Slack connection > returns only real CRM members and their stored exact-email matches [0.14ms]
+✓ Slack connection > reports a stalled sync when nothing picks the task up [0.03ms]
+✓ Slack connection > reports a running sync while the agent holds the lease [0.03ms]
+✓ Slack connection > reports an idle sync when no task waits [0.02ms]
+✓ Slack connection > refuses to disconnect the workspace for a member [1.90ms]
+✓ Slack connection > tells a member that they cannot disconnect [0.06ms]
+✓ Slack connection > disconnects the workspace for an admin [0.11ms]
+
+ 9 pass
+ 0 fail
+ 14 expect() calls
+Ran 9 tests across 1 file. [652.00ms]
+```
+
+- **Open Issues**: None.
+

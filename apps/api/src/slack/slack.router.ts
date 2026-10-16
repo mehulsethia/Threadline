@@ -21,6 +21,8 @@ import {
 	slackJoinChannelOutput,
 	slackMatchesOutput,
 	slackRefreshPeopleOutput,
+	slackSetAlertsChannelInput,
+	slackSetAlertsChannelOutput,
 	slackStatusOutput,
 } from "./slack.contracts";
 import { SlackConnectionService } from "./slack-connection.service";
@@ -91,6 +93,18 @@ export class SlackRouter {
 		@Input() input: z.infer<typeof slackCreateChannelInput>,
 	) {
 		return this.connection.createChannel(input, ctx.user.id);
+	}
+
+	@Mutation({
+		input: slackSetAlertsChannelInput,
+		output: slackSetAlertsChannelOutput,
+		meta: restMeta("POST", "/slack/alerts-channel", ["Slack"]),
+	})
+	setAlertsChannel(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof slackSetAlertsChannelInput>,
+	) {
+		return this.connection.setAlertsChannel(input, ctx.user.id);
 	}
 
 	@Mutation({

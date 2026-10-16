@@ -9,6 +9,7 @@ import {
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
+import { SlackRevivalService } from "../slack/slack-revival.service";
 
 @Injectable()
 export class RevivalService {
@@ -16,6 +17,7 @@ export class RevivalService {
 		@InjectDatabase() private readonly db: Db,
 		@Inject(AgentTriggerService)
 		private readonly agentTrigger: AgentTriggerService,
+		private readonly slackRevival: SlackRevivalService,
 	) {}
 
 	async listDrafts(input?: { status?: string }) {
@@ -129,6 +131,11 @@ export class RevivalService {
 			},
 		});
 
+		await this.slackRevival.updateSlackMessageForInAppAction(
+			draft.id,
+			"APPROVED",
+		);
+
 		const defaultUser = await this.db.user.findFirst({ select: { id: true } });
 		if (defaultUser) {
 			await this.db.activity.create({
@@ -198,6 +205,11 @@ export class RevivalService {
 				status: OutboundDraftStatus.REJECTED,
 			},
 		});
+
+		await this.slackRevival.updateSlackMessageForInAppAction(
+			input.draftId,
+			"REJECTED",
+		);
 
 		return { success: true };
 	}

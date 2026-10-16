@@ -14,6 +14,7 @@ import {
 	verifyFactualClaims,
 } from "./claim-guard";
 import type { StalledDealInfo } from "./detector";
+import { postDraftToSlack } from "./slack";
 
 export type RevivalStrategy =
 	| "answer_or_route"
@@ -517,6 +518,8 @@ export async function generateRevivalDraft(
 			waLink,
 		},
 	});
+
+	await postDraftToSlack(created.id);
 
 	await db.agentEvent.create({
 		data: {

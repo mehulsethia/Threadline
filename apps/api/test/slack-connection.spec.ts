@@ -55,6 +55,12 @@ function serviceFor(input: {
 				return { count: 0 };
 			},
 		},
+		slackInstallation: {
+			deleteMany: async () => {
+				deleted.push("slackInstallation");
+				return { count: 0 };
+			},
+		},
 	};
 	const db = {
 		$transaction: async <T>(run: (client: typeof tx) => Promise<T>) => run(tx),
@@ -67,6 +73,9 @@ function serviceFor(input: {
 							updatedAt: input.accountUpdatedAt,
 						}
 					: null,
+		},
+		slackInstallation: {
+			findFirst: async () => null,
 		},
 		agentDefinition: { findMany: async () => input.agents ?? [] },
 		slackMemberMatch: { findMany: async () => input.matches ?? [] },
@@ -240,6 +249,11 @@ describe("Slack connection", () => {
 		});
 
 		expect(await service.disconnect(userId)).toEqual({ disconnected: true });
-		expect(deleted).toEqual(["account", "slackChannel", "slackWorkspaceGrant"]);
+		expect(deleted).toEqual([
+			"account",
+			"slackInstallation",
+			"slackChannel",
+			"slackWorkspaceGrant",
+		]);
 	});
 });
