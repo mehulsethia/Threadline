@@ -1,0 +1,13 @@
+# Never upload local secrets or build output to Cloud Build.
+#!include:.gitignore
+.git
+**/node_modules
+**/.env
+**/.env.*
+!.env.example
+**/.next
+**/.turbo
+**/.eve
+**/.output
+**/.scratch
+docs/images

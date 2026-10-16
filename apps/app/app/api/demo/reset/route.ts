@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
+import { seedDemoOrg } from "@crm/db/demo-seed";
 import { type NextRequest, NextResponse } from "next/server";
-import { seedDemoOrg } from "../../../../../../packages/db/prisma/seed-demo";
 
 function authorized(header: string | null, secret: string): boolean {
 	const expected = Buffer.from(`Bearer ${secret}`);
