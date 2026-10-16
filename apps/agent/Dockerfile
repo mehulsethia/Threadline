@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build from the repo root:  docker build -f apps/agent/Dockerfile .
-FROM node:22-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN npm install -g bun@1.3.12 turbo@2.10.8 && npm cache clean --force
 WORKDIR /repo
 
