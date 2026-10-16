@@ -11,7 +11,13 @@ options:
   logging: CLOUD_LOGGING_ONLY
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: [build, -f, apps/${_APP}/Dockerfile, -t, "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_APP}:${_TAG}", .]
+    args:
+      - build
+      - -f
+      - apps/${_APP}/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_APP}:${_TAG}
+      - .
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_APP}:${_TAG}
 timeout: 3600s
