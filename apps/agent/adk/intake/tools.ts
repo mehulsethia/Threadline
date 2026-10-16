@@ -9,6 +9,7 @@ import {
 	Prisma,
 } from "@crm/db";
 import { downloadFile } from "@crm/db/blob";
+import { readReportingCurrency } from "@crm/db/settings";
 import {
 	type ParsedWhatsAppExport,
 	parseWhatsAppExport,
@@ -386,6 +387,9 @@ export async function upsertDeal(input: {
 	const defaultUser = await db.user.findFirst({ select: { id: true } });
 	const ownerId = defaultUser?.id || "system";
 
+	const defaultReportingCurrency = await readReportingCurrency(db);
+	const currency = input.currency || defaultReportingCurrency || "USD";
+
 	if (input.dealId) {
 		const updated = await db.deal.update({
 			where: { id: input.dealId },
@@ -395,7 +399,7 @@ export async function upsertDeal(input: {
 					input.value !== undefined
 						? new Prisma.Decimal(input.value)
 						: undefined,
-				currency: input.currency || "INR",
+				currency,
 				expectedCloseDate: input.targetDate
 					? new Date(input.targetDate)
 					: undefined,
@@ -453,7 +457,7 @@ export async function upsertDeal(input: {
 			stage: stageEnum,
 			amount:
 				input.value !== undefined ? new Prisma.Decimal(input.value) : null,
-			currency: input.currency || "INR",
+			currency,
 			expectedCloseDate: input.targetDate ? new Date(input.targetDate) : null,
 			companyId: finalCompanyId,
 			ownerId,
@@ -472,7 +476,7 @@ export async function upsertDeal(input: {
 	await emitIntakeEvent(
 		input.jobId,
 		"upsert_deal",
-		`Created deal: "${created.name}" (${created.id}) for ${input.value ?? 0} ${input.currency || "INR"} (stage: ${stageEnum})`,
+		`Created deal: "${created.name}" (${created.id}) for ${input.value ?? 0} ${currency} (stage: ${stageEnum})`,
 		input.contactId,
 	);
 	return { dealId: created.id, created: true };

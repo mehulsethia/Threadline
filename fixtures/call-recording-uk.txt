@@ -1,0 +1,10 @@
+[14/10/26, 11:00:15 AM] Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.
+[14/10/26, 11:00:30 AM] Oliver Smith: Good morning James, Oliver Smith here calling from Apex Fleet Logistics in London.
+[14/10/26, 11:01:00 AM] James Wilson: Good morning Oliver, thanks for getting in touch. How can we help Apex Fleet today?
+[14/10/26, 11:01:45 AM] Oliver Smith: We are looking to upgrade our telematics and dispatch management system across our 85 heavy goods vehicles.
+[14/10/26, 11:02:30 AM] Oliver Smith: Our board has allocated a budget of £35,000 GBP for the software licensing and rollout.
+[14/10/26, 11:03:15 AM] James Wilson: Fantastic. Our Pro Fleet tier for 85 vehicles comes to £32,500 per year with onboarding included.
+[14/10/26, 11:04:00 AM] Oliver Smith: That pricing works. One major concern from our operations director: we must have UK-based data residency for GDPR and Driver and Vehicle Standards Agency audits.
+[14/10/26, 11:04:45 AM] James Wilson: All our UK client data is hosted strictly in the AWS London region with full GDPR compliance guarantees.
+[14/10/26, 11:05:30 AM] Oliver Smith: That puts our minds at ease. Could you send through a formal proposal document and contract draft by Thursday?
+[14/10/26, 11:06:15 AM] James Wilson: Absolutely Oliver, I will have the formal proposal and contract pack emailed to you by Thursday 5 PM.

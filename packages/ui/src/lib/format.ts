@@ -34,12 +34,16 @@ function fractionDigits(code: string): number {
 	return digits;
 }
 
-export function formatMoney(cents: number, currency = "usd"): string {
+export function formatMoney(
+	cents: number,
+	currency = "usd",
+	locale = "en-US",
+): string {
 	const code = displayCurrencyCode(currency);
 	const whole = cents % 100 === 0;
 	const digits = fractionDigits(code);
 
-	return new Intl.NumberFormat(undefined, {
+	return new Intl.NumberFormat(locale, {
 		style: "currency",
 		currency: code,
 		minimumFractionDigits: whole ? 0 : Math.min(2, digits),
@@ -47,13 +51,34 @@ export function formatMoney(cents: number, currency = "usd"): string {
 	}).format(cents / 100);
 }
 
-export function formatMoneyCompact(cents: number, currency = "usd"): string {
-	return new Intl.NumberFormat(undefined, {
+export function formatMoneyCompact(
+	cents: number,
+	currency = "usd",
+	locale = "en-US",
+): string {
+	return new Intl.NumberFormat(locale, {
 		style: "currency",
 		currency: displayCurrencyCode(currency),
 		notation: "compact",
 		maximumFractionDigits: cents % 100_000 === 0 ? 0 : 1,
 	}).format(cents / 100);
+}
+
+export function formatDate(
+	date: Date | string | number | null | undefined,
+	locale = "en-US",
+	timeZone = "UTC",
+): string {
+	if (!date) return "—";
+	const d =
+		typeof date === "object" && date instanceof Date ? date : new Date(date);
+	if (Number.isNaN(d.getTime())) return "—";
+	return new Intl.DateTimeFormat(locale, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone,
+	}).format(d);
 }
 
 export function formatPercent(rate: number): string {
