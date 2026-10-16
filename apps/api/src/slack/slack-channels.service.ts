@@ -1,3 +1,4 @@
+import { cloudRunAuthHeaders } from "@crm/env/cloud-run";
 import {
 	BadRequestException,
 	Injectable,
@@ -30,6 +31,7 @@ export class SlackChannelsService {
 			response = await fetch(agent.url("/internal/crm/slack/create-channel"), {
 				method: "POST",
 				headers: {
+					...(await cloudRunAuthHeaders()),
 					authorization: `Bearer ${agent.secret}`,
 					"content-type": "application/json",
 				},

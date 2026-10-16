@@ -137,6 +137,10 @@ export class EnvironmentVariables {
 
 	@IsOptional()
 	@IsString()
+	AGENT_IAM_AUDIENCE?: string;
+
+	@IsOptional()
+	@IsString()
 	AGENT_BRIDGE_SECRET?: string;
 
 	@IsOptional()

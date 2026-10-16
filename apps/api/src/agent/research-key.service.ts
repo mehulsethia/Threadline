@@ -1,3 +1,4 @@
+import { cloudRunAuthHeaders } from "@crm/env/cloud-run";
 import { Injectable, Logger } from "@nestjs/common";
 import { z } from "zod";
 import { bridge } from "./bridge";
@@ -41,6 +42,7 @@ export class ResearchKeyService {
 			const response = await fetch(agent.url("/internal/crm/verify-key"), {
 				method: "POST",
 				headers: {
+					...(await cloudRunAuthHeaders()),
 					authorization: `Bearer ${agent.secret}`,
 					"content-type": "application/json",
 				},
