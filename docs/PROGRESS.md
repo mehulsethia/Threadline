@@ -588,3 +588,76 @@ Ran 9 tests across 1 file. [652.00ms]
 
 - **Open Issues**: None.
 
+---
+
+## Part E: Hero Flow 3 — Voice Qualifier (Gemini Live API) (Completed)
+
+- **Status**: COMPLETED
+- **Commit**: `bd44eb5`
+- **Date**: 2026-10-16
+- **Summary**:
+  - **E1. Live Session Exploration**: Created `scripts/test-live-session.ts`. Connected to Vertex AI using Application Default Credentials (ADC) via `@google/genai` Live API (`ai.live.connect`). Verified working configuration: `location: "us-central1"`, `model: "gemini-live-2.5-flash-native-audio"`. Received `setupComplete` and established bidirectional streaming audio.
+  - **E2. Authenticated WebSocket Server Proxy**: Built WebSocket server gateway at `/api/voice/live` in `apps/api/src/voice/voice-qualifier.gateway.ts` attached to HTTP server `upgrade` event. Authenticates user session, enforces organization boundaries, and securely bridges browser audio to Vertex AI without exposing credentials.
+  - **E3. Qualification Call Agent & Deal Sheet Trigger**: Added "Start qualification call" button on the deal sheet (`apps/app/components/crm/record-sheet/deal-sheet.tsx`). Discovery system instructions (`apps/api/src/voice/voice-qualifier.service.ts`) identify missing BANT criteria from the existing facts ledger, speak in the lead's native language, enforce short consultative turns, and conclude politely within 3 minutes.
+  - **E4. Live Transcript, Claim Extraction & Score Engine**: Interactive modal (`apps/app/components/crm/voice-qualifier-modal.tsx`) streaming 16kHz linear PCM mic audio and playing 24kHz linear PCM model speech in real time. Implemented `record_answer` tool call handler storing verified claims as `ContactFact` with `kind: "voice.live-call"`, `band: VERIFIED`, and `status: PROPOSED`. Qualification score (0–100) and proposed stage (e.g. `QUALIFIED_TO_BUY`) are stored as `PROPOSED`, strictly preventing direct modification of `deal.stage`.
+  - **E5. Audio Note Fallback**: Added fallback audio recording tab and `trpc.voice.transcribeQualify` mutation (`transcribeAudio` + qualification facts extraction) for scenarios without live microphone WebSocket support.
+  - **E6. Automated & Manual Verification**: Created `scripts/test-voice-qualifier.ts` verifying end-to-end tool execution, fact creation, stage guardrails, and Gemini Live setup.
+
+### Real Test Output (`bun run scripts/test-voice-qualifier.ts`)
+```text
+=== Voice Qualifier (Gemini Live API) Verification ===
+Found Deal: "Stripe — Comp AI" (ID: seed-deal-stripe-0)
+Current Stage: UNQUALIFIED_TO_BUY
+
+[1] Deal Context Retrieved:
+  Lead Name: Lena Bergström
+  Language: de
+  Missing Categories: authority, need, competitors, decision_process
+  Current Qualification Score: 33
+
+[2] Testing Live Answer Tool Execution (record_answer)...
+  Recorded "budget": Proposed Score = 33/100, Proposed Stage = null
+  Recorded "timeline": Proposed Score = 33/100, Proposed Stage = null
+
+[3] Verifying Database Records in Postgres...
+  - Fact: [qualification.score] = "33/100"
+    Status: PROPOSED | Band: VERIFIED | Method: qualification-score-engine
+    Evidence: [{"kind":"voice.live-call","quote":"We need the rollout complete and tested before our December peak.","weight":0.9,"primary":true,"evidenceId":"ev_dee3a1e7"}]
+  - Fact: [qualification.timeline] = "Must deploy before end of Q4"
+    Status: PROPOSED | Band: VERIFIED | Method: gemini-live-call
+    Evidence: [{"kind":"voice.live-call","quote":"We need the rollout complete and tested before our December peak.","weight":0.9,"primary":true,"evidenceId":"ev_dee3a1e7"}]
+  - Fact: [qualification.budget] = "$120,000 annual budget confirmed by CFO"
+    Status: PROPOSED | Band: VERIFIED | Method: gemini-live-call
+    Evidence: [{"kind":"voice.live-call","quote":"Our CFO signed off on a $120,000 budget for the sales workflow upgrade.","weight":0.9,"primary":true,"evidenceId":"ev_b1fc5ee5"}]
+
+[4] Stage Guard Check:
+  Original Deal Stage: UNQUALIFIED_TO_BUY
+  Current Deal Stage in DB: UNQUALIFIED_TO_BUY
+  [PASS] deal.stage was NOT modified. Proposed stage is safely held in contactFact.
+
+[5] Testing Live Session with Gemini Live Native Audio Model (Vertex AI ADC)...
+  [SUCCESS] Gemini Live WebSocket opened!
+  [SUCCESS] Setup complete received from Vertex Live API!
+
+Live Session Verified: true
+
+=== Voice Qualifier Verification Complete ===
+```
+
+### Steps to Test with Browser Microphone
+1. Start development servers: `bun dev` (runs API on :3001, App on :3000).
+2. Open any deal in the browser (e.g. `http://localhost:3000/crm/deals`).
+3. Click "Start qualification call" in the top action bar of the deal record sheet.
+4. Allow browser microphone access when prompted.
+5. Speak naturally into your microphone (e.g. "We have a budget of $150,000 approved for Q4").
+6. Observe:
+   - Live speaking indicator pulsing when agent or user speaks.
+   - Live transcript turns updating in the conversation pane.
+   - BANT category checkbox toggling to green verified state.
+   - Proposed Qualification Score bar increasing.
+   - Captured evidence quote appearing in the right column under PROPOSED badge.
+7. Click "End Call". Proposed facts remain in the deal ledger for user review without modifying the deal stage.
+
+- **Open Issues**: None.
+
+
