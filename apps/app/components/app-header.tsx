@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { ImportConversationDialog } from "@/components/crm/intake/import-conversation-dialog";
 import { EnrichmentQueue } from "@/components/enrichment-queue";
 import { useMobileNav } from "@/components/mobile-nav";
 import { signOutAndRedirect } from "@/lib/sign-out";
@@ -62,6 +63,7 @@ export function AppHeader({ user }: { user: User }) {
 			</div>
 
 			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+				<ImportConversationDialog />
 				<EnrichmentQueue />
 				<UserMenu
 					user={user}

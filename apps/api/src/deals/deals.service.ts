@@ -2,6 +2,7 @@ import {
 	ActivityType,
 	type Db,
 	type DealStage,
+	FactStatus,
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
@@ -15,6 +16,7 @@ import {
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
 import {
 	BadRequestException,
+	ConflictException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -216,6 +218,22 @@ export class DealsService {
 					select: { role: true, contact: { select: CONTACT_SELECT } },
 					orderBy: { contact: { firstName: "asc" } },
 				},
+				facts: {
+					where: { status: { in: [FactStatus.APPLIED, FactStatus.PROPOSED] } },
+					orderBy: { observedAt: "desc" },
+					select: {
+						id: true,
+						field: true,
+						value: true,
+						score: true,
+						band: true,
+						evidence: true,
+						method: true,
+						sourceUrl: true,
+						status: true,
+						observedAt: true,
+					},
+				},
 			},
 		});
 
@@ -225,6 +243,7 @@ export class DealsService {
 
 		const {
 			contacts,
+			facts,
 			amount,
 			baseAmount,
 			fxRate,
@@ -236,6 +255,16 @@ export class DealsService {
 		return {
 			...rest,
 			fields: await this.fields.valuesFor("DEAL", id),
+			facts: (facts ?? []).map((fact) => ({
+				...fact,
+				evidence:
+					(fact.evidence as Array<{
+						kind: string;
+						detail: string;
+						sourceUrl?: string;
+					}>) ?? [],
+				observedAt: fact.observedAt.toISOString(),
+			})),
 			amountCents: toCents(amount),
 			baseAmountCents: toCents(baseAmount),
 			reportingCurrency: await this.conversion.reportingCurrency(),
@@ -248,6 +277,54 @@ export class DealsService {
 			archivedAt: archivedAt?.toISOString() ?? null,
 			contacts: contacts.map(({ role, contact }) => ({ ...contact, role })),
 		};
+	}
+
+	async decideFact(input: { factId: string; decision: "accept" | "dismiss" }) {
+		const fact = await this.db.contactFact.findUnique({
+			where: { id: input.factId },
+			select: {
+				id: true,
+				dealId: true,
+				field: true,
+				value: true,
+				status: true,
+			},
+		});
+
+		if (!fact?.dealId) {
+			throw new NotFoundException(`No fact with id ${input.factId}.`);
+		}
+
+		if (fact.status !== FactStatus.PROPOSED) {
+			throw new ConflictException("That suggestion has already been settled.");
+		}
+
+		const dealId = fact.dealId;
+		const accepted = input.decision === "accept";
+
+		await this.db.$transaction(async (tx) => {
+			if (accepted) {
+				await tx.contactFact.updateMany({
+					where: {
+						dealId,
+						field: fact.field,
+						id: { not: fact.id },
+						status: { in: [FactStatus.APPLIED, FactStatus.PROPOSED] },
+					},
+					data: { status: FactStatus.SUPERSEDED, supersededAt: new Date() },
+				});
+			}
+
+			await tx.contactFact.update({
+				where: { id: fact.id },
+				data: {
+					status: accepted ? FactStatus.APPLIED : FactStatus.DISMISSED,
+					decidedAt: new Date(),
+				},
+			});
+		});
+
+		return { applied: accepted };
 	}
 
 	async create(input: DealCreateInput) {
@@ -268,7 +345,7 @@ export class DealsService {
 				const created = await tx.deal.create({
 					data: {
 						name: input.name.trim(),
-						companyId: input.companyId,
+						companyId: input.companyId || null,
 						ownerId: input.ownerId,
 						stage,
 						stageChangedAt: now,
@@ -284,14 +361,14 @@ export class DealsService {
 					type: "deal.created",
 					record: { kind: "deal", id: created.id },
 					occurredAt: now,
-					data: { companyId: created.companyId, stage },
+					data: { companyId: created.companyId ?? "", stage },
 				});
 				if (closed) {
 					await emit({
 						type: "deal.closed",
 						record: { kind: "deal", id: created.id },
 						occurredAt: now,
-						data: { companyId: created.companyId, from: null, to: stage },
+						data: { companyId: created.companyId ?? "", from: null, to: stage },
 					});
 				}
 				return created;
@@ -316,7 +393,10 @@ export class DealsService {
 				input.description === null ? null : blankToNull(input.description);
 		}
 		if (input.companyId !== undefined) {
-			data.company = { connect: { id: input.companyId } };
+			data.company =
+				input.companyId === null
+					? { disconnect: true }
+					: { connect: { id: input.companyId } };
 		}
 		if (input.ownerId !== undefined) {
 			data.owner = { connect: { id: input.ownerId } };
