@@ -89,13 +89,22 @@ model SlackChannel {
 }
 
 model SlackInstallation {
-  installerId String   @id
-  teamId      String
-  teamName    String?
-  userToken   String?
-  userScopes  String
-  createdAt   DateTime @default(now())
+  installerId       String   @id
+  organizationId    String?
+  teamId            String
+  teamName          String?
+  botUserId         String?
+  botToken          String?
+  userToken         String?
+  userScopes        String   @default("")
+  installedBy       String?
+  installedAt       DateTime @default(now())
+  alertsChannelId   String?
+  alertsChannelName String?
+  createdAt         DateTime @default(now())
 
+  @@index([organizationId])
+  @@index([teamId])
   @@map("slackInstallation")
 }
 
@@ -1677,6 +1686,8 @@ model OutboundDraft {
   approvedAt       DateTime?
   sentAt           DateTime?
   waLink           String?
+  slackMessageTs   String?
+  slackChannelId   String?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 

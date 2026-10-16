@@ -1,9 +1,7 @@
 "use client";
 
-import { authClient } from "@crm/auth/client";
 import { Button } from "@crm/ui/components/button";
 import { useState } from "react";
-import { toast } from "sonner";
 
 const CONNECT_ERRORS = new Map([
 	[
@@ -28,19 +26,9 @@ const CONNECT_ERRORS = new Map([
 	],
 ]);
 
-async function startSlackOAuth(slug: string) {
-	try {
-		const { error } = await authClient.oauth2.link({
-			providerId: "slack",
-			callbackURL: `${window.location.origin}/${slug}/settings/connections/slack/people`,
-			errorCallbackURL: `${window.location.origin}/${slug}/settings/connections/slack?provider=slack`,
-		});
-		if (error) toast.error(error.message || "Could not connect Slack.");
-	} catch (error) {
-		toast.error(
-			error instanceof Error ? error.message : "Could not connect Slack.",
-		);
-	}
+function startSlackOAuth(slug: string) {
+	const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+	window.location.href = `${apiUrl}/api/slack/install?slug=${encodeURIComponent(slug)}`;
 }
 
 export function SlackReconnectButton({ slug }: { slug: string }) {
@@ -83,7 +71,7 @@ export function SlackConnectButton({
 				{pending
 					? "Opening Slack…"
 					: configured
-						? "Connect Slack"
+						? "Add to Slack"
 						: "Slack is not configured"}
 			</Button>
 			{connectError ? (

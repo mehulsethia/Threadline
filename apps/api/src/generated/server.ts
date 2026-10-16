@@ -30,7 +30,7 @@ import { intakePreviewInput, intakePreviewOutput, intakeStartInput, intakeStartO
 import { revivalListInput, revivalListOutput, revivalRunInput, revivalRunOutput, revivalApproveInput, revivalApproveOutput, revivalUpdateInput, revivalUpdateOutput, revivalRejectInput, revivalRejectOutput, revivalSettingsInput, revivalSettingsOutput, revivalUpdateSettingsInput, revivalUpdateSettingsOutput } from "../revival/revival.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
-import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
+import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackSetAlertsChannelInput, slackSetAlertsChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
 import { workspaceOutput, memberListInput, memberListOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput } from "../workspace/workspace.contracts";
@@ -709,6 +709,10 @@ const appRouter = t.router({
     createChannel: publicProcedure
       .input(slackCreateChannelInput)
       .output(slackCreateChannelOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setAlertsChannel: publicProcedure
+      .input(slackSetAlertsChannelInput)
+      .output(slackSetAlertsChannelOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     disconnect: publicProcedure
       .output(slackDisconnectOutput)

@@ -77,6 +77,22 @@ export class EnvironmentVariables {
 	SLACK_CLIENT_SECRET?: string;
 
 	@IsOptional()
+	@IsString()
+	SLACK_SIGNING_SECRET?: string;
+
+	@IsOptional()
+	@IsString()
+	SLACK_STATE_SECRET?: string;
+
+	@IsOptional()
+	@IsString()
+	SLACK_APP_TOKEN?: string;
+
+	@IsOptional()
+	@IsString()
+	SLACK_BOT_TOKEN?: string;
+
+	@IsOptional()
 	@IsUrl({ require_tld: false })
 	API_URL?: string;
 
