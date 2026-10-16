@@ -6,6 +6,9 @@ substitutions:
   _REPO: threadline
   _TAG: latest
 
+# Dedicated least-privilege builder: write logs, push to the threadline repo.
+serviceAccount: projects/${PROJECT_ID}/serviceAccounts/threadline-build-sa@${PROJECT_ID}.iam.gserviceaccount.com
+
 options:
   machineType: E2_HIGHCPU_8
   logging: CLOUD_LOGGING_ONLY
