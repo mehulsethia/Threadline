@@ -4,6 +4,7 @@ import type { WhatsAppMessageItem } from "@crm/validation/whatsapp-parser";
 import type { ExtractedLeadFacts } from "../adk/extraction";
 import {
 	detectParticipants,
+	inferDealStageWithEvidence,
 	isBusinessSideOrganization,
 	mapToCrmDealStage,
 	parseDeterministicAmount,
@@ -389,6 +390,206 @@ describe("mapToCrmDealStage", () => {
 	it("maps won and lost stages", () => {
 		expect(mapToCrmDealStage("Closed won")).toBe(DealStage.CLOSED_WON);
 		expect(mapToCrmDealStage("Closed lost")).toBe(DealStage.CLOSED_LOST);
+	});
+});
+
+describe("inferDealStageWithEvidence", () => {
+	it("infers UNQUALIFIED_TO_BUY (Lead) for inquiry-only conversations", () => {
+		const facts = createDummyFacts();
+		facts.deal.leadBudget = { value: null, evidence: null };
+		facts.deal.quotedValue = { value: null, evidence: null };
+		facts.deal.timeline = { value: null, evidence: null };
+		facts.deal.need = { value: null, evidence: null };
+		facts.nextStep = { value: null, dueAt: null, owner: null, evidence: null };
+
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				text: "Hi, just inquiring about your products.",
+				sender: "Vikram Malhotra",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Rohit Sharma",
+			"Vikram Malhotra",
+		);
+		expect(res.stage).toBe(DealStage.UNQUALIFIED_TO_BUY);
+		expect(res.evidence.quote).toBe("Hi, just inquiring about your products.");
+	});
+
+	it("infers QUALIFIED_TO_BUY (Qualified) when need plus budget are confirmed", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Send quotation",
+			dueAt: null,
+			owner: "us",
+			evidence: null,
+		};
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				text: "We need 150 ball valves urgently.",
+				sender: "Vikram Malhotra",
+			},
+			{
+				lineNo: 2,
+				text: "Our approved budget is 4,50,000 INR.",
+				sender: "Vikram Malhotra",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Rohit Sharma",
+			"Vikram Malhotra",
+		);
+		expect(res.stage).toBe(DealStage.QUALIFIED_TO_BUY);
+		expect(res.evidence.quote).toContain("4,50,000 INR");
+	});
+
+	it("infers DEMO_BOOKED (Meeting/Demo) when meeting/demo is booked", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Conduct product demo with security architect",
+			dueAt: "tomorrow at 2 PM",
+			owner: "us",
+			evidence: {
+				sourceKind: "whatsapp.message",
+				speaker: "lead",
+				quote:
+					"Let's schedule a product demo with our security architect tomorrow at 2 PM.",
+				lineNos: [10],
+			},
+		};
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 10,
+				text: "Let's schedule a product demo with our security architect tomorrow at 2 PM.",
+				sender: "Sarah Jenkins",
+			},
+			{
+				lineNo: 11,
+				text: "Confirmed, I will send the calendar invite for tomorrow at 2 PM.",
+				sender: "Alex Mercer",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Alex Mercer",
+			"Sarah Jenkins",
+		);
+		expect(res.stage).toBe(DealStage.DEMO_BOOKED);
+		expect(res.evidence.quote).toContain("demo with our security architect");
+	});
+
+	it("prevents Negotiation when next task is 'schedule a demo'", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Schedule product demo with security architect",
+			dueAt: null,
+			owner: "us",
+			evidence: null,
+		};
+		const msgs: WhatsAppMessageItem[] = [
+			{ lineNo: 1, text: "Proposal sent earlier.", sender: "Alex Mercer" },
+			{
+				lineNo: 2,
+				text: "We are negotiating terms and redlines.",
+				sender: "Sarah Jenkins",
+			},
+			{
+				lineNo: 3,
+				text: "Let's schedule a demo first.",
+				sender: "Sarah Jenkins",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Alex Mercer",
+			"Sarah Jenkins",
+		);
+		expect(res.stage).toBe(DealStage.DEMO_BOOKED);
+	});
+
+	it("infers CONTRACT_SENT (Proposal) when quote/proposal was sent", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Follow up on review",
+			dueAt: null,
+			owner: "us",
+			evidence: null,
+		};
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				text: "I have emailed the formal proposal document and contract pack.",
+				sender: "Alex Mercer",
+			},
+			{
+				lineNo: 2,
+				text: "Thank you, I will review it.",
+				sender: "Sarah Jenkins",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Alex Mercer",
+			"Sarah Jenkins",
+		);
+		expect(res.stage).toBe(DealStage.CONTRACT_SENT);
+	});
+
+	it("infers DECISION_MAKER_BOUGHT_IN (Negotiation) when buyer negotiates redlines on sent proposal", () => {
+		const facts = createDummyFacts();
+		facts.nextStep = {
+			value: "Review agreement redlines",
+			dueAt: null,
+			owner: "us",
+			evidence: null,
+		};
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				text: "Thanks for sending over the Enterprise Proposal Alex.",
+				sender: "Sarah Jenkins",
+			},
+			{
+				lineNo: 2,
+				text: "We are eager to move forward once the SLA schedule is confirmed. Agreement redlines attached.",
+				sender: "Sarah Jenkins",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Alex Mercer",
+			"Sarah Jenkins",
+		);
+		expect(res.stage).toBe(DealStage.DECISION_MAKER_BOUGHT_IN);
+		expect(res.evidence.quote).toContain("Agreement redlines attached");
+	});
+
+	it("infers CLOSED_WON on explicit confirmation", () => {
+		const facts = createDummyFacts();
+		const msgs: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				text: "Contract signed and PO issued for the full amount.",
+				sender: "Vikram Malhotra",
+			},
+		];
+		const res = inferDealStageWithEvidence(
+			facts,
+			msgs,
+			"Rohit Sharma",
+			"Vikram Malhotra",
+		);
+		expect(res.stage).toBe(DealStage.CLOSED_WON);
 	});
 });
 

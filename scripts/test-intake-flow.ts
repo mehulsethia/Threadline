@@ -133,12 +133,12 @@ async function main() {
 	const fixtures = [
 		{
 			file: "valves-enquiry.txt",
-			desc: "Valves Manufacturing Enquiry (India/B2B)",
+			desc: "Valves Manufacturing Enquiry (Apex Flow Controls)",
 			expectedLead: "Vikram",
 		},
 		{
 			file: "coaching-institute.txt",
-			desc: "Education Course Enquiry (India/SMB)",
+			desc: "Education Course Enquiry (Classroom Coaching)",
 			expectedLead: "Sunita",
 		},
 		{
@@ -259,7 +259,9 @@ async function main() {
 		for (const f of facts) {
 			const mc = Array.isArray(f.evidence) ? (f.evidence[0] as any)?.matchConfidence : undefined;
 			const mcStr = mc !== undefined ? ` [matchConfidence: ${(mc as number).toFixed(2)}]` : "";
-			console.log(`    - [${f.status}] ${f.field}: "${f.value}"${mcStr}`);
+			const q = Array.isArray(f.evidence) ? (f.evidence[0] as any)?.quote : undefined;
+			const qStr = q ? ` (quote: "${q}")` : "";
+			console.log(`    - [${f.status}] ${f.field}: "${f.value}"${mcStr}${qStr}`);
 		}
 		console.log(`  Tasks Created: ${tasks.length}`);
 		for (const t of tasks) {
