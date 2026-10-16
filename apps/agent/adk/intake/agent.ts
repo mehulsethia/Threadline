@@ -43,7 +43,7 @@ Follow these strict rules:
 8. Record every extracted fact using record_fact so facts are recorded in the evidence ledger.
 9. Store messages idempotently using store_messages.
 10. Log the activity using log_activity (WHATSAPP or VOICE_NOTE).
-11. If nextStep owner is "us", create a follow-up task with create_task including dueAt.
+11. If nextStep owner is "us", create a follow-up task with create_task. If nextStep owner is "lead" and has a dueAt, create a task for us: "Check: <lead's next step>" due 2 hours after it.
 12. Finalize the job with finish_job.
 
 Never invent values. Skip null fields. Explain each decision in one concise line.`,
@@ -295,7 +295,7 @@ export async function runDeterministicIntakePipeline(
 			});
 		} else if (facts.nextStep.owner === "lead" && facts.nextStep.dueAt) {
 			const leadDue = new Date(facts.nextStep.dueAt);
-			const checkDue = !isNaN(leadDue.getTime())
+			const checkDue = !Number.isNaN(leadDue.getTime())
 				? new Date(leadDue.getTime() + 2 * 3600 * 1000).toISOString()
 				: undefined;
 			await createTaskAction({
@@ -385,9 +385,76 @@ export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
 		const res = await runDeterministicIntakePipeline(jobId, meOverride);
 		outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
 	} else {
+		await ensureNextStepTask(jobId, meOverride);
 		outcome = `Intake job ${jobId} finished successfully.`;
 	}
 
 	await completeTask(task.id, outcome, jobId);
 	return outcome;
+}
+
+async function ensureNextStepTask(jobId: string, meOverride?: string) {
+	const job = await loadIntakeJob({ jobId });
+	let parsedMessages: Array<{
+		lineNo: number;
+		timestamp: Date;
+		sender: string;
+		text: string;
+	}> = [];
+	if (job.sourceType === "WHATSAPP_EXPORT") {
+		const parsed = await parseWhatsAppExportFile({
+			jobId,
+			fileUrl: job.fileUrl,
+		});
+		parsedMessages = parsed.messages;
+	}
+	const extraction = await extractLeadFactsFromInput({
+		jobId,
+		messages: parsedMessages,
+		me: meOverride,
+	});
+	const facts = extraction.facts;
+	if (!facts.nextStep.value) return;
+
+	const taskSubject =
+		facts.nextStep.owner === "lead"
+			? `Check: ${facts.nextStep.value}`
+			: facts.nextStep.value;
+
+	const existing = await db.activity.findFirst({
+		where: { type: "TASK", subject: taskSubject },
+	});
+	if (existing) return;
+
+	let dueAt = facts.nextStep.dueAt || undefined;
+	if (facts.nextStep.owner === "lead" && dueAt) {
+		const leadDue = new Date(dueAt);
+		if (!Number.isNaN(leadDue.getTime())) {
+			dueAt = new Date(leadDue.getTime() + 2 * 3600 * 1000).toISOString();
+		}
+	}
+
+	const leadName = facts.contact.name.value || "Lead";
+	const firstName = leadName.split(" ")[0] || leadName;
+	const contact = await db.contact.findFirst({
+		where: {
+			OR: [
+				{ firstName: { contains: firstName, mode: "insensitive" } },
+				...(facts.contact.phone.value
+					? [{ phone: { contains: facts.contact.phone.value } }]
+					: []),
+			],
+		},
+		select: { id: true, companyId: true },
+	});
+
+	if (contact) {
+		await createTaskAction({
+			jobId,
+			subject: taskSubject,
+			dueAt,
+			contactId: contact.id,
+			companyId: contact.companyId || undefined,
+		});
+	}
 }

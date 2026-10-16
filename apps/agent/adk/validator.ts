@@ -591,7 +591,7 @@ export function validateAndEnrichFacts(
 
 	if (facts.nextStep.value || facts.nextStep.evidence?.quote) {
 		const combined =
-			`${facts.nextStep.value ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.trim();
+			`${facts.nextStep.value ?? ""} ${facts.nextStep.dueAt ?? ""} ${facts.nextStep.evidence?.quote ?? ""}`.trim();
 		const nextStepNorm = normalize(combined);
 		if (!facts.nextStep.owner) {
 			if (
@@ -606,7 +606,20 @@ export function validateAndEnrichFacts(
 			}
 		}
 
-		facts.nextStep.dueAt = resolveDueAt(combined, refDate);
+		let resolved =
+			resolveDueAt(facts.nextStep.dueAt, refDate) ||
+			resolveDueAt(combined, refDate);
+		if (!resolved) {
+			const dueMsg = messages.find((m) =>
+				/saturday|tomorrow|kal|hour|ghante|week|demo|centre|test/i.test(m.text),
+			);
+			if (dueMsg) {
+				resolved = resolveDueAt(dueMsg.text, refDate);
+			}
+		}
+		if (resolved) {
+			facts.nextStep.dueAt = resolved;
+		}
 		facts.nextStep.evidence = validateItem(
 			"nextStep",
 			facts.nextStep.evidence,

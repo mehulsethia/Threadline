@@ -73,6 +73,14 @@ export async function readFileBytes(fileUrl: string): Promise<Buffer> {
 		} catch {}
 	}
 
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			return await downloadFile(destination);
+		} catch (err) {
+			if (attempt === 2) throw err;
+			await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+		}
+	}
 	return await downloadFile(destination);
 }
 
@@ -481,6 +489,15 @@ export async function recordFactAction(input: {
 	lineNos?: number[];
 	speaker?: string;
 }) {
+	const effectiveSourceKind = [
+		"stage",
+		"language",
+		"sentiment",
+		"possibleDuplicate",
+	].includes(input.field)
+		? "agent.inference"
+		: input.sourceKind;
+
 	const detail = input.quote
 		? `"${input.quote}" (speaker: ${input.speaker || "lead"})`
 		: input.value;
@@ -491,7 +508,7 @@ export async function recordFactAction(input: {
 		value: input.value,
 		evidence: [
 			{
-				kind: input.sourceKind as EvidenceKind,
+				kind: effectiveSourceKind as EvidenceKind,
 				detail,
 			},
 		],
