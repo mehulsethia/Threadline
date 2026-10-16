@@ -27,6 +27,7 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { intakePreviewInput, intakePreviewOutput, intakeStartInput, intakeStartOutput, intakeStatusInput, intakeStatusOutput } from "../intake/intake.contracts";
+import { revivalListInput, revivalListOutput, revivalRunInput, revivalRunOutput, revivalApproveInput, revivalApproveOutput, revivalUpdateInput, revivalUpdateOutput, revivalRejectInput, revivalRejectOutput, revivalSettingsInput, revivalSettingsOutput, revivalUpdateSettingsInput, revivalUpdateSettingsOutput } from "../revival/revival.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
@@ -593,6 +594,36 @@ const appRouter = t.router({
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
       .output(microsoftConnectionStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  revival: t.router({
+    listDrafts: publicProcedure
+      .input(revivalListInput)
+      .output(revivalListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    runNow: publicProcedure
+      .input(revivalRunInput)
+      .output(revivalRunOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    approveAndSend: publicProcedure
+      .input(revivalApproveInput)
+      .output(revivalApproveOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateDraft: publicProcedure
+      .input(revivalUpdateInput)
+      .output(revivalUpdateOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    rejectDraft: publicProcedure
+      .input(revivalRejectInput)
+      .output(revivalRejectOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    getSettings: publicProcedure
+      .input(revivalSettingsInput)
+      .output(revivalSettingsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updateSettings: publicProcedure
+      .input(revivalUpdateSettingsInput)
+      .output(revivalUpdateSettingsOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   savedViews: t.router({

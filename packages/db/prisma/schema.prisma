@@ -367,6 +367,8 @@ model Contact {
   twitterUrl  String?
   githubUrl   String?
   imageUrl    String?
+  timezone    String?
+  optedOut    Boolean @default(false)
 
   socialsCheckedAt DateTime?
 
@@ -1336,6 +1338,9 @@ model AppSetting {
   trackingConfigHash       String?
   trackingPaused           Boolean @default(false)
 
+  revivalSlas Json?
+  playbook    String?
+
   updatedAt DateTime @updatedAt
 
   @@map("appSetting")
@@ -1655,10 +1660,17 @@ model OutboundDraft {
   contactId        String
   contact          Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
   channel          String              @default("WHATSAPP")
-  recipientPhone   String
-  language         String              @default("hi")
+  recipientPhone   String?
+  recipientEmail   String?
+  subject          String?
+  language         String              @default("en")
+  strategy         String?
   contextRationale String
   draftText        String
+  confidence       Float?
+  citedEvidence    Json?
+  stalledReason    String?
+  priorityScore    Float?
   status           OutboundDraftStatus @default(PENDING_APPROVAL)
   approvedById     String?
   approvedBy       User?               @relation("DraftApprover", fields: [approvedById], references: [id], onDelete: SetNull)

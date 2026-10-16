@@ -585,6 +585,20 @@ export class AgentTriggerService {
 		);
 	}
 
+	async queueRevival(required = false): Promise<boolean> {
+		return this.enqueue(
+			{
+				kind: "revival",
+				reason: "Lead revival cycle run",
+				priority: PRIORITY.revival,
+				budget: 10,
+				payload: { trigger: "manual" },
+				subject: { path: ["trigger"], value: "manual" },
+			},
+			required,
+		);
+	}
+
 	poke(): void {
 		this.pokeRoute("/internal/crm/dispatch");
 	}
