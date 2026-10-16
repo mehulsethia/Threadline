@@ -36,22 +36,25 @@
 - **Licensing requirement**: Keep the MIT LICENSE. Credit Comp AI in the README. Disclose reused components and newly authored components.
 
 ## 3. What We Are Building
-A WhatsApp-native and voice-native CRM for Indian SMB and field sales teams. These teams operate in Hinglish, Hindi, and regional languages over WhatsApp and phone calls.
+An agentic CRM that turns customer conversations across channels (WhatsApp, email, Slack, call recordings, voice notes) in any language into evidence-backed records, then works the leads (revival, qualification) for global enterprises and mid-market sales teams worldwide. India is one market among many, not the sole focus.
+
+- **Defaults**: Currency per deal (ISO 4217 detected from the conversation, else workspace default USD). Timezone configured from workspace settings (default UTC, never hardcoded). Language auto-detected across all global languages. Extraction prompts neutral and multilingual.
+- **Pipeline Stages**: Standard B2B progression (Lead, Qualified, Meeting/Demo, Proposal, Negotiation, Won, Lost) mapped cleanly to underlying system stages.
 
 ### Hero Flows
 1. **Self-filling CRM**:
-   - The user uploads a WhatsApp chat export (.txt/.zip), voice note, or call recording.
-   - Multimodal Gemini extracts lead identity, need, budget, language, objections, and next steps.
+   - The user imports conversation exports (WhatsApp, email, Slack, call recordings, or voice notes).
+   - Multimodal Gemini extracts lead identity, need, budget, currency, language, objections, and next steps in any language.
    - The system creates or updates contact and deal records.
    - Every extracted field links to exact message quotes or audio timestamps in the evidence ledger.
    - Strong evidence writes directly. Weak evidence creates suggestions for salesperson approval.
 2. **Lead Revival Agent**:
-   - The agent detects stalled deals and ranks them by recovery potential.
-   - It drafts context-aware follow-up messages in the lead's preferred language.
-   - The salesperson approves with one tap.
-   - The system sends the message through WhatsApp Business Cloud API with `wa.me` link fallback.
+   - The agent detects stalled deals across pipeline stages (Lead, Qualified, Meeting/Demo, Proposal, Negotiation) and ranks them by recovery potential.
+   - It drafts context-aware follow-up messages in the lead's preferred language and channel (WhatsApp or email with subject).
+   - The salesperson reviews and approves with one tap (in-app or via interactive Slack notifications).
+   - The system dispatches the message through WhatsApp (wa.me link or WhatsApp Cloud API) or email (Gmail / mailto:).
 3. **Voice Qualifier**:
-   - A Gemini Live API voice agent conducts bilingual qualifying calls in Hindi and English.
+   - A Gemini Live API voice agent conducts real-time qualifying calls across languages.
    - The agent asks qualifying questions and records responses.
    - The system updates deal stage, budget, and notes immediately from the conversation.
 

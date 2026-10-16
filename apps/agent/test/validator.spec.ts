@@ -257,6 +257,42 @@ describe("detectParticipants", () => {
 		expect(result.confidence).toBe(1.0);
 		expect(result.autoDetected).toBe(false);
 	});
+
+	it("detects US B2B SaaS seller and buyer", () => {
+		const saasMessages: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				timestamp: new Date("2026-10-14T09:20:00Z"),
+				sender: "Sarah Jenkins",
+				text: "Hi Alex, Sarah Jenkins here from Datacore Cloud in Austin. We are evaluating enterprise security monitoring software for our Kubernetes clusters.",
+			},
+			{
+				lineNo: 2,
+				timestamp: new Date("2026-10-14T09:25:00Z"),
+				sender: "Alex Mercer",
+				text: "Hi Sarah! Great to connect. We protect over 5,000 production clusters globally. What scale are you looking at?",
+			},
+			{
+				lineNo: 3,
+				timestamp: new Date("2026-10-14T09:30:00Z"),
+				sender: "Sarah Jenkins",
+				text: "Our approved budget for this fiscal year is $48,000 USD.",
+			},
+			{
+				lineNo: 4,
+				timestamp: new Date("2026-10-14T09:35:00Z"),
+				sender: "Alex Mercer",
+				text: "That fits comfortably within our Enterprise tier, which lists at $48,000 annual for up to 50 clusters and 150 seats.",
+			},
+		];
+		const result = detectParticipants(
+			["Sarah Jenkins", "Alex Mercer"],
+			saasMessages,
+		);
+		expect(result.me).toBe("Alex Mercer");
+		expect(result.lead).toBe("Sarah Jenkins");
+		expect(result.autoDetected).toBe(true);
+	});
 });
 
 describe("resolveRelativeTimeline", () => {
@@ -286,42 +322,71 @@ describe("resolveDueAt", () => {
 		expect(due).toBe("2026-10-15T11:00:00.000Z");
 	});
 
-	it("resolves Hindi hourly duration 1 ghante me", () => {
-		const due = resolveDueAt("1 ghante me", refDate);
-		expect(due).toBe("2026-10-15T11:00:00.000Z");
+	it("resolves multilingual hourly durations", () => {
+		expect(resolveDueAt("1 ghante me", refDate)).toBe(
+			"2026-10-15T11:00:00.000Z",
+		);
+		expect(resolveDueAt("in 2 stunden", refDate)).toBe(
+			"2026-10-15T12:00:00.000Z",
+		);
+		expect(resolveDueAt("en 3 horas", refDate)).toBe(
+			"2026-10-15T13:00:00.000Z",
+		);
 	});
 
-	it("resolves kal to next day in Asia/Kolkata timezone", () => {
-		const due = resolveDueAt("kal", refDate);
+	it("resolves tomorrow / next week in default UTC timezone", () => {
+		const dueTomorrow = resolveDueAt("tomorrow", refDate);
+		expect(dueTomorrow).toBe("2026-10-16T09:00:00.000Z");
+
+		const dueSat = resolveDueAt("Saturday 11 AM", refDate);
+		expect(dueSat).toBe("2026-10-17T11:00:00.000Z");
+
+		const dueNextWeek = resolveDueAt("next week", refDate);
+		expect(dueNextWeek).toBe("2026-10-22T09:00:00.000Z");
+	});
+
+	it("resolves custom timezone offset when provided", () => {
+		const due = resolveDueAt("kal", refDate, "+05:30");
 		expect(due).toBe("2026-10-16T03:30:00.000Z");
-	});
 
-	it("resolves Saturday 11 AM in Asia/Kolkata timezone", () => {
-		const due = resolveDueAt("Saturday 11 AM", refDate);
-		expect(due).toBe("2026-10-17T05:30:00.000Z");
-	});
-
-	it("resolves next week to +7 days in Asia/Kolkata timezone", () => {
-		const due = resolveDueAt("next week", refDate);
-		expect(due).toBe("2026-10-22T03:30:00.000Z");
+		const dueSat = resolveDueAt("Saturday 11 AM", refDate, "+05:30");
+		expect(dueSat).toBe("2026-10-17T05:30:00.000Z");
 	});
 });
 
 describe("mapToCrmDealStage", () => {
-	it("maps demo/visit to DEMO_BOOKED", () => {
+	it("maps lead to UNQUALIFIED_TO_BUY (Lead)", () => {
+		expect(mapToCrmDealStage("New inbound lead")).toBe(
+			DealStage.UNQUALIFIED_TO_BUY,
+		);
+	});
+
+	it("maps demo/visit to DEMO_BOOKED (Meeting/Demo)", () => {
 		expect(mapToCrmDealStage("Schedule demo class")).toBe(
 			DealStage.DEMO_BOOKED,
 		);
+		expect(mapToCrmDealStage("Meeting scheduled")).toBe(DealStage.DEMO_BOOKED);
 	});
 
-	it("maps proposal/quotation to CONTRACT_SENT", () => {
+	it("maps proposal/quotation to CONTRACT_SENT (Proposal)", () => {
 		expect(mapToCrmDealStage("Proposal sent")).toBe(DealStage.CONTRACT_SENT);
+		expect(mapToCrmDealStage("Quotation requested")).toBe(
+			DealStage.CONTRACT_SENT,
+		);
 	});
 
-	it("maps decision maker to DECISION_MAKER_BOUGHT_IN", () => {
+	it("maps decision maker / negotiation to DECISION_MAKER_BOUGHT_IN (Negotiation)", () => {
 		expect(mapToCrmDealStage("Decision maker bought in")).toBe(
 			DealStage.DECISION_MAKER_BOUGHT_IN,
 		);
+		expect(mapToCrmDealStage("Contract negotiation in progress")).toBe(
+			DealStage.DECISION_MAKER_BOUGHT_IN,
+		);
+	});
+
+	it("maps won and lost stages", () => {
+		expect(mapToCrmDealStage("Closed won")).toBe(DealStage.CLOSED_WON);
+		expect(mapToCrmDealStage("Closed lost")).toBe(DealStage.CLOSED_LOST);
 	});
 });
 

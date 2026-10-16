@@ -2,13 +2,13 @@ import { DealStage } from "@crm/db/enums";
 import type { StatusTone } from "@crm/ui/components/status-indicator";
 
 const ORDER = [
-	DealStage.DEMO_BOOKED,
+	DealStage.UNQUALIFIED_TO_BUY,
 	DealStage.QUALIFIED_TO_BUY,
-	DealStage.DECISION_MAKER_BOUGHT_IN,
+	DealStage.DEMO_BOOKED,
 	DealStage.CONTRACT_SENT,
+	DealStage.DECISION_MAKER_BOUGHT_IN,
 	DealStage.CLOSED_WON,
 	DealStage.CLOSED_LOST,
-	DealStage.UNQUALIFIED_TO_BUY,
 ] as const;
 
 type DealStagePresentation = Record<
@@ -17,21 +17,18 @@ type DealStagePresentation = Record<
 >;
 
 const PRESENTATION: DealStagePresentation = {
-	DEMO_BOOKED: { label: "Demo booked", tone: "neutral" },
-	QUALIFIED_TO_BUY: { label: "Qualified to buy", tone: "info" },
-	DECISION_MAKER_BOUGHT_IN: { label: "Decision maker in", tone: "info" },
-	CONTRACT_SENT: { label: "Contract sent", tone: "warning" },
-	CLOSED_WON: { label: "Closed won", tone: "success" },
-	CLOSED_LOST: { label: "Closed lost", tone: "error" },
-	UNQUALIFIED_TO_BUY: { label: "Unqualified", tone: "neutral" },
+	UNQUALIFIED_TO_BUY: { label: "Lead", tone: "neutral" },
+	QUALIFIED_TO_BUY: { label: "Qualified", tone: "info" },
+	DEMO_BOOKED: { label: "Meeting/Demo", tone: "info" },
+	CONTRACT_SENT: { label: "Proposal", tone: "warning" },
+	DECISION_MAKER_BOUGHT_IN: { label: "Negotiation", tone: "warning" },
+	CLOSED_WON: { label: "Won", tone: "success" },
+	CLOSED_LOST: { label: "Lost", tone: "error" },
 };
 
-export const OPEN_STAGES = ORDER.slice(0, 4) as readonly DealStage[];
+export const OPEN_STAGES = ORDER.slice(0, 5) as readonly DealStage[];
 
-export const LOSING_STAGES: readonly DealStage[] = [
-	DealStage.CLOSED_LOST,
-	DealStage.UNQUALIFIED_TO_BUY,
-];
+export const LOSING_STAGES: readonly DealStage[] = [DealStage.CLOSED_LOST];
 
 export const DEAL_STAGE_OPTIONS = ORDER.map((value) => ({
 	value,
@@ -43,6 +40,7 @@ const OPEN_STAGE_COLORS = [
 	"var(--chart-2)",
 	"var(--chart-3)",
 	"var(--chart-4)",
+	"var(--chart-5)",
 ] as const;
 
 export function isClosedStage(stage: DealStage): boolean {

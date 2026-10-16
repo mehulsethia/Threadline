@@ -1,0 +1,11 @@
+14/10/26, 9:15 am - Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.
+14/10/26, 9:20 am - Sarah Jenkins: Hi Alex, Sarah Jenkins here from Datacore Cloud in Austin.
+14/10/26, 9:22 am - Sarah Jenkins: We are evaluating enterprise security monitoring software for our Kubernetes clusters.
+14/10/26, 9:25 am - Alex Mercer: Hi Sarah! Great to connect. We protect over 5,000 production clusters globally. What scale are you looking at?
+14/10/26, 9:28 am - Sarah Jenkins: We currently run 40 production clusters across AWS and GCP with 120 engineer seats.
+14/10/26, 9:30 am - Sarah Jenkins: Our approved budget for this fiscal year is $48,000 USD.
+14/10/26, 9:35 am - Alex Mercer: That fits comfortably within our Enterprise tier, which lists at $48,000 annual for up to 50 clusters and 150 seats.
+14/10/26, 9:38 am - Sarah Jenkins: Excellent. One hard blocker: our compliance team requires your SOC2 Type II report and ISO 27001 certification before signing.
+14/10/26, 9:42 am - Alex Mercer: We have both reports ready and can share our trust portal link right away under mutual NDA.
+14/10/26, 9:45 am - Sarah Jenkins: Perfect. Let's schedule a product demo with our security architect tomorrow at 2 PM.
+14/10/26, 9:50 am - Alex Mercer: Confirmed, I will send the calendar invite for tomorrow at 2 PM. Looking forward to it!

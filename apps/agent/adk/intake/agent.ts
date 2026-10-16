@@ -1,5 +1,6 @@
 import { db, IntakeJobStatus } from "@crm/db";
-import { Gemini, InMemoryRunner, LlmAgent } from "@google/adk";
+import { readReportingCurrency } from "@crm/db/settings";
+import { Gemini, LlmAgent } from "@google/adk";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
 import {
 	createTaskAction,
@@ -55,6 +56,9 @@ export async function runDeterministicIntakePipeline(
 	meOverride?: string,
 ): Promise<{ contactId: string; dealId: string }> {
 	const job = await loadIntakeJob({ jobId });
+	console.log(
+		`[Intake] Starting pipeline for job ${jobId} (${job.sourceType})`,
+	);
 
 	let parsedMessages: Array<{
 		lineNo: number;
@@ -78,6 +82,9 @@ export async function runDeterministicIntakePipeline(
 		transcriptText = transcribed.transcript;
 	}
 
+	console.log(
+		`[Intake] Calling Vertex AI Gemini extraction for job ${jobId}...`,
+	);
 	const extraction = await extractLeadFactsFromInput({
 		jobId,
 		messages: parsedMessages.length > 0 ? parsedMessages : undefined,
@@ -89,6 +96,9 @@ export async function runDeterministicIntakePipeline(
 	const leadName = facts.contact.name.value || facts.participants.lead;
 	const leadPhone = facts.contact.phone.value || undefined;
 	const companyName = facts.company.name.value || undefined;
+	console.log(
+		`[Intake] Facts extracted for ${leadName} at ${companyName || "No company"}`,
+	);
 
 	const matchResult = await findMatchingContact({
 		jobId,
@@ -126,7 +136,8 @@ export async function runDeterministicIntakePipeline(
 		name: dealName,
 		stage: facts.deal.stageSuggestion.value || "QUALIFIED_TO_BUY",
 		value: dealValue,
-		currency: facts.deal.currency.value || "INR",
+		currency:
+			facts.deal.currency.value || (await readReportingCurrency(db)) || "USD",
 		targetDate: facts.deal.timelineResolved || undefined,
 		companyId,
 		contactId,
@@ -349,112 +360,9 @@ export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
 		`Starting Threadline autonomous intake agent for job ${jobId}`,
 	);
 
-	try {
-		const runner = new InMemoryRunner({ agent: intakeAgent });
-		const prompt = `Process intake job "${jobId}" with me="${meOverride || ""}"`;
-
-		for await (const event of runner.runEphemeral({
-			userId: "system",
-			newMessage: { parts: [{ text: prompt }] },
-		})) {
-			if (!event.content?.parts) continue;
-			for (const part of event.content.parts) {
-				if ("text" in part && part.text) {
-					await emitIntakeEvent(
-						jobId,
-						"agent_thinking",
-						part.text.slice(0, 300),
-					);
-				}
-			}
-		}
-	} catch (error) {
-		await emitIntakeEvent(
-			jobId,
-			"agent_warning",
-			`Agent step execution notice: ${(error as Error).message}. Ensuring complete pipeline.`,
-		);
-	}
-
-	const jobAfter = await db.intakeJob.findUnique({
-		where: { id: jobId },
-	});
-
-	let outcome: string;
-	if (jobAfter?.status !== IntakeJobStatus.DONE) {
-		const res = await runDeterministicIntakePipeline(jobId, meOverride);
-		outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
-	} else {
-		await ensureNextStepTask(jobId, meOverride);
-		outcome = `Intake job ${jobId} finished successfully.`;
-	}
+	const res = await runDeterministicIntakePipeline(jobId, meOverride);
+	const outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
 
 	await completeTask(task.id, outcome, jobId);
 	return outcome;
-}
-
-async function ensureNextStepTask(jobId: string, meOverride?: string) {
-	const job = await loadIntakeJob({ jobId });
-	let parsedMessages: Array<{
-		lineNo: number;
-		timestamp: Date;
-		sender: string;
-		text: string;
-	}> = [];
-	if (job.sourceType === "WHATSAPP_EXPORT") {
-		const parsed = await parseWhatsAppExportFile({
-			jobId,
-			fileUrl: job.fileUrl,
-		});
-		parsedMessages = parsed.messages;
-	}
-	const extraction = await extractLeadFactsFromInput({
-		jobId,
-		messages: parsedMessages,
-		me: meOverride,
-	});
-	const facts = extraction.facts;
-	if (!facts.nextStep.value) return;
-
-	const taskSubject =
-		facts.nextStep.owner === "lead"
-			? `Check: ${facts.nextStep.value}`
-			: facts.nextStep.value;
-
-	const existing = await db.activity.findFirst({
-		where: { type: "TASK", subject: taskSubject },
-	});
-	if (existing) return;
-
-	let dueAt = facts.nextStep.dueAt || undefined;
-	if (facts.nextStep.owner === "lead" && dueAt) {
-		const leadDue = new Date(dueAt);
-		if (!Number.isNaN(leadDue.getTime())) {
-			dueAt = new Date(leadDue.getTime() + 2 * 3600 * 1000).toISOString();
-		}
-	}
-
-	const leadName = facts.contact.name.value || "Lead";
-	const firstName = leadName.split(" ")[0] || leadName;
-	const contact = await db.contact.findFirst({
-		where: {
-			OR: [
-				{ firstName: { contains: firstName, mode: "insensitive" } },
-				...(facts.contact.phone.value
-					? [{ phone: { contains: facts.contact.phone.value } }]
-					: []),
-			],
-		},
-		select: { id: true, companyId: true },
-	});
-
-	if (contact) {
-		await createTaskAction({
-			jobId,
-			subject: taskSubject,
-			dueAt,
-			contactId: contact.id,
-			companyId: contact.companyId || undefined,
-		});
-	}
 }

@@ -157,13 +157,13 @@ export async function transcribeAudio(
 	const { ai, model } = getSmartClient();
 
 	const prompt = [
-		"You are an expert multilingual audio transcriber specializing in Indian languages including Hindi, English, Hinglish, Bengali, Marathi, and Gujarati.",
+		"You are an expert multilingual audio transcriber.",
 		"Transcribe this audio recording into chronological segments with accurate start and end timestamps (formatted as MM:SS).",
-		"Identify the primary spoken language (e.g. 'hi', 'en', 'Hinglish', 'bn', etc.).",
-		"For Hinglish or Hindi speech, transcribe in natural romanized script if Hinglish.",
+		"Identify the primary spoken language (e.g. 'en', 'es', 'de', 'hi', 'fr', 'pt', etc.).",
+		"Transcribe in the spoken language accurately.",
 		"Return a JSON object conforming exactly to this schema:",
 		JSON.stringify({
-			language: "Hinglish",
+			language: "en",
 			segments: [
 				{
 					start: "00:00",
@@ -176,28 +176,48 @@ export async function transcribeAudio(
 		}),
 	].join("\n");
 
-	const response = await ai.models.generateContent({
-		model,
-		contents: [
-			{
-				role: "user",
-				parts: [
+	let response: any;
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			response = await ai.models.generateContent({
+				model,
+				contents: [
 					{
-						inlineData: {
-							mimeType,
-							data: bytes.toString("base64"),
-						},
-					},
-					{
-						text: prompt,
+						role: "user",
+						parts: [
+							{
+								inlineData: {
+									mimeType,
+									data: bytes.toString("base64"),
+								},
+							},
+							{
+								text: prompt,
+							},
+						],
 					},
 				],
-			},
-		],
-		config: {
-			responseMimeType: "application/json",
-		},
-	});
+				config: {
+					responseMimeType: "application/json",
+				},
+			});
+			break;
+		} catch (err: unknown) {
+			const errorObj = err as { status?: number; message?: string } | null;
+			if (
+				attempt < 2 &&
+				(errorObj?.status === 429 ||
+					String(errorObj?.message || "").includes("429") ||
+					String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED"))
+			) {
+				await new Promise((resolve) =>
+					setTimeout(resolve, 4000 * (attempt + 1)),
+				);
+				continue;
+			}
+			throw err;
+		}
+	}
 
 	const rawJson = response.text?.trim() ?? "{}";
 	const parsed = JSON.parse(rawJson);
@@ -270,7 +290,8 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 		`1. CONTACT NAME: Must ALWAYS be the customer/lead (${participantInfo.lead}). Never create the business user (${participantInfo.me}) as a contact.`,
 		"2. MONEY FIELDS:",
 		"   - 'deal.leadBudget': What the customer/lead explicitly states they can spend or have budgeted (number or null).",
-		"   - 'deal.quotedValue': What the business user quoted, agreed, or course fee / supply price (number or null).",
+		"   - 'deal.quotedValue': What the business user quoted, agreed, or proposal / contract price (number or null).",
+		"   - 'deal.currency': ISO 4217 code (USD, EUR, GBP, INR, CAD, AUD, etc.) if stated or indicated by currency symbols ($, €, £, ₹), else null.",
 		"3. SPEAKER FIELD ON ALL EVIDENCE:",
 		"   - Every evidence object MUST include 'speaker': 'lead' (if spoken by customer) or 'us' (if spoken by business user).",
 		"4. INFERENCE VS LITERAL QUOTE:",
@@ -283,6 +304,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 		"   - 'value': next step description",
 		"   - 'owner': 'us' or 'lead'",
 		"   - 'dueAt': stated timeframe, e.g. '1 hour', 'Saturday 11 AM' (or null)",
+		"8. LANGUAGE: Detect the customer's language for 'languagePreference' (e.g. 'English', 'Spanish', 'German', 'Hindi', etc.).",
 		"",
 		"Return a JSON object conforming exactly to this schema:",
 		JSON.stringify(
@@ -340,7 +362,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 						},
 					},
 					leadBudget: {
-						value: 450000,
+						value: 45000,
 						evidence: {
 							sourceKind: "whatsapp.message",
 							speaker: "lead",
@@ -349,7 +371,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 						},
 					},
 					quotedValue: {
-						value: 450000,
+						value: 45000,
 						evidence: {
 							sourceKind: "whatsapp.message",
 							speaker: "us",
@@ -358,7 +380,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 						},
 					},
 					currency: {
-						value: "INR",
+						value: "USD",
 						evidence: {
 							sourceKind: "whatsapp.message",
 							speaker: "lead",
@@ -386,7 +408,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 					},
 				},
 				languagePreference: {
-					value: "Hinglish",
+					value: "English",
 					evidence: {
 						sourceKind: "agent.inference",
 						speaker: "lead",
@@ -433,22 +455,42 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 
 	const { ai, model } = getSmartClient();
 
-	const response = await ai.models.generateContent({
-		model,
-		contents: [
-			{
-				role: "user",
-				parts: [
+	let response: any;
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			response = await ai.models.generateContent({
+				model,
+				contents: [
 					{
-						text: `${instructions}\n\n${conversationText}`,
+						role: "user",
+						parts: [
+							{
+								text: `${instructions}\n\n${conversationText}`,
+							},
+						],
 					},
 				],
-			},
-		],
-		config: {
-			responseMimeType: "application/json",
-		},
-	});
+				config: {
+					responseMimeType: "application/json",
+				},
+			});
+			break;
+		} catch (err: unknown) {
+			const errorObj = err as { status?: number; message?: string } | null;
+			if (
+				attempt < 2 &&
+				(errorObj?.status === 429 ||
+					String(errorObj?.message || "").includes("429") ||
+					String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED"))
+			) {
+				await new Promise((resolve) =>
+					setTimeout(resolve, 4000 * (attempt + 1)),
+				);
+				continue;
+			}
+			throw err;
+		}
+	}
 
 	const rawJson = response.text?.trim() ?? "{}";
 	const parsed = JSON.parse(rawJson);

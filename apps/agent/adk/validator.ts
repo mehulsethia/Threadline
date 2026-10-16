@@ -59,6 +59,15 @@ export function mapToCrmDealStage(
 	}
 
 	if (
+		lower.includes("decision") ||
+		lower.includes("bought_in") ||
+		lower.includes("stakeholder") ||
+		lower.includes("negotiat")
+	) {
+		return DealStage.DECISION_MAKER_BOUGHT_IN;
+	}
+
+	if (
 		lower.includes("proposal") ||
 		lower.includes("contract") ||
 		lower.includes("quote") ||
@@ -66,14 +75,6 @@ export function mapToCrmDealStage(
 		hasProposal
 	) {
 		return DealStage.CONTRACT_SENT;
-	}
-
-	if (
-		lower.includes("decision") ||
-		lower.includes("bought_in") ||
-		lower.includes("stakeholder")
-	) {
-		return DealStage.DECISION_MAKER_BOUGHT_IN;
 	}
 
 	if (
@@ -88,8 +89,16 @@ export function mapToCrmDealStage(
 		return DealStage.CLOSED_LOST;
 	}
 
-	if (lower.includes("unqualified")) {
+	if (
+		lower.includes("lead") ||
+		lower.includes("inbound") ||
+		lower.includes("unqualified")
+	) {
 		return DealStage.UNQUALIFIED_TO_BUY;
+	}
+
+	if (lower.includes("qualif")) {
+		return DealStage.QUALIFIED_TO_BUY;
 	}
 
 	return DealStage.QUALIFIED_TO_BUY;
@@ -113,9 +122,23 @@ export function resolveRelativeTimeline(
 		eight: 8,
 		nine: 9,
 		ten: 10,
+		ein: 1,
+		zwei: 2,
+		drei: 3,
+		vier: 4,
+		uno: 1,
+		dos: 2,
+		tres: 3,
+		cuatro: 4,
 	};
 
-	if (norm.includes("kal") || norm.includes("tomorrow")) {
+	if (
+		norm.includes("kal") ||
+		norm.includes("tomorrow") ||
+		norm.includes("morgen") ||
+		norm.includes("manana") ||
+		norm.includes("mañana")
+	) {
 		const target = new Date(refDate.getTime());
 		target.setDate(target.getDate() + 1);
 		return target.toISOString().slice(0, 10);
@@ -123,6 +146,10 @@ export function resolveRelativeTimeline(
 
 	if (
 		norm.includes("next week") ||
+		norm.includes("naechste woche") ||
+		norm.includes("nächste woche") ||
+		norm.includes("proxima semana") ||
+		norm.includes("próxima semana") ||
 		norm.includes("agle hafte") ||
 		norm.includes("agle week")
 	) {
@@ -131,24 +158,42 @@ export function resolveRelativeTimeline(
 		return target.toISOString().slice(0, 10);
 	}
 
-	if (norm.includes("today") || norm.includes("aaj")) {
+	if (
+		norm.includes("today") ||
+		norm.includes("aaj") ||
+		norm.includes("heute") ||
+		norm.includes("hoy")
+	) {
 		return refDate.toISOString().slice(0, 10);
 	}
 
 	const relMatch = norm.match(
-		/(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(day|week|month)s?/,
+		/(\d+|one|two|three|four|five|six|seven|eight|nine|ten|ein|zwei|drei|vier|uno|dos|tres|cuatro)\s+(day|week|month|tag|tage|woche|wochen|monat|monate|dia|dias|día|días|semana|semanas|mes|meses)s?/,
 	);
 	if (relMatch?.[1] && relMatch[2]) {
 		const rawNum = relMatch[1];
 		const num = numberMap[rawNum] ?? parseInt(rawNum, 10);
-		const unit = relMatch[2];
+		const rawUnit = relMatch[2];
 
 		const target = new Date(refDate.getTime());
-		if (unit === "day") {
+		if (
+			rawUnit.startsWith("day") ||
+			rawUnit.startsWith("tag") ||
+			rawUnit.startsWith("dia") ||
+			rawUnit.startsWith("día")
+		) {
 			target.setDate(target.getDate() + num);
-		} else if (unit === "week") {
+		} else if (
+			rawUnit.startsWith("week") ||
+			rawUnit.startsWith("woch") ||
+			rawUnit.startsWith("seman")
+		) {
 			target.setDate(target.getDate() + num * 7);
-		} else if (unit === "month") {
+		} else if (
+			rawUnit.startsWith("month") ||
+			rawUnit.startsWith("monat") ||
+			rawUnit.startsWith("mes")
+		) {
 			target.setMonth(target.getMonth() + num);
 		}
 		return target.toISOString().slice(0, 10);
@@ -230,6 +275,7 @@ export function resolveRelativeTimeline(
 export function resolveDueAt(
 	text: string | null | undefined,
 	refDate: Date,
+	timezoneOffset = "Z",
 ): string | null {
 	if (!text) return null;
 	const norm = normalize(text);
@@ -243,10 +289,18 @@ export function resolveDueAt(
 		two: 2,
 		three: 3,
 		four: 4,
+		ein: 1,
+		zwei: 2,
+		drei: 3,
+		vier: 4,
+		uno: 1,
+		dos: 2,
+		tres: 3,
+		cuatro: 4,
 	};
 
 	const hourMatch = norm.match(
-		/(\d+|ek|do|teen|char|one|two|three|four)\s*(?:hour|ghante|ghanta|hr)s?\s*(?:me|mein|within|in)?/,
+		/(\d+|ek|do|teen|char|one|two|three|four|ein|zwei|drei|vier|uno|dos|tres|cuatro)\s*(?:hour|ghante|ghanta|hr|stunde|stunden|hora|horas)s?\s*(?:me|mein|within|in)?/,
 	);
 	if (hourMatch?.[1]) {
 		const raw = hourMatch[1];
@@ -257,6 +311,8 @@ export function resolveDueAt(
 
 	const datePart = resolveRelativeTimeline(text, refDate);
 	if (!datePart) return null;
+
+	const tz = timezoneOffset === "Z" || !timezoneOffset ? "Z" : timezoneOffset;
 
 	const timeMatch = norm.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
 	if (timeMatch?.[1]) {
@@ -269,10 +325,10 @@ export function resolveDueAt(
 
 		const hStr = String(h).padStart(2, "0");
 		const mStr = String(m).padStart(2, "0");
-		return new Date(`${datePart}T${hStr}:${mStr}:00+05:30`).toISOString();
+		return new Date(`${datePart}T${hStr}:${mStr}:00${tz}`).toISOString();
 	}
 
-	return new Date(`${datePart}T09:00:00+05:30`).toISOString();
+	return new Date(`${datePart}T09:00:00${tz}`).toISOString();
 }
 
 function findQuoteInMessages(
@@ -326,6 +382,7 @@ export function validateAndEnrichFacts(
 	me: string,
 	lead: string,
 	refDate: Date,
+	timezoneOffset = "Z",
 ): ValidationSummary {
 	const summary: ValidationSummary = {
 		verified: 0,
@@ -607,14 +664,16 @@ export function validateAndEnrichFacts(
 		}
 
 		let resolved =
-			resolveDueAt(facts.nextStep.dueAt, refDate) ||
-			resolveDueAt(combined, refDate);
+			resolveDueAt(facts.nextStep.dueAt, refDate, timezoneOffset) ||
+			resolveDueAt(combined, refDate, timezoneOffset);
 		if (!resolved) {
 			const dueMsg = messages.find((m) =>
-				/saturday|tomorrow|kal|hour|ghante|week|demo|centre|test/i.test(m.text),
+				/saturday|tomorrow|kal|morgen|mañana|hour|ghante|stunde|hora|week|demo|centre|test|meeting|termin/i.test(
+					m.text,
+				),
 			);
 			if (dueMsg) {
-				resolved = resolveDueAt(dueMsg.text, refDate);
+				resolved = resolveDueAt(dueMsg.text, refDate, timezoneOffset);
 			}
 		}
 		if (resolved) {
