@@ -142,6 +142,19 @@ DATABASE_URL="…" bunx prisma migrate diff \
 strings, asserted by `packages/env/test/root.spec.ts`. **Generate your own secret**;
 never reuse one from an example, a tutorial, or another environment.
 
+## Development session helper
+
+In local development, developers sign in with Google OAuth at `/sign-in`.
+Alternatively, `apps/api/scripts/dev-session.ts` mints a local session token:
+
+```sh
+DEV_AUTH_BYPASS=true bun --cwd apps/api dev:session
+```
+
+The script requires `NODE_ENV !== "production"` and `DEV_AUTH_BYPASS=true`.
+The script throws an error if either condition fails.
+The script writes a real session row into the database.
+
 ## Tests
 
 ```sh
