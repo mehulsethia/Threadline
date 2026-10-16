@@ -2,6 +2,7 @@ import { db, IntakeJobStatus } from "@crm/db";
 import { readReportingCurrency } from "@crm/db/settings";
 import { Gemini, LlmAgent } from "@google/adk";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
+import { researchCompany } from "../research/company";
 import {
 	createTaskAction,
 	emitIntakeEvent,
@@ -50,6 +51,68 @@ Follow these strict rules:
 Never invent values. Skip null fields. Explain each decision in one concise line.`,
 	tools: INTAKE_TOOLS,
 });
+
+async function runCompanyResearchStep(input: {
+	jobId: string;
+	companyName: string;
+	city?: string;
+	contactId?: string;
+	dealId?: string;
+}): Promise<void> {
+	const priorResearch = await db.contactFact.findFirst({
+		where: {
+			field: "companyProfile",
+			OR: [{ contactId: input.contactId }, { dealId: input.dealId }],
+		},
+	});
+
+	if (priorResearch) return;
+
+	const research = await researchCompany({
+		companyName: input.companyName,
+		city: input.city,
+	});
+
+	if (!research) return;
+
+	await emitIntakeEvent(
+		input.jobId,
+		"research_company",
+		`Grounded company research completed for "${input.companyName}" (${research.latencyMs}ms, $${research.estimatedCostUsd.toFixed(4)})`,
+		input.contactId,
+		{
+			overview: research.overview,
+			sizeSignals: research.sizeSignals,
+			location: research.location,
+			recentNews: research.recentNews,
+			citations: research.sourceUrls.length,
+		},
+	);
+
+	const topUrl = research.sourceUrls[0];
+	const factsToRecord = [
+		{ field: "companyProfile", value: research.overview },
+		{ field: "companySize", value: research.sizeSignals },
+		{ field: "location", value: research.location },
+		{ field: "companyNews", value: research.recentNews },
+	];
+
+	for (const item of factsToRecord) {
+		if (item.value) {
+			await recordFactAction({
+				jobId: input.jobId,
+				contactId: input.contactId,
+				dealId: input.dealId,
+				field: item.field,
+				value: item.value,
+				sourceKind: "web.grounded",
+				quote: item.value,
+				speaker: "us",
+				sourceUrl: topUrl,
+			});
+		}
+	}
+}
 
 export async function runDeterministicIntakePipeline(
 	jobId: string,
@@ -267,6 +330,16 @@ export async function runDeterministicIntakePipeline(
 				speaker: obj.evidence.speaker,
 			});
 		}
+	}
+
+	if (companyName) {
+		await runCompanyResearchStep({
+			jobId,
+			companyName,
+			city: facts.company.city.value || undefined,
+			contactId,
+			dealId,
+		});
 	}
 
 	if (parsedMessages.length > 0) {

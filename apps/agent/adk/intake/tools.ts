@@ -23,6 +23,7 @@ import {
 	extractLeadFacts as runExtractLeadFacts,
 	transcribeAudio as runTranscribeAudio,
 } from "../extraction";
+import { researchCompany } from "../research/company";
 
 export async function emitIntakeEvent(
 	jobId: string,
@@ -492,6 +493,7 @@ export async function recordFactAction(input: {
 	quote?: string;
 	lineNos?: number[];
 	speaker?: string;
+	sourceUrl?: string;
 }) {
 	const effectiveSourceKind = [
 		"stage",
@@ -510,10 +512,12 @@ export async function recordFactAction(input: {
 		dealId: input.dealId,
 		field: input.field as FactField,
 		value: input.value,
+		sourceUrl: input.sourceUrl,
 		evidence: [
 			{
 				kind: effectiveSourceKind as EvidenceKind,
 				detail,
+				sourceUrl: input.sourceUrl,
 			},
 		],
 		method: "adk.intake",
@@ -874,6 +878,7 @@ export const recordFactTool = new FunctionTool({
 			.optional()
 			.describe("Line numbers where quote appears."),
 		speaker: z.string().optional().describe("Speaker: lead or us."),
+		sourceUrl: z.string().optional().describe("Source URL if web grounded."),
 	}),
 	execute: recordFactAction,
 });
@@ -951,6 +956,55 @@ export const finishJobTool = new FunctionTool({
 	execute: finishJobAction,
 });
 
+export const researchCompanyAction = async (input: {
+	jobId: string;
+	companyName: string;
+	city?: string;
+	domain?: string;
+}) => {
+	const result = await researchCompany({
+		companyName: input.companyName,
+		city: input.city,
+		domain: input.domain,
+	});
+
+	if (!result) {
+		return { researched: false, reason: "No company name or research failed." };
+	}
+
+	await emitIntakeEvent(
+		input.jobId,
+		"research_company",
+		`Grounded research completed for ${input.companyName} (${result.latencyMs}ms, $${result.estimatedCostUsd.toFixed(4)})`,
+		null,
+		{
+			overview: result.overview,
+			sizeSignals: result.sizeSignals,
+			location: result.location,
+			recentNews: result.recentNews,
+			citations: result.sourceUrls.length,
+		},
+	);
+
+	return {
+		researched: true,
+		...result,
+	};
+};
+
+export const researchCompanyTool = new FunctionTool({
+	name: "research_company",
+	description:
+		"Performs live web research on a company using Gemini Grounding with Google Search on Vertex AI, extracting overview, size signals, location, and recent news with citations.",
+	parameters: z.object({
+		jobId: z.string().describe("The intake job ID."),
+		companyName: z.string().describe("Name of the company to research."),
+		city: z.string().optional().describe("City or location hint if known."),
+		domain: z.string().optional().describe("Company domain name if known."),
+	}),
+	execute: researchCompanyAction,
+});
+
 export const INTAKE_TOOLS = [
 	loadIntakeJobTool,
 	parseWhatsAppExportTool,
@@ -961,6 +1015,7 @@ export const INTAKE_TOOLS = [
 	upsertContactTool,
 	upsertDealTool,
 	recordFactTool,
+	researchCompanyTool,
 	storeMessagesTool,
 	logActivityTool,
 	createTaskTool,

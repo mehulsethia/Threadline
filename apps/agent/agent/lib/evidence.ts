@@ -15,7 +15,8 @@ export type EvidenceKind =
 	| "whatsapp.message"
 	| "voice.transcript"
 	| "voice.live-call"
-	| "agent.inference";
+	| "agent.inference"
+	| "web.grounded";
 
 type Weighting = {
 	weight: number;
@@ -43,6 +44,11 @@ export const WEIGHTS = {
 		weight: 0.3,
 		primary: false,
 		label: "inferred by agent reasoning",
+	},
+	"web.grounded": {
+		weight: 0.5,
+		primary: false,
+		label: "grounded web search via Google Grounding on Vertex",
 	},
 	"profile.email-match": {
 		weight: 0.95,
