@@ -21,6 +21,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
+import { useMountEffect } from "@crm/ui/hooks/use-mount-effect";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -62,6 +63,7 @@ import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { warmApi } from "@/lib/warm-api";
 import { AttachDealContact } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import { AddRow, RecordSheetFrame } from "./record-parts";
@@ -130,6 +132,8 @@ export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
 	const openRecord = useOpenRecord();
 	const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+	// Wake the scaled-to-zero API while the deal is read, ahead of any call.
+	useMountEffect(warmApi);
 	const {
 		tab,
 		setTab,

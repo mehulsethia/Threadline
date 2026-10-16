@@ -21,6 +21,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { warmApi } from "@/lib/warm-api";
+
+// Covers a cold API start plus Gemini Live session setup.
+const CONNECT_TIMEOUT_MS = 45_000;
 
 interface VoiceQualifierModalProps {
 	dealId: string;
@@ -75,9 +79,14 @@ export function VoiceQualifierModal({
 	const [proposedScore, setProposedScore] = useState<number>(0);
 	const [proposedStage, setProposedStage] = useState<string | null>(null);
 	const [fallbackMode, setFallbackMode] = useState(false);
+	const [callError, setCallError] = useState<string | null>(null);
 	const [recordingFallback, setRecordingFallback] = useState(false);
 
 	const wsRef = useRef<WebSocket | null>(null);
+	// Socket handlers outlive renders, so they read the live status here.
+	const statusRef = useRef(status);
+	statusRef.current = status;
+	const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const audioCtxRef = useRef<AudioContext | null>(null);
 	const micStreamRef = useRef<MediaStream | null>(null);
 	const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
@@ -100,13 +109,25 @@ export function VoiceQualifierModal({
 		}
 	}, [contextQuery.data]);
 
-	const endCall = useCallback(() => {
+	useEffect(() => {
+		if (open) warmApi();
+	}, [open]);
+
+	const releaseCall = useCallback(() => {
+		if (connectTimerRef.current) {
+			clearTimeout(connectTimerRef.current);
+			connectTimerRef.current = null;
+		}
+
 		if (wsRef.current) {
-			if (wsRef.current.readyState === WebSocket.OPEN) {
-				wsRef.current.send(JSON.stringify({ type: "end_call" }));
-			}
-			wsRef.current.close();
+			const ws = wsRef.current;
 			wsRef.current = null;
+			ws.onclose = null;
+			ws.onerror = null;
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({ type: "end_call" }));
+			}
+			ws.close();
 		}
 
 		if (scriptProcessorRef.current) {
@@ -126,10 +147,23 @@ export function VoiceQualifierModal({
 			audioCtxRef.current = null;
 		}
 
-		setStatus("ended");
 		setActiveSpeaker(null);
+	}, []);
+
+	const endCall = useCallback(() => {
+		releaseCall();
+		setStatus("ended");
 		void cache.deal(dealId, { settle: "record" });
-	}, [dealId, cache]);
+	}, [dealId, cache, releaseCall]);
+
+	const failCall = useCallback(
+		(message: string) => {
+			releaseCall();
+			setCallError(message);
+			setStatus("error");
+		},
+		[releaseCall],
+	);
 
 	useEffect(() => {
 		let timer: NodeJS.Timeout | null = null;
@@ -201,6 +235,8 @@ export function VoiceQualifierModal({
 
 	const startCall = useCallback(async () => {
 		try {
+			releaseCall();
+			setCallError(null);
 			setStatus("connecting");
 			setTranscripts([]);
 			setRecordedFacts([]);
@@ -228,7 +264,19 @@ export function VoiceQualifierModal({
 			const ws = new WebSocket(socketUrl);
 			wsRef.current = ws;
 
-			ws.onopen = () => {
+			connectTimerRef.current = setTimeout(() => {
+				if (statusRef.current === "connecting") {
+					failCall("The call service took too long to answer.");
+				}
+			}, CONNECT_TIMEOUT_MS);
+
+			// The socket opening is not enough: the call is live once the API
+			// reports the Gemini Live session ready, so audio is never dropped.
+			const startStreaming = () => {
+				if (connectTimerRef.current) {
+					clearTimeout(connectTimerRef.current);
+					connectTimerRef.current = null;
+				}
 				setStatus("in_call");
 				toast.success("Voice qualification call active.");
 
@@ -280,7 +328,9 @@ export function VoiceQualifierModal({
 						message?: string;
 					};
 
-					if (msg.type === "audio" && msg.pcm) {
+					if (msg.type === "ready") {
+						startStreaming();
+					} else if (msg.type === "audio" && msg.pcm) {
 						playAudioChunk(msg.pcm);
 					} else if (msg.type === "transcript" && msg.text) {
 						setTranscripts((prev) => [
@@ -321,7 +371,11 @@ export function VoiceQualifierModal({
 						endCall();
 						toast.success("Voice qualification call ended.");
 					} else if (msg.type === "error") {
-						toast.error(`Call error: ${msg.message}`);
+						if (statusRef.current === "connecting") {
+							failCall(msg.message || "The call could not be started.");
+						} else {
+							toast.error(`Call error: ${msg.message}`);
+						}
 					}
 				} catch (err) {
 					console.error("Error reading live socket payload", err);
@@ -329,31 +383,34 @@ export function VoiceQualifierModal({
 			};
 
 			ws.onerror = () => {
-				setStatus("error");
-				toast.error(
-					"Could not establish live voice session. Try the fallback recorder.",
-				);
+				if (statusRef.current === "connecting") {
+					failCall("Could not reach the call service.");
+				}
 			};
 
 			ws.onclose = () => {
-				if (status === "in_call") {
+				if (statusRef.current === "connecting") {
+					failCall("The call service closed the connection.");
+				} else if (statusRef.current === "in_call") {
 					endCall();
 				}
 			};
 		} catch (err) {
 			console.error("Could not start the live call", err);
-			setStatus("error");
-			toast.error(
-				"Could not start the live call (microphone or connection). Try the fallback recorder.",
+			failCall(
+				err instanceof DOMException && err.name === "NotAllowedError"
+					? "Microphone access was denied."
+					: "Could not start the live call.",
 			);
 		}
 	}, [
 		dealId,
 		muted,
 		playAudioChunk,
-		status,
 		cache,
 		endCall,
+		failCall,
+		releaseCall,
 		liveTicketMutation,
 	]);
 
@@ -533,27 +590,58 @@ export function VoiceQualifierModal({
 							</div>
 
 							<div className="p-4 border-t border-border bg-card/40 flex items-center justify-between gap-3">
-								{status === "idle" ||
-								status === "ended" ||
-								status === "error" ? (
+								{status === "connecting" ? (
 									<div className="flex items-center gap-2 w-full">
 										<Button
-											onClick={startCall}
+											disabled
+											aria-busy
 											className="w-full gap-2 font-medium"
 											variant="default"
 										>
-											<Icon icon={PhoneVoice} />
-											{status === "ended"
-												? "Start New Call"
-												: "Start Live Qualification Call"}
+											<Icon icon={Renew} className="animate-spin" />
+											Connecting…
 										</Button>
 										<Button
 											variant="outline"
-											onClick={() => setFallbackMode(!fallbackMode)}
+											onClick={() => {
+												releaseCall();
+												setStatus("idle");
+											}}
 											className="text-xs whitespace-nowrap"
 										>
-											{fallbackMode ? "Live Mode" : "Fallback Audio"}
+											Cancel
 										</Button>
+									</div>
+								) : status === "idle" ||
+									status === "ended" ||
+									status === "error" ? (
+									<div className="flex flex-col gap-2 w-full">
+										{status === "error" && callError && (
+											<p role="alert" className="text-xs text-destructive">
+												{callError}
+											</p>
+										)}
+										<div className="flex items-center gap-2 w-full">
+											<Button
+												onClick={startCall}
+												className="w-full gap-2 font-medium"
+												variant="default"
+											>
+												<Icon icon={status === "error" ? Renew : PhoneVoice} />
+												{status === "error"
+													? "Retry call"
+													: status === "ended"
+														? "Start New Call"
+														: "Start Live Qualification Call"}
+											</Button>
+											<Button
+												variant="outline"
+												onClick={() => setFallbackMode(!fallbackMode)}
+												className="text-xs whitespace-nowrap"
+											>
+												{fallbackMode ? "Live Mode" : "Fallback Audio"}
+											</Button>
+										</div>
 									</div>
 								) : (
 									<div className="flex items-center justify-between w-full">

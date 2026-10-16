@@ -17,7 +17,9 @@ import { InjectDatabase } from "../database/database.constants";
 const SLOW_PROBE_MS = 250;
 
 @ApiTags("Health")
-@Controller("health")
+// Also served at /api/health so the browser can wake a scaled-to-zero API
+// through the app's same-origin /api proxy before a voice call.
+@Controller(["health", "api/health"])
 export class HealthController {
 	private readonly logger = new Logger(HealthController.name);
 
