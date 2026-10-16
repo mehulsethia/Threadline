@@ -40,7 +40,10 @@ export default function DealsPage({
 			</PageShellHeader>
 
 			<PageShellContent className="min-h-0">
-				<JudgeTourBanner />
+				{/* Reads the workspace from the URL, so it streams in after prerender. */}
+				<Suspense fallback={null}>
+					<JudgeTourBanner />
+				</Suspense>
 				<Suspense fallback={<PageShellLoading />}>
 					<Deals searchParams={searchParams} />
 				</Suspense>
