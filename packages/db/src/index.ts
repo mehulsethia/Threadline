@@ -15,3 +15,4 @@ export type {
 	JsonValue,
 	WorkspaceProfileSections,
 } from "./json";
+export { DEAL_STAGE_LABELS, formatDealStage } from "./stage";

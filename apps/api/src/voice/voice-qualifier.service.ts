@@ -83,7 +83,11 @@ export class VoiceQualifierService {
 
 		const knownFacts: Record<string, string> = {};
 		for (const fact of deal.facts) {
-			if (fact.status !== FactStatus.DISMISSED) {
+			if (
+				fact.status !== FactStatus.DISMISSED &&
+				(fact.contactId === null ||
+					(primaryContact && fact.contactId === primaryContact.id))
+			) {
 				knownFacts[fact.field] = fact.value;
 			}
 		}
@@ -93,7 +97,11 @@ export class VoiceQualifierService {
 			const exists =
 				knownFacts[`qualification.${cat}`] ||
 				deal.facts.some(
-					(f) => f.field.includes(cat) && f.status !== FactStatus.DISMISSED,
+					(f) =>
+						f.field.includes(cat) &&
+						f.status !== FactStatus.DISMISSED &&
+						(f.contactId === null ||
+							(primaryContact && f.contactId === primaryContact.id)),
 				);
 			if (!exists) {
 				missingCategories.push(cat);
@@ -101,12 +109,43 @@ export class VoiceQualifierService {
 		}
 
 		let detectedLanguage = "en";
-		const draft = await this.db.outboundDraft.findFirst({
-			where: { dealId },
-			select: { language: true },
-		});
-		if (draft?.language) {
-			detectedLanguage = draft.language;
+		if (primaryContact) {
+			const contactMsg = await this.db.whatsAppMessage.findFirst({
+				where: {
+					contactId: primaryContact.id,
+					direction: "INBOUND",
+				},
+				orderBy: { timestamp: "desc" },
+			});
+			if (contactMsg?.body) {
+				const body = contactMsg.body.toLowerCase();
+				if (
+					/\b(?:und|ich|wir|bitte|termin|bereitstellung|nachfragen|geplante|angebot|grüße)\b/i.test(
+						body,
+					)
+				) {
+					detectedLanguage = "de";
+				} else if (
+					/\b(?:bonjour|merci|vous|nous|projet|devis|accord)\b/i.test(body)
+				) {
+					detectedLanguage = "fr";
+				} else if (
+					/\b(?:hola|gracias|nosotros|ustedes|proyecto|presupuesto)\b/i.test(
+						body,
+					)
+				) {
+					detectedLanguage = "es";
+				}
+			} else {
+				const langFact = deal.facts.find(
+					(f) =>
+						f.field === "language" &&
+						(f.contactId === primaryContact.id || f.contactId === null),
+				);
+				if (langFact?.value) {
+					detectedLanguage = langFact.value;
+				}
+			}
 		}
 
 		const coveredCount = ALL_CATEGORIES.length - missingCategories.length;

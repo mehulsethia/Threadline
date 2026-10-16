@@ -177,22 +177,23 @@ async function main() {
 			throw new Error("No contact found on deal.");
 		}
 
+		const greetingName = contact.firstName || contact.lastName || "there";
 		draft = await db.outboundDraft.create({
 			data: {
 				dealId: deal.id,
 				contactId: contact.id,
 				channel: "EMAIL",
-				language: "de",
+				language: "en",
 				status: "PENDING_APPROVAL",
 				stalledReason: "Inactivity exceeded 4 days in stage UNQUALIFIED_TO_BUY",
 				strategy: "confirm_next_step",
 				contextRationale: "Deal exceeded SLA without next steps scheduled.",
-				draftText: "Betreff: Nächste Schritte zu Ihrer Anfrage\n\nHallo Frau Rostova,\n\nich wollte kurz nachfragen, ob Sie diese Woche Zeit für die geplante technische Abstimmung haben.\n\nMit freundlichen Grüßen,\nAlex Miller\nThreadline Systems",
+				draftText: `Subject: Next steps regarding your inquiry\n\nHello ${greetingName},\n\nI wanted to follow up and see if you have time for our scheduled technical review this week.\n\nBest regards,\nAlex Miller\nThreadline Systems`,
 				citedEvidence: [
 					{
 						evidenceId: "ev_1",
 						kind: "communication.email",
-						quote: "Lassen Sie uns nächste Woche kurz über die Bereitstellung sprechen.",
+						quote: "Let us briefly discuss deployment next week.",
 					},
 				],
 			},
