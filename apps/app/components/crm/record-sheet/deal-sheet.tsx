@@ -2,6 +2,7 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import Close from "@carbon/icons-react/es/Close";
+import PhoneVoice from "@carbon/icons-react/es/PhoneVoice";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { CURRENCIES, normalizeCurrency } from "@crm/db/currency";
 import type { FieldValueJson } from "@crm/db/fields";
@@ -22,6 +23,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
@@ -40,6 +42,7 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { StageStepper } from "@/components/crm/stage-stepper";
 import { Timeline } from "@/components/crm/timeline/timeline";
+import { VoiceQualifierModal } from "@/components/crm/voice-qualifier-modal";
 import {
 	DetailSheetBody,
 	DetailSheetEmpty,
@@ -126,6 +129,7 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
 	const openRecord = useOpenRecord();
+	const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 	const {
 		tab,
 		setTab,
@@ -171,84 +175,103 @@ export function DealSheet({ dealId }: { dealId: string }) {
 		: [];
 
 	return (
-		<RecordSheetFrame
-			loading={query.isPending}
-			error={query.error?.message ?? null}
-			title={deal?.name ?? "Deal"}
-			description={
-				deal?.company ? (
-					<button
-						type="button"
-						onClick={() =>
-							deal.company &&
-							openRecord({ kind: "company", id: deal.company.id })
-						}
-						className="text-foreground underline-offset-2 hover:underline"
-					>
-						{deal.company.name}
-					</button>
-				) : undefined
-			}
-			media={
-				deal?.company ? (
-					<EntityLogo
-						src={deal.company.iconUrl}
-						darkSrc={deal.company.iconDarkUrl}
-						tone={deal.company.iconTone as EntityLogoTone | null | undefined}
-						name={deal.company.name}
-						size="lg"
-					/>
-				) : null
-			}
-			actions={
-				deal ? (
-					<>
-						<DealStageMenu
-							dealId={deal.id}
-							stage={deal.stage}
-							variant="control"
+		<>
+			<RecordSheetFrame
+				loading={query.isPending}
+				error={query.error?.message ?? null}
+				title={deal?.name ?? "Deal"}
+				description={
+					deal?.company ? (
+						<button
+							type="button"
+							onClick={() =>
+								deal.company &&
+								openRecord({ kind: "company", id: deal.company.id })
+							}
+							className="text-foreground underline-offset-2 hover:underline"
+						>
+							{deal.company.name}
+						</button>
+					) : undefined
+				}
+				media={
+					deal?.company ? (
+						<EntityLogo
+							src={deal.company.iconUrl}
+							darkSrc={deal.company.iconDarkUrl}
+							tone={deal.company.iconTone as EntityLogoTone | null | undefined}
+							name={deal.company.name}
+							size="lg"
 						/>
-						<RecordActions
-							record={{ kind: "deal", id: deal.id }}
-							name={deal.name}
-							consequence={`Its stage history, notes and agent conversations go too. ${deal.company ? `${deal.company.name} and the ` : ""}${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
-							archivedAt={deal.archivedAt}
-						/>
-					</>
-				) : null
-			}
-			stats={
-				deal ? (
-					<DetailSheetStats>
-						<DetailSheetStat label="Amount">
-							{deal.amountCents === null ? (
-								<EmptyCellValue />
-							) : (
-								<span className="tabular-nums">
-									{formatMoney(deal.amountCents, dealCurrency(deal.currency))}
-								</span>
-							)}
-						</DetailSheetStat>
-						<DetailSheetStat label="Expected close">
-							{deal.expectedCloseDate ? (
-								<LocalDay date={deal.expectedCloseDate} />
-							) : (
-								<EmptyCellValue />
-							)}
-						</DetailSheetStat>
-						<DetailSheetStat label="In stage">
-							<LocalRelativeTime date={deal.stageChangedAt} />
-						</DetailSheetStat>
-						<DetailSheetStat label="Owner">
-							<OwnerCell owner={deal.owner} />
-						</DetailSheetStat>
-					</DetailSheetStats>
-				) : null
-			}
-			tabs={tabs}
-			tab={tab}
-			onTabChange={setTab}
-		/>
+					) : null
+				}
+				actions={
+					deal ? (
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setVoiceModalOpen(true)}
+								className="gap-1.5 font-medium text-xs border-primary/30 text-primary hover:bg-primary/5"
+							>
+								<Icon icon={PhoneVoice} />
+								Start qualification call
+							</Button>
+							<DealStageMenu
+								dealId={deal.id}
+								stage={deal.stage}
+								variant="control"
+							/>
+							<RecordActions
+								record={{ kind: "deal", id: deal.id }}
+								name={deal.name}
+								consequence={`Its stage history, notes and agent conversations go too. ${deal.company ? `${deal.company.name} and the ` : ""}${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
+								archivedAt={deal.archivedAt}
+							/>
+						</>
+					) : null
+				}
+				stats={
+					deal ? (
+						<DetailSheetStats>
+							<DetailSheetStat label="Amount">
+								{deal.amountCents === null ? (
+									<EmptyCellValue />
+								) : (
+									<span className="tabular-nums">
+										{formatMoney(deal.amountCents, dealCurrency(deal.currency))}
+									</span>
+								)}
+							</DetailSheetStat>
+							<DetailSheetStat label="Expected close">
+								{deal.expectedCloseDate ? (
+									<LocalDay date={deal.expectedCloseDate} />
+								) : (
+									<EmptyCellValue />
+								)}
+							</DetailSheetStat>
+							<DetailSheetStat label="In stage">
+								<LocalRelativeTime date={deal.stageChangedAt} />
+							</DetailSheetStat>
+							<DetailSheetStat label="Owner">
+								<OwnerCell owner={deal.owner} />
+							</DetailSheetStat>
+						</DetailSheetStats>
+					) : null
+				}
+				tabs={tabs}
+				tab={tab}
+				onTabChange={setTab}
+			/>
+			{deal ? (
+				<VoiceQualifierModal
+					dealId={deal.id}
+					dealName={deal.name}
+					open={voiceModalOpen}
+					onOpenChange={setVoiceModalOpen}
+				/>
+			) : null}
+		</>
 	);
 }
 

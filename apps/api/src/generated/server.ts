@@ -33,6 +33,7 @@ import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOu
 import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackSetAlertsChannelInput, slackSetAlertsChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
+import { voiceDealContextInput, voiceDealContextOutput, voiceTranscribeQualifyInput, voiceTranscribeQualifyOutput } from "../voice/voice.contracts";
 import { workspaceOutput, memberListInput, memberListOutput, updateWorkspaceInput, setMemberRoleInput, workspaceMemberOutput } from "../workspace/workspace.contracts";
 import type { UsersRouter } from "../users/users.router";
 
@@ -790,6 +791,16 @@ const appRouter = t.router({
 	}),
 ))
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  voice: t.router({
+    dealContext: publicProcedure
+      .input(voiceDealContextInput)
+      .output(voiceDealContextOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    transcribeQualify: publicProcedure
+      .input(voiceTranscribeQualifyInput)
+      .output(voiceTranscribeQualifyOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   workspace: t.router({
     get: publicProcedure
