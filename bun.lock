@@ -33,12 +33,12 @@
         "ai": "^7.0.141",
         "context.dev": "2.10.0",
         "eve": "^0.29.4",
+        "just-bash": "^3.2.0",
         "zod": "^4.4.3",
       },
       "devDependencies": {
         "@crm/typescript-config": "workspace:*",
         "@types/node": "^24.0.0",
-        "just-bash": "^3.2.0",
         "microsandbox": "^0.6.8",
         "typescript": "^5.9.2",
       },
