@@ -494,6 +494,8 @@ export async function recordFactAction(input: {
 	lineNos?: number[];
 	speaker?: string;
 	sourceUrl?: string;
+	matchConfidence?: number;
+	matchReasons?: string[];
 }) {
 	const effectiveSourceKind = [
 		"stage",
@@ -518,6 +520,8 @@ export async function recordFactAction(input: {
 				kind: effectiveSourceKind as EvidenceKind,
 				detail,
 				sourceUrl: input.sourceUrl,
+				matchConfidence: input.matchConfidence,
+				matchReasons: input.matchReasons,
 			},
 		],
 		method: "adk.intake",

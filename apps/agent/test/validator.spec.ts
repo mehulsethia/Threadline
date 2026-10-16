@@ -4,7 +4,9 @@ import type { WhatsAppMessageItem } from "@crm/validation/whatsapp-parser";
 import type { ExtractedLeadFacts } from "../adk/extraction";
 import {
 	detectParticipants,
+	isBusinessSideOrganization,
 	mapToCrmDealStage,
+	parseDeterministicAmount,
 	resolveDueAt,
 	resolveRelativeTimeline,
 	validateAndEnrichFacts,
@@ -517,5 +519,107 @@ describe("validateAndEnrichFacts", () => {
 
 		expect(facts.nextStep.dueAt).toBe("2026-10-15T12:25:00.000Z");
 		expect(facts.nextStep.owner).toBe("us");
+	});
+
+	it("never assigns the business-side participant's organisation as the lead company", () => {
+		const coachingMessages: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				timestamp: new Date("2026-10-15T15:32:05Z"),
+				sender: "Sunita Rao",
+				text: "Hello Amit sir, main Sunita Rao baat kar rahi hu Jaipur se.",
+			},
+			{
+				lineNo: 2,
+				timestamp: new Date("2026-10-15T15:33:10Z"),
+				sender: "Sunita Rao",
+				text: "Mere bete Aarav ke liye JEE Advanced 2027 2-year classroom coaching program ki enquiry karni hai.",
+			},
+			{
+				lineNo: 3,
+				timestamp: new Date("2026-10-15T15:35:22Z"),
+				sender: "Amit Verma",
+				text: "Namaste Sunita ma'am! Apex IIT Academy Jaipur branch me aapka swagat hai. Aarav abhi 10th class me hai?",
+			},
+		];
+
+		const facts = createDummyFacts();
+		facts.contact.name = {
+			value: "Sunita Rao",
+			evidence: {
+				sourceKind: "whatsapp.message",
+				speaker: "lead",
+				quote: "main Sunita Rao baat kar rahi hu Jaipur se",
+				lineNos: [1],
+			},
+		};
+		facts.company.name = {
+			value: "Apex IIT Academy",
+			evidence: {
+				sourceKind: "whatsapp.message",
+				speaker: "us",
+				quote: "Apex IIT Academy Jaipur branch me aapka swagat hai",
+				lineNos: [3],
+			},
+		};
+
+		expect(isBusinessSideOrganization("Apex IIT Academy", coachingMessages, "Amit Verma")).toBe(true);
+
+		validateAndEnrichFacts(
+			facts,
+			coachingMessages,
+			"Amit Verma",
+			"Sunita Rao",
+			new Date("2026-10-15T16:00:00Z"),
+		);
+
+		expect(facts.company.name.value).toBeNull();
+		expect(facts.company.name.evidence).toBeNull();
+	});
+
+	it("extracts monetary amounts deterministically from evidence quotes", () => {
+		expect(parseDeterministicAmount("Total course fee 1,80,000 INR hai including study material")).toBe(180000);
+		expect(parseDeterministicAmount("Hamara total budget approx 4,50,000 INR hai for this lot")).toBe(450000);
+		expect(parseDeterministicAmount("Our approved budget for this fiscal year is $48,000 USD")).toBe(48000);
+		expect(parseDeterministicAmount("unser Angebot bei 72.000 EUR")).toBe(72000);
+		expect(parseDeterministicAmount("budget of £35,000 GBP")).toBe(35000);
+		expect(parseDeterministicAmount("comes to £32,500 per year")).toBe(32500);
+		expect(parseDeterministicAmount("total fee 1.8 lakh")).toBe(180000);
+
+		const coachingMessages: WhatsAppMessageItem[] = [
+			{
+				lineNo: 1,
+				timestamp: new Date("2026-10-15T15:32:05Z"),
+				sender: "Sunita Rao",
+				text: "Hello Amit sir, main Sunita Rao baat kar rahi hu Jaipur se.",
+			},
+			{
+				lineNo: 2,
+				timestamp: new Date("2026-10-15T15:37:40Z"),
+				sender: "Amit Verma",
+				text: "Bahut badhiya. Hamara 2-Year Target JEE Advanced batch 15th November se shuru ho raha hai. Total course fee 1,80,000 INR hai including study material and test series.",
+			},
+		];
+
+		const facts = createDummyFacts();
+		facts.deal.quotedValue = {
+			value: 45000,
+			evidence: {
+				sourceKind: "whatsapp.message",
+				speaker: "us",
+				quote: "Total course fee 1,80,000 INR hai including study material and test series.",
+				lineNos: [2],
+			},
+		};
+
+		validateAndEnrichFacts(
+			facts,
+			coachingMessages,
+			"Amit Verma",
+			"Sunita Rao",
+			new Date("2026-10-15T16:00:00Z"),
+		);
+
+		expect(facts.deal.quotedValue.value).toBe(180000);
 	});
 });

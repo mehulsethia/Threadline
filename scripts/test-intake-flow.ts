@@ -256,6 +256,11 @@ async function main() {
 		console.log(`  Contact: ${contact?.firstName} ${contact?.lastName || ""} (${contact?.phone || "No phone"}) | Company: ${contact?.company?.name || "None"}`);
 		console.log(`  Deal: "${deal?.name}" | Stage: ${deal?.stage} | Amount: ${deal?.amount} ${deal?.currency}`);
 		console.log(`  Facts: ${facts.length} total (${appliedCount} APPLIED, ${proposedCount} PROPOSED)`);
+		for (const f of facts) {
+			const mc = Array.isArray(f.evidence) ? (f.evidence[0] as any)?.matchConfidence : undefined;
+			const mcStr = mc !== undefined ? ` [matchConfidence: ${(mc as number).toFixed(2)}]` : "";
+			console.log(`    - [${f.status}] ${f.field}: "${f.value}"${mcStr}`);
+		}
 		console.log(`  Tasks Created: ${tasks.length}`);
 		for (const t of tasks) {
 			console.log(`    * Task: "${t.subject}" | due: ${t.dueAt?.toISOString()}`);

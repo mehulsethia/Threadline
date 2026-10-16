@@ -30,6 +30,90 @@ function normalize(text: string): string {
 		.trim();
 }
 
+export function isBusinessSideOrganization(
+	companyName: string | null | undefined,
+	messages: WhatsAppMessageItem[],
+	me: string,
+): boolean {
+	if (!companyName) return false;
+	const normCompany = normalize(companyName);
+	if (!normCompany) return false;
+
+	const meMessages = messages.filter((m) => m.sender === me);
+	for (const msg of meMessages) {
+		const normText = normalize(msg.text);
+		if (normText.includes(normCompany)) {
+			if (
+				normText.includes("swagat hai") ||
+				normText.includes("swagat") ||
+				normText.includes("welcome") ||
+				normText.includes("here at") ||
+				normText.includes("we at") ||
+				normText.includes("team at") ||
+				normText.includes("our branch") ||
+				normText.includes("branch me") ||
+				normText.includes("our centre") ||
+				normText.includes("centre par") ||
+				normText.includes("our office") ||
+				normText.includes("hamara") ||
+				normText.includes("hamare")
+			) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+export function parseDeterministicAmount(
+	text: string | null | undefined,
+): number | null {
+	if (!text) return null;
+	const norm = text.replace(/[\u200E\u200F\uFEFF]/g, "").trim();
+
+	const lakhMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:lakh|lakhs|lac|lacs)/i);
+	if (lakhMatch?.[1]) {
+		const val = parseFloat(lakhMatch[1]);
+		return Math.round(val * 100000);
+	}
+
+	const croreMatch = norm.match(/(\d+(?:\.\d+)?)\s*(?:crore|crores|cr)/i);
+	if (croreMatch?.[1]) {
+		const val = parseFloat(croreMatch[1]);
+		return Math.round(val * 10000000);
+	}
+
+	const kMatch = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp)?\s*(\d+(?:\.\d+)?)\s*k\b/i);
+	if (kMatch?.[1]) {
+		const val = parseFloat(kMatch[1]);
+		return Math.round(val * 1000);
+	}
+
+	const commaFormatted = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp|fee|fees|budget|price|angebot|total)?\s*(\d{1,3}(?:,\d{2,3})+)(?:\s*(?:inr|usd|eur|gbp|rs\.?|euro|euros|dollars|pounds))?/i);
+	if (commaFormatted?.[1]) {
+		const raw = commaFormatted[1].replace(/,/g, "");
+		const num = parseInt(raw, 10);
+		if (!isNaN(num) && num > 0) return num;
+	}
+
+	const deDotFormatted = norm.match(/(?:[$€£₹]|eur|angebot|budget)?\s*(\d{1,3}(?:\.\d{3})+)(?:\s*(?:eur|euro|euros))?/i);
+	if (deDotFormatted?.[1]) {
+		const raw = deDotFormatted[1].replace(/\./g, "");
+		const num = parseInt(raw, 10);
+		if (!isNaN(num) && num > 0) return num;
+	}
+
+	const plainCurrency = norm.match(/(?:[$€£₹]|inr|usd|eur|gbp)\s*(\d{3,9})(?:\.00)?/i) ||
+		norm.match(/(\d{3,9})\s*(?:inr|usd|eur|gbp)/i);
+	if (plainCurrency?.[1]) {
+		const num = parseInt(plainCurrency[1], 10);
+		if (!isNaN(num) && num > 0) return num;
+	}
+
+	return null;
+}
+
 export function mapToCrmDealStage(
 	suggestion: string | null | undefined,
 	hasDemo = false,
@@ -537,6 +621,30 @@ export function validateAndEnrichFacts(
 		false,
 		"lead",
 	);
+
+	if (facts.company.name.value) {
+		const isBusinessOrg = isBusinessSideOrganization(
+			facts.company.name.value,
+			messages,
+			me,
+		);
+		const leadMessages = messages.filter((m) => m.sender === lead);
+		const leadMentioned = leadMessages.some((m) =>
+			normalize(m.text).includes(normalize(facts.company.name.value || "")),
+		);
+		const spokenByUs = facts.company.name.evidence?.speaker === "us";
+
+		if (isBusinessOrg || (spokenByUs && !leadMentioned)) {
+			facts.company.name = { value: null, evidence: null };
+			summary.fixed++;
+			summary.details.push({
+				field: "company.name",
+				status: "fixed",
+				reason: "Cleared business-side participant organisation from lead company",
+			});
+		}
+	}
+
 	facts.company.city.evidence = validateItem(
 		"company.city",
 		facts.company.city.evidence,
@@ -571,6 +679,36 @@ export function validateAndEnrichFacts(
 		"us",
 	);
 
+	if (facts.deal.quotedValue.evidence?.quote) {
+		const parsedAmount = parseDeterministicAmount(
+			facts.deal.quotedValue.evidence.quote,
+		);
+		if (parsedAmount !== null && parsedAmount !== facts.deal.quotedValue.value) {
+			facts.deal.quotedValue.value = parsedAmount;
+			summary.fixed++;
+			summary.details.push({
+				field: "deal.quotedValue",
+				status: "fixed",
+				reason: `Deterministically extracted amount ${parsedAmount} from quote`,
+			});
+		}
+	}
+
+	if (facts.deal.leadBudget.evidence?.quote) {
+		const parsedAmount = parseDeterministicAmount(
+			facts.deal.leadBudget.evidence.quote,
+		);
+		if (parsedAmount !== null && parsedAmount !== facts.deal.leadBudget.value) {
+			facts.deal.leadBudget.value = parsedAmount;
+			summary.fixed++;
+			summary.details.push({
+				field: "deal.leadBudget",
+				status: "fixed",
+				reason: `Deterministically extracted amount ${parsedAmount} from quote`,
+			});
+		}
+	}
+
 	if (facts.deal.leadBudget.value !== null) {
 		if (facts.deal.leadBudget.evidence?.speaker === "us") {
 			if (!facts.deal.quotedValue.value) {
@@ -588,6 +726,32 @@ export function validateAndEnrichFacts(
 			const hasNumericBudget = /\b(\d+|lakh|crore|thousand|k)\b/i.test(quote);
 			if (!hasNumericBudget) {
 				facts.deal.leadBudget = { value: null, evidence: null };
+			}
+		}
+	}
+
+	if (facts.deal.quotedValue.value === null && facts.deal.leadBudget.value === null) {
+		for (const msg of messages) {
+			if (msg.sender === me) {
+				const amt = parseDeterministicAmount(msg.text);
+				if (amt !== null) {
+					facts.deal.quotedValue = {
+						value: amt,
+						evidence: {
+							sourceKind: "whatsapp.message",
+							speaker: "us",
+							quote: msg.text,
+							lineNos: [msg.lineNo],
+						},
+					};
+					summary.fixed++;
+					summary.details.push({
+						field: "deal.quotedValue",
+						status: "fixed",
+						reason: `Extracted quoted amount ${amt} from seller message`,
+					});
+					break;
+				}
 			}
 		}
 	}
