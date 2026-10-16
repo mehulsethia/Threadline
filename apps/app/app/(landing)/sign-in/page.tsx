@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { getSession } from "@/lib/session";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
+import { DemoSignIn } from "./demo-sign-in";
 import { SocialSignIn } from "./social-sign-in";
 import { type SsoProvider, SsoSignIn } from "./sso-sign-in";
 
@@ -89,16 +90,16 @@ async function SignIn({
 		return (
 			<>
 				<AuthHeading
-					title="No way in yet"
-					description="Threadline has no sign-in method configured, so nobody can get in — including you."
+					title="Welcome to Threadline"
+					description="Evaluate Threadline instantly with our pre-seeded global demo workspace."
 				/>
 
-				<p className="text-center text-muted-foreground text-sm/5">
-					Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET — or MICROSOFT_CLIENT_ID
-					and MICROSOFT_CLIENT_SECRET — in the root .env file and restart. Your
-					own identity provider can be added from Settings once somebody is
-					signed in.
-				</p>
+				<DemoSignIn />
+
+				<div className="pt-4 border-t border-border/50 text-center text-muted-foreground text-xs">
+					For team members: configure GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID to
+					enable standard OAuth.
+				</div>
 			</>
 		);
 	}
@@ -109,6 +110,8 @@ async function SignIn({
 				title="Welcome to Threadline"
 				description="Sign in to your account to continue."
 			/>
+
+			<DemoSignIn />
 
 			{showSso ? <SsoSignIn providers={providers} /> : null}
 			{social.map((provider) => (

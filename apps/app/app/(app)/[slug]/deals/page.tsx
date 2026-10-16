@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { JudgeTourBanner } from "@/components/crm/judge-tour-banner";
 import {
 	PageShell,
 	PageShellActions,
@@ -39,6 +40,7 @@ export default function DealsPage({
 			</PageShellHeader>
 
 			<PageShellContent className="min-h-0">
+				<JudgeTourBanner />
 				<Suspense fallback={<PageShellLoading />}>
 					<Deals searchParams={searchParams} />
 				</Suspense>

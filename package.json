@@ -21,7 +21,9 @@
 		"db:reset": "turbo run db:reset",
 		"db:seed": "turbo run db:seed",
 		"db:studio": "turbo run db:studio",
-		"db:test": "bun run --filter=@crm/db db:test"
+		"db:test": "bun run --filter=@crm/db db:test",
+		"seed:demo": "bun packages/db/prisma/seed-demo.ts",
+		"reset:demo": "bun packages/db/prisma/reset-demo.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.10",
