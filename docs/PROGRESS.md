@@ -135,6 +135,7 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 ## PART 4 — Hero Flow 2: Lead Revival
 
 - **Status**: DONE
+- **Commit**: `d1f367f`
 - **Date**: 2026-10-16
 - **Summary**:
   - **R1: Stalled Deal Detection Engine** (`apps/agent/adk/revival/detector.ts`):
