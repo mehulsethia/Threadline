@@ -10,6 +10,12 @@ if (process.env.NODE_ENV === "production") {
 	);
 }
 
+if (process.env.DEV_AUTH_BYPASS !== "true") {
+	throw new Error(
+		"DEV_AUTH_BYPASS=true must be set in the environment to mint a dev session.",
+	);
+}
+
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret) {
 	throw new Error("BETTER_AUTH_SECRET is not set — run this from apps/api.");
