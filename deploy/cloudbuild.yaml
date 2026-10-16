@@ -41,8 +41,6 @@ steps:
       - build
       - -f
       - apps/agent/Dockerfile
-      - --build-arg
-      - GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
       - -t
       - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/agent:${_TAG}
       - .
