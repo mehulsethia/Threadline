@@ -1,4 +1,5 @@
 import { db } from "@crm/db";
+import { cloudRunAuthHeaders } from "@crm/env/cloud-run";
 import { connection } from "next/server";
 import {
 	AGENT_URL,
@@ -103,6 +104,10 @@ async function handler(request: Request): Promise<Response> {
 			},
 		)}`,
 	);
+
+	for (const [name, value] of Object.entries(await cloudRunAuthHeaders())) {
+		headers.set(name, value);
+	}
 
 	const init: RequestInit & { duplex?: "half" } = {
 		method: request.method,

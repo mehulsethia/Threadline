@@ -3,6 +3,7 @@ import { PRIORITY } from "@crm/db/agent-tasks";
 import { CRM_EVENT_CATALOG, type CrmEventType } from "@crm/db/crm-events";
 import { RECORD_ID_COLUMNS } from "@crm/db/fields";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
+import { cloudRunAuthHeaders } from "@crm/env/cloud-run";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -616,6 +617,7 @@ export class AgentTriggerService {
 
 		try {
 			const headers = new Headers({
+				...(await cloudRunAuthHeaders()),
 				authorization: `Bearer ${agent.secret}`,
 			});
 			if (body) headers.set("content-type", "application/json");

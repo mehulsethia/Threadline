@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./cloud-run": "./src/cloud-run.ts",
 		"./load": "./src/load.ts"
 	},
 	"scripts": {
