@@ -1,4 +1,4 @@
-import { getSmartClient } from "../extraction";
+import { getFastClient } from "../extraction";
 
 export type ResearchCompanyInput = {
 	companyName: string;
@@ -42,9 +42,15 @@ export async function researchCompany(
 		`1. Search for public information about the company "${companyName}".`,
 		"2. Critically verify whether any discovered web entities match this exact target business.",
 		"   - Compare the company name strictly. Do NOT confuse different companies that share a partial word (e.g. 'Datacore Cloud' is a different entity from 'DataCore Software'; do not match 'DataCore Software' when searching for 'Datacore Cloud').",
-		locationHint ? `   - Verify whether the found entity is located in or operates in "${locationHint}".` : "",
-		domainHint ? `   - Verify whether the found entity uses domain "${domainHint}".` : "",
-		industryHint ? `   - Verify whether the found entity operates in the industry or deals with the products described in: "${industryHint}".` : "",
+		locationHint
+			? `   - Verify whether the found entity is located in or operates in "${locationHint}".`
+			: "",
+		domainHint
+			? `   - Verify whether the found entity uses domain "${domainHint}".`
+			: "",
+		industryHint
+			? `   - Verify whether the found entity operates in the industry or deals with the products described in: "${industryHint}".`
+			: "",
 		"3. Assign a matchConfidence score between 0.0 and 1.0:",
 		"   - 0.80 - 1.00: High confidence exact entity match (name matches and location/domain/product align).",
 		"   - 0.70 - 0.79: Reasonable match with minor name variation but matching product and location.",
@@ -55,17 +61,21 @@ export async function researchCompany(
 		"",
 		"Return a valid JSON object matching this schema exactly:",
 		JSON.stringify({
-			entityMatched: "Exact name of the entity found online, or null if no confident match",
+			entityMatched:
+				"Exact name of the entity found online, or null if no confident match",
 			matchConfidence: 0.85,
 			matchReasons: ["Reason 1", "Reason 2"],
-			overview: "Concise 1-2 sentence description of what they sell and who to, or null if matchConfidence < 0.7",
+			overview:
+				"Concise 1-2 sentence description of what they sell and who to, or null if matchConfidence < 0.7",
 			sizeSignals: "Headcount, scale, or revenue signals if found, or null",
 			location: "Headquarters or primary cities, or null",
 			recentNews: "Recent products, funding, or press items if found, or null",
 		}),
-	].filter(Boolean).join("\n");
+	]
+		.filter(Boolean)
+		.join("\n");
 
-	const { ai, model } = getSmartClient();
+	const { ai, model } = getFastClient();
 	const start = Date.now();
 
 	let rawText = "";
@@ -78,6 +88,7 @@ export async function researchCompany(
 			contents: prompt,
 			config: {
 				tools: [{ googleSearch: {} }],
+				abortSignal: AbortSignal.timeout(30000),
 			},
 		});
 
@@ -125,7 +136,10 @@ export async function researchCompany(
 			.trim();
 		const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
-		if (typeof parsed.entityMatched === "string" && parsed.entityMatched.trim()) {
+		if (
+			typeof parsed.entityMatched === "string" &&
+			parsed.entityMatched.trim()
+		) {
 			entityMatched = parsed.entityMatched.trim();
 		}
 		if (typeof parsed.matchConfidence === "number") {
@@ -152,13 +166,17 @@ export async function researchCompany(
 			}
 		} else {
 			if (matchReasons.length === 0) {
-				matchReasons.push("Entity did not match target business with sufficient confidence.");
+				matchReasons.push(
+					"Entity did not match target business with sufficient confidence.",
+				);
 			}
 		}
 	} catch {
 		if (rawText.trim()) {
 			matchConfidence = 0.3;
-			matchReasons.push("Could not parse structured entity verification response.");
+			matchReasons.push(
+				"Could not parse structured entity verification response.",
+			);
 		}
 	}
 

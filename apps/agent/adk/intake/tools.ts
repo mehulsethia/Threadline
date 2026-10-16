@@ -661,9 +661,9 @@ export async function createTaskAction(input: {
 	const existing = await db.activity.findFirst({
 		where: {
 			type: ActivityType.TASK,
-			subject: input.subject,
 			contactId: input.contactId || null,
 			dealId: input.dealId || null,
+			completedAt: null,
 		},
 	});
 	if (existing) {

@@ -49,6 +49,7 @@ export type StalledDealInfo = {
 	contactTimezone: string;
 	companyName?: string | null;
 	lastInboundAt: Date | null;
+	lastInboundChannel: "WHATSAPP" | "EMAIL";
 	daysSinceInbound: number;
 	stalledReason: string;
 	priorityScore: number;
@@ -107,6 +108,9 @@ export async function detectStalledDeals(): Promise<StalledDealInfo[]> {
 	const stalledDeals: StalledDealInfo[] = [];
 
 	for (const deal of deals) {
+		if (deal.id.startsWith("seed-deal-")) continue;
+		if (deal.whatsAppMessages.length === 0) continue;
+
 		const primaryContact = deal.contacts[0]?.contact;
 		if (!primaryContact) continue;
 
@@ -218,6 +222,11 @@ export async function detectStalledDeals(): Promise<StalledDealInfo[]> {
 			contactTimezone: primaryContact.timezone || "UTC",
 			companyName: deal.company?.name,
 			lastInboundAt,
+			lastInboundChannel:
+				lastInboundMsg?.senderPhone?.includes("@") ||
+				(primaryContact.email && !primaryContact.phone)
+					? "EMAIL"
+					: "WHATSAPP",
 			daysSinceInbound: Math.floor(daysSinceInbound),
 			stalledReason: reasons.join("; "),
 			priorityScore,

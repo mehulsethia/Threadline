@@ -120,6 +120,21 @@ function inferAudioMimeType(filename: string): string {
 	}
 }
 
+export function getFastClient(): { ai: GoogleGenAI; model: string } {
+	const project =
+		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
+	const model = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";
+	const location = process.env.GEMINI_FAST_LOCATION || "us-central1";
+
+	const ai = new GoogleGenAI({
+		vertexai: true,
+		project,
+		location,
+	});
+
+	return { ai, model };
+}
+
 export function getSmartClient(): { ai: GoogleGenAI; model: string } {
 	const project =
 		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
@@ -457,19 +472,25 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 				config: {
 					responseMimeType: "application/json",
 					temperature: 0,
+					abortSignal: AbortSignal.timeout(90000),
 				},
 			});
 			break;
 		} catch (err: unknown) {
-			const errorObj = err as { status?: number; message?: string } | null;
-			if (
-				attempt < 2 &&
-				(errorObj?.status === 429 ||
-					String(errorObj?.message || "").includes("429") ||
-					String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED"))
-			) {
+			const errorObj = err as {
+				status?: number;
+				message?: string;
+				name?: string;
+			} | null;
+			const isAbort =
+				errorObj?.name === "AbortError" || String(err).includes("aborted");
+			const isRateLimit =
+				errorObj?.status === 429 ||
+				String(errorObj?.message || "").includes("429") ||
+				String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED");
+			if (attempt < 2 && (isRateLimit || isAbort)) {
 				await new Promise((resolve) =>
-					setTimeout(resolve, 4000 * (attempt + 1)),
+					setTimeout(resolve, 3000 * (attempt + 1)),
 				);
 				continue;
 			}

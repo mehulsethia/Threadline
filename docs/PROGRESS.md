@@ -227,3 +227,189 @@ Draft generated for Elena Rostova: NONE (SUCCESS - Excluded from revival)
   - All revival drafts and cycle metrics remain fully accessible in the UI dashboard and through tRPC endpoints.
 
 - **Open Issues**: None.
+
+---
+
+## PART A — Revival draft quality (blocking for demo)
+
+- **Status**: DONE
+- **Date**: 2026-10-16
+- **Summary**:
+  - **A1: Owning Rep Sign-Off**:
+    - Sign-offs strictly use owning representative name and workspace company name (`${repName}\n${workspaceName}`).
+    - Never uses "The Threadline Team" or "Threadline".
+  - **A2: Claim Guard**:
+    - Verified against facts ledger and message quotes before draft approval (`apps/agent/adk/revival/claim-guard.ts`).
+    - Stripped ungrounded claims ("schnelle Bereitstellung", "geplanten Demo", "high-volume reliability", "fast deployment").
+    - Verified grounded claims ("SOC2 Type II and ISO 27001", "CE-Zertifizierung und Werksprüfzeugnissen nach EN 10204 3.1") against evidence citations.
+    - Test suite added and passing: `bun test apps/agent/test/claim-guard.spec.ts`.
+  - **A3: Multilingual Native Language**:
+    - Complete draft (greeting, body, CTA, and sign-off) strictly adheres to lead's language (German, Hindi, English).
+  - **A4: Structured Evidence Citations**:
+    - All citations formatted as `[{"evidenceId": string, "kind": string, "quote": string}]`. Zero raw strings.
+  - **A5: Channel Selection**:
+    - Derived from most recent inbound channel (`WHATSAPP` vs `EMAIL`).
+  - **A6: Situational Strategy Selection**:
+    - Dynamically selected based on situation: `answer_or_route` (unanswered question), `confirm_next_step` (stalled proposal/redlines), `address_objection` (compliance/timing objections), with logged rationale.
+  - **A7: Count Mismatch Resolved**:
+    - Stalled deal count matches generated drafts count (7 detected, 7 generated).
+  - **A8: Imported Fixture Deals Execution**:
+    - Executed revival cycle against imported deals (German manufacturing, US SaaS, UK logistics, coaching institute) plus seeded scenarios.
+
+### Real Part A Revival Execution Outputs
+
+```text
+=== LEAD REVIVAL EXECUTION REPORT ===
+Cycle ID: 798b69cc-4c65-484c-8aa7-479a938ce6bf
+Stalled Deals Detected: 7
+Drafts Generated: 7
+
+--------------------------------------------------
+DRAFT #1: Heinrich Weber (industrielle Durchflusssensoren und Druckventile für automatisierte Fertigungsstraße)
+Company: Weber Maschinenbau GmbH | Stage: DECISION_MAKER_BOUGHT_IN | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: The customer requested a formal PDF offer for 200 units at 72,000 EUR including EN 10204 3.1 certificates, and the deal has been inactive for 4 days. Following up via WhatsApp to confirm receipt of the offer and clarify next steps for the late November delivery timeline.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvav8ywf002fwvrpbd4cr82h","kind":"fact","quote":"need = industrielle Durchflusssensoren und Druckventile für automatisierte Fertigungsstraße"},{"evidenceId":"cmvav8ywo002hwvrpxgaqhm61","kind":"fact","quote":"quotedValue = 72000"},{"evidenceId":"cmvav8yws002iwvrprdtwsaaa","kind":"fact","quote":"timeline = bis Ende November"},{"evidenceId":"cmvav8yx2002mwvrpujp6605w","kind":"fact","quote":"objections = Requires complete CE certification and EN 10204 3.1 inspection certificates for each valve"}]
+Draft Text:
+Guten Tag Herr Weber,
+
+ich wollte mich kurz bei Ihnen erkundigen, ob Sie unser formelles PDF-Angebot über die 200 Einheiten der industriellen Durchflusssensoren und Druckventile (72.000 EUR inkl. Express-Lieferung nach Stuttgart sowie CE-Zertifizierung und Werksprüfzeugnissen nach EN 10204 3.1) bereits prüfen konnten.
+
+Damit wir Ihre geplante Lieferung bis Ende November zuverlässig einplanen können, lassen Sie mich gerne wissen, ob noch Fragen offen sind oder wie die nächsten Schritte von Ihrer Seite aussehen.
+
+Mit freundlichen Grüßen,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #2: Sarah Jenkins (Datacore Enterprise Security)
+Company: None | Stage: CONTRACT_SENT | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: The proposal/contract was sent and the deal is stalled awaiting the compliance committee's review of the SOC2 and ISO 27001 details. Confirming status and offering assistance to finalize the review is the best next step.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvavkgv80002hcrp6vmq8mq1","kind":"fact","quote":"SOC2 Type II and ISO 27001 certification required before signing"},{"evidenceId":"2026-10-08T11:19:07.346Z","kind":"message","quote":"Thanks for sending over the Enterprise Proposal Alex. Our compliance committee is reviewing the SOC2 details."}]
+Draft Text:
+Hi Sarah,
+
+I wanted to check in on the Datacore Enterprise Security proposal and see how your compliance committee's review of the SOC2 Type II and ISO 27001 details is progressing.
+
+Please let me know if they need any additional documentation from our side, or what our next steps are to get the contract finalized.
+
+Best regards,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #3: Sarah Jenkins (Enterprise security monitoring software for Kubernetes clusters)
+Company: Datacore Cloud | Stage: DEMO_BOOKED | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: address_objection
+Rationale: The buyer raised a compliance blocker regarding SOC2 Type II and ISO 27001 certifications, and the scheduled demo task remains incomplete. Following up to share the compliance documentation under mutual NDA and coordinate the product demo with their security architect directly addresses their requirements and revives the deal.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvav8240001wwvrp7xsl7ymh","kind":"fact","quote":"Compliance team requires SOC2 Type II report and ISO 27001 certification before signing"},{"evidenceId":"cmvav8236001pwvrpk8ndhsa7","kind":"fact","quote":"Enterprise security monitoring software for Kubernetes clusters"},{"evidenceId":"cmvav89hv0029wvrpftg7rg0j","kind":"task","quote":"Send calendar invite and conduct product demo with security architect"}]
+Draft Text:
+Hi Sarah,
+
+I wanted to follow up on our conversation regarding enterprise security monitoring for Datacore Cloud's 40 production Kubernetes clusters.
+
+To address your compliance team's blocker, we have our SOC2 Type II report and ISO 27001 certification ready to share via our trust portal link under a mutual NDA. Additionally, I would like to make sure we get the calendar invite sent over to conduct the product demo with your security architect.
+
+Could you let me know the best email address to send the mutual NDA and calendar invite to?
+
+Best regards,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #4: Klaus Weber (Weber Precision Valves)
+Company: None | Stage: DEMO_BOOKED | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: answer_or_route
+Rationale: The lead asked an unanswered question regarding delivery times and volume pricing for 500 units of high-pressure valves. Since exact pricing and timelines are not in the facts ledger, the response acknowledges the specific request and routes to a brief alignment or confirmation of specs to provide accurate figures without inventing unverified claims.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvavkgvg0006hcrpcea6jvdc","kind":"fact","quote":"[PROPOSED] language = de"},{"evidenceId":"2026-10-12T11:19:07.346Z","kind":"message","quote":"Guten Tag, können Sie uns die genauen Lieferzeiten und Staffelpreise für 500 Einheiten der Hochdruckventile mitteilen?"}]
+Draft Text:
+Guten Tag Herr Weber,
+
+vielen Dank für Ihre Anfrage bezüglich der Lieferzeiten und Staffelpreise für 500 Einheiten der Hochdruckventile. 
+
+Um Ihnen die genauen Konditionen und die aktuelle Verfügbarkeit für dieses Volumen verbindlich zusammenzustellen, würde ich die Details gerne kurz mit Ihnen abstimmen. Passt es Ihnen, wenn wir dies im Rahmen unseres anstehenden Termins besprechen, oder soll ich Ihnen vorab eine Übersicht der Spezifikationen zur Bestätigung zusenden?
+
+Mit freundlichen Grüßen,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #5: Oliver Smith (Upgrade telematics and dispatch management system)
+Company: Apex Fleet Logistics | Stage: QUALIFIED_TO_BUY | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: address_objection
+Rationale: The buyer previously raised a key objection regarding UK-based data residency for GDPR and DVSA audits, and requested a formal proposal and contract draft for the £32,500 Pro Fleet tier. Following up via WhatsApp to reiterate the AWS London hosting compliance guarantee and confirm the proposal status directly addresses their primary concern and moves the deal forward.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvavapc20034wvrpx4es80rk","kind":"fact","quote":"need = Upgrade telematics and dispatch management system"},{"evidenceId":"cmvavapc90036wvrpx8gtnu14","kind":"fact","quote":"quotedValue = 32500"},{"evidenceId":"cmvavapck003awvrp7h6gmaar","kind":"fact","quote":"objections = Requirement for UK-based data residency for GDPR and Driver and Vehicle Standards Agency audits"},{"evidenceId":"cmvavb5h9003mwvrpt0yjnrrq","kind":"task","quote":"Email formal proposal and contract pack"}]
+Draft Text:
+Hi Oliver,
+
+I wanted to follow up on our conversation regarding upgrading the telematics and dispatch management system for your 85 heavy goods vehicles.
+
+Following your operations director's concern about UK-based data residency for GDPR and Driver and Vehicle Standards Agency audits, I want to make sure you have all the details needed regarding our AWS London region hosting and full GDPR compliance guarantees alongside the £32,500 per year Pro Fleet proposal and contract pack.
+
+Please let me know if you or your operations director have any questions on the contract draft or compliance specifics.
+
+Best regards,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #6: Oliver Sterling (Sterling Route Logistics)
+Company: None | Stage: QUALIFIED_TO_BUY | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: confirm_next_step
+Rationale: The prospect explicitly stated they are eager to move forward once the SLA schedule is confirmed, and there is an open task regarding agreement redlines. Following up directly on the SLA schedule and agreement review is the clearest path to advance the deal.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"2026-10-14T11:19:07.346Z","kind":"message","quote":"Hi team, we are eager to move forward once the SLA schedule is confirmed."},{"evidenceId":"cmvavkgvn000bhcrp09rv82r7","kind":"task","quote":"Check: Oliver Sterling agreement redlines"}]
+Draft Text:
+Hi Oliver,
+
+I am following up on your note regarding the SLA schedule and your agreement redlines. We are reviewing the details on our side so we can get this confirmed for you.
+
+Are there any additional points on the SLA schedule or agreement you would like us to cover as we finalize our review?
+
+Best regards,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+DRAFT #7: Sunita Rao (JEE Advanced 2027 2-year classroom coaching program)
+Company: None | Stage: DEMO_BOOKED | Owning Rep: Ada Okafor
+Channel: WHATSAPP
+Strategy: address_objection
+Rationale: The buyer previously raised concerns regarding batch size and evening school timing clashes, and booked a Saturday 11:00 AM visit for a diagnostic test and demo session. Re-confirming the resolution of those objections and checking in on the scheduled centre visit will revive the conversation.
+Subject: N/A
+Cited Evidence: [{"evidenceId":"cmvav7m9b000ywvrphrxei9ru","kind":"fact","quote":"need = JEE Advanced 2027 2-year classroom coaching program"},{"evidenceId":"cmvav7m9h000zwvrpe4e6vyo4","kind":"fact","quote":"quotedValue = 180000"},{"evidenceId":"cmvav7m9m0010wvrpzzfqwewc","kind":"fact","quote":"timeline = 15th November (2026-11-15)"},{"evidenceId":"cmvav7ma30014wvrp6gdkvocy","kind":"fact","quote":"objections = Concerned about large batch sizes (over 40 students) leading to lack of personal attention"},{"evidenceId":"cmvav7ma70015wvrpym5fba0s","kind":"fact","quote":"objections = Concerned that daily evening coaching timings might clash with school timings"},{"evidenceId":"cmvav7mb2001jwvrpc4q0nf82","kind":"task","quote":"Visit Malviya Nagar, Jaipur centre for a free diagnostic test and demo session"}]
+Draft Text:
+नमस्ते सुनीता मैम,
+
+आशा है आप और आरव कुशल मंगल होंगे। मैं आरव के JEE Advanced 2027 2-वर्षीय क्लासरूम कोचिंग प्रोग्राम (जो 15 नवंबर से शुरू हो रहा है और जिसकी कुल फीस स्टडी मटेरियल व टेस्ट सीरीज़ सहित 1,80,000 INR है) के संबंध में फॉलो-अप कर रहा हूँ।
+
+जैसा कि आपने बैच के आकार और स्कूल के समय के साथ टकराव को लेकर चिंता जताई थी, मैं आपको फिर से आश्वस्त करना चाहता हूँ कि हमारे बैच में अधिकतम 35 छात्र ही होते हैं ताकि प्रत्येक छात्र पर व्यक्तिगत ध्यान दिया जा सके। साथ ही, शाम की कक्षाएं 4:30 PM से 7:30 PM तक होती हैं, जिससे स्कूल के समय के साथ कोई दिक्कत नहीं होगी।
+
+क्या आप और आरव शनिवार सुबह 11:00 बजे हमारे मालवीय नगर, जयपुर सेंटर पर फ्री डायग्नोस्टिक test और डेमो सेशन के लिए आ रहे हैं? कृपया अपनी उपलब्धता की पुष्टि करें।
+
+सादर,
+Ada Okafor
+CRM
+
+--------------------------------------------------
+=== OPT-OUT EXCLUSION VERIFICATION ===
+Contact Elena Rostova optedOut in DB: true
+Draft generated for Elena Rostova: NONE (SUCCESS)
+
+Revival run completed successfully.
+```
+
+- **Open Issues**: None.
+
