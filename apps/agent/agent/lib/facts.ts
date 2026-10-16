@@ -25,6 +25,9 @@ const FIELDS = {
 	nextStep: { column: null },
 	sentiment: { column: null },
 	possibleDuplicate: { column: null },
+	companyProfile: { column: null },
+	companySize: { column: null },
+	companyNews: { column: null },
 } as const;
 
 export type FactField = keyof typeof FIELDS;
@@ -219,8 +222,13 @@ export async function recordFact(
 		input.evidence.length > 0 &&
 		input.evidence.every((item) => item.kind === "agent.inference");
 
+	const isGroundedOnly =
+		input.evidence.length > 0 &&
+		input.evidence.every((item) => item.kind === "web.grounded");
+
 	const applies =
 		!isInferenceOnly &&
+		!isGroundedOnly &&
 		(scored.band === FactBand.VERIFIED ||
 			(contact ? fillsBlank({ field, contact, hasAgentFact }) : false));
 

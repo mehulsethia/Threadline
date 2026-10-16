@@ -120,7 +120,7 @@ function inferAudioMimeType(filename: string): string {
 	}
 }
 
-function getSmartClient(): { ai: GoogleGenAI; model: string } {
+export function getSmartClient(): { ai: GoogleGenAI; model: string } {
 	const project =
 		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
 	const model = process.env.GEMINI_SMART_MODEL || "gemini-4-argon";
