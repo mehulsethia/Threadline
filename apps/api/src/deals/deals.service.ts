@@ -608,7 +608,7 @@ export class DealsService {
 			throw new NotFoundException(`No contact with id ${input.contactId}.`);
 		}
 
-		if (contact.companyId !== company.id) {
+		if (company && contact.companyId !== company.id) {
 			throw new BadRequestException(
 				`That contact does not work at ${company.name}.`,
 			);

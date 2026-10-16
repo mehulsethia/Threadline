@@ -118,7 +118,7 @@ export async function runDeterministicIntakePipeline(
 	const contactId = contactResult.contactId;
 
 	const dealValue =
-		facts.deal.quotedValue.value || facts.deal.leadBudget.value || undefined;
+		facts.deal.quotedValue.value ?? facts.deal.leadBudget.value ?? undefined;
 	const dealName = facts.deal.need.value || `Enquiry from ${leadName}`;
 
 	const dealResult = await upsertDeal({
@@ -132,6 +132,19 @@ export async function runDeterministicIntakePipeline(
 		contactId,
 	});
 	const dealId = dealResult.dealId;
+
+	if (matchResult.possibleDuplicateName) {
+		await recordFactAction({
+			jobId,
+			contactId,
+			field: "possibleDuplicate",
+			value: `possible duplicate of ${matchResult.possibleDuplicateName}`,
+			sourceKind: "agent.inference",
+			quote: `Name match with existing contact ${matchResult.possibleDuplicateName}`,
+			lineNos: [],
+			speaker: "us",
+		});
+	}
 
 	if (facts.deal.need.value && facts.deal.need.evidence) {
 		await recordFactAction({
@@ -150,7 +163,7 @@ export async function runDeterministicIntakePipeline(
 		await recordFactAction({
 			jobId,
 			dealId,
-			field: "budget",
+			field: "leadBudget",
 			value: String(facts.deal.leadBudget.value),
 			sourceKind: facts.deal.leadBudget.evidence.sourceKind,
 			quote: facts.deal.leadBudget.evidence.quote,
@@ -166,7 +179,7 @@ export async function runDeterministicIntakePipeline(
 		await recordFactAction({
 			jobId,
 			dealId,
-			field: "budget",
+			field: "quotedValue",
 			value: String(facts.deal.quotedValue.value),
 			sourceKind: facts.deal.quotedValue.evidence.sourceKind,
 			quote: facts.deal.quotedValue.evidence.quote,
@@ -176,11 +189,14 @@ export async function runDeterministicIntakePipeline(
 	}
 
 	if (facts.deal.timeline.value && facts.deal.timeline.evidence) {
+		const timelineVal = facts.deal.timelineResolved
+			? `${facts.deal.timeline.value} (${facts.deal.timelineResolved})`
+			: facts.deal.timeline.value;
 		await recordFactAction({
 			jobId,
 			dealId,
 			field: "timeline",
-			value: facts.deal.timeline.value,
+			value: timelineVal,
 			sourceKind: facts.deal.timeline.evidence.sourceKind,
 			quote: facts.deal.timeline.evidence.quote,
 			lineNos: facts.deal.timeline.evidence.lineNos,
@@ -267,15 +283,30 @@ export async function runDeterministicIntakePipeline(
 		body: facts.deal.need.value || "Lead intake completed",
 	});
 
-	if (facts.nextStep.owner === "us" && facts.nextStep.value) {
-		await createTaskAction({
-			jobId,
-			subject: facts.nextStep.value,
-			dueAt: facts.nextStep.dueAt || undefined,
-			contactId,
-			dealId,
-			companyId,
-		});
+	if (facts.nextStep.value) {
+		if (facts.nextStep.owner === "us") {
+			await createTaskAction({
+				jobId,
+				subject: facts.nextStep.value,
+				dueAt: facts.nextStep.dueAt || undefined,
+				contactId,
+				dealId,
+				companyId,
+			});
+		} else if (facts.nextStep.owner === "lead" && facts.nextStep.dueAt) {
+			const leadDue = new Date(facts.nextStep.dueAt);
+			const checkDue = !isNaN(leadDue.getTime())
+				? new Date(leadDue.getTime() + 2 * 3600 * 1000).toISOString()
+				: undefined;
+			await createTaskAction({
+				jobId,
+				subject: `Check: ${facts.nextStep.value}`,
+				dueAt: checkDue,
+				contactId,
+				dealId,
+				companyId,
+			});
+		}
 	}
 
 	await finishJobAction({

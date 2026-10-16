@@ -31,7 +31,9 @@ export default defineTool({
 				...output,
 				deals: output.deals.map((deal) => ({
 					...deal,
-					company: { id: deal.company.id, name: deal.company.name },
+					company: deal.company
+						? { id: deal.company.id, name: deal.company.name }
+						: null,
 					owner: deal.owner
 						? {
 								id: deal.owner.id,
