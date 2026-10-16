@@ -672,8 +672,60 @@ Live Session Verified: true
   - **2. Language Determination**: Implemented `detectContactInboundLanguage` strictly from the contact's own inbound messages or contact language fact. If none exist, defaults to English ("en"), never another contact's.
   - **3. Intake & Voice Qualifier Check**: Isolated `VoiceQualifierService` known facts and detected language to the primary contact on the deal.
   - **4. Human-Readable Stage Display Labels**: Implemented `DEAL_STAGE_LABELS` and `formatDealStage` in `packages/db/src/stage.ts` (Lead, Qualified, Meeting/Demo, Proposal, Negotiation, Won, Lost). Replaced raw enum strings in Slack cards (`apps/api/src/slack/slack-revival.service.ts` and `apps/agent/adk/revival/slack.ts`).
-  - **5. Purged Legacy Brand & Data**: Renamed database deals from "Comp AI" to "Threadline", deleted legacy draft with mismatched contact name, and updated all UI placeholders and dialog strings to Threadline.
   - **Unit Tests**: Added test cases in `apps/agent/test/claim-guard.spec.ts` verifying greeting assertion rejection of foreign names and contact inbound language detection. 5/5 passed in 103ms.
 
+- **Open Issues**: None.
 
+---
 
+## Part F: Demo Workspace & Judge Access (Completed)
+
+- **Status**: COMPLETED
+- **Commit**: `121f0eb`
+- **Date**: 2026-10-16
+- **Summary**:
+  - **F1. Northwind Systems Seed & Reset (`packages/db/prisma/seed-demo.ts`, `reset-demo.ts`)**:
+    - Created idempotent demo seeding script for "Northwind Systems" (`org-northwind-systems`, slug: `northwind-systems`).
+    - Demo judge admin user: `judge@northwind.io` (`user-demo-judge`).
+    - 12 global enterprise deals across US, UK, DE, FR, UAE, SG, and IN.
+    - Multi-currency representation: USD, GBP, EUR, AED, SGD, INR.
+    - Multilingual conversations: English, German, French.
+    - All 7 deal stages represented: Lead, Qualified, Meeting/Demo, Proposal, Negotiation, Won, Lost.
+    - Populated with authentic conversation messages, verified facts with citations, overdue tasks, stalled deals with pending revival drafts, and one opted-out contact (Elena Rostova).
+    - Idempotent reset via `bun run reset:demo` and re-seed via `bun run seed:demo`.
+  - **F2. Judge Direct Sign-in & Rate Limiting (`apps/app/app/api/auth/demo-login/route.ts`)**:
+    - Built "Try the live demo (Northwind Systems)" flow on `/sign-in`.
+    - Authenticates through real database session creation (`db.session.create`) bound strictly to `org-northwind-systems` and `user-demo-judge`.
+    - Sets real `crm.session_token` cookie with 7-day expiry; no dev-bypass vulnerability.
+    - In-memory sliding-window IP rate limiting: 10 requests per minute per IP.
+    - Auto-seeds the demo organization if missing upon judge login.
+    - Added authenticated nightly reset endpoint `/api/demo/reset` for Cloud Scheduler (`DEMO_RESET_SECRET`).
+  - **F3. First-Run Evaluation Tour Banner (`apps/app/components/crm/judge-tour-banner.tsx`)**:
+    - Built 5-step guided journey banner embedded at the top of the Deals pipeline (`/[slug]/deals`):
+      1. **Ingest Pipeline**: Conversation import via WhatsApp / email / files with speaker detection and line provenance.
+      2. **Evidence Ledger**: Direct button opening sample deal (Acme Cloud) with grounded facts and cited evidence quotes.
+      3. **Lead Revival**: Direct link to the Lead Revival queue with rep sign-offs and native language drafts.
+      4. **Slack Alerts**: Link to Slack integration settings for multi-tenant Block Kit alerts.
+      5. **Voice Qualifier**: Action button to initiate real-time Gemini Live qualification with BANT scoring.
+    - Collapsible / dismissible with state persistence.
+  - **F4. UI Polish & Brand Unification**:
+    - Purged remaining "Comp AI" strings from product shot (`company-sheet.tsx`), agent triggers, and test fixtures.
+    - Standardized page metadata templates and brand titles across root layout and shell.
+    - Verified currency formatting (`formatMoney`) handles all global ISO currencies (USD, GBP, EUR, AED, SGD, INR) with correct locale symbols and decimal precision.
+    - Type-check clean across all 10 packages (`bun run check-types`).
+    - Lint check clean across entire monorepo (`bun run lint`).
+
+### Real Test Output (`bun run reset:demo && bun run seed:demo`)
+```text
+$ bun packages/db/prisma/reset-demo.ts
+Resetting demo org "northwind-systems"...
+Demo org "northwind-systems" reset complete.
+$ bun packages/db/prisma/seed-demo.ts
+Resetting demo org "northwind-systems"...
+Demo org "northwind-systems" reset complete.
+
+Seeding Northwind Systems demo org (northwind-systems)...
+Successfully seeded Northwind Systems with 12 global deals across US, UK, DE, FR, UAE, SG, IN!
+```
+
+- **Open Issues**: None.
