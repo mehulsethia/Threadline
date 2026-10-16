@@ -11,7 +11,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 }
 
 const cli = process.platform === "win32" ? "eve.cmd" : "eve";
-const child = spawn(cli, ["start", "--port", String(port)], {
+// Containers (Cloud Run) reach the agent on every interface, not loopback.
+const host = process.env.AGENT_HOST ?? "0.0.0.0";
+
+const child = spawn(cli, ["start", "--port", String(port), "--host", host], {
 	stdio: "inherit",
 	env: process.env,
 });
