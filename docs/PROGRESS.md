@@ -660,4 +660,20 @@ Live Session Verified: true
 
 - **Open Issues**: None.
 
+---
+
+## Bug Fix: Revival Contact Isolation, Greeting Assertion & Brand Purge (Completed)
+
+- **Status**: COMPLETED
+- **Commit**: `c5599cb`
+- **Date**: 2026-10-16
+- **Summary**:
+  - **1. Revival Context Isolation & Greeting Assertion**: Filtered `contactFact` and `whatsAppMessage` queries strictly to the target contact on the deal (`contactId: stalled.contactId`). Added `assertGreetingMatchesContact` in `apps/agent/adk/revival/claim-guard.ts` to verify the draft salutation matches the target contact's name; aborts draft generation if any other name is addressed.
+  - **2. Language Determination**: Implemented `detectContactInboundLanguage` strictly from the contact's own inbound messages or contact language fact. If none exist, defaults to English ("en"), never another contact's.
+  - **3. Intake & Voice Qualifier Check**: Isolated `VoiceQualifierService` known facts and detected language to the primary contact on the deal.
+  - **4. Human-Readable Stage Display Labels**: Implemented `DEAL_STAGE_LABELS` and `formatDealStage` in `packages/db/src/stage.ts` (Lead, Qualified, Meeting/Demo, Proposal, Negotiation, Won, Lost). Replaced raw enum strings in Slack cards (`apps/api/src/slack/slack-revival.service.ts` and `apps/agent/adk/revival/slack.ts`).
+  - **5. Purged Legacy Brand & Data**: Renamed database deals from "Comp AI" to "Threadline", deleted legacy draft with mismatched contact name, and updated all UI placeholders and dialog strings to Threadline.
+  - **Unit Tests**: Added test cases in `apps/agent/test/claim-guard.spec.ts` verifying greeting assertion rejection of foreign names and contact inbound language detection. 5/5 passed in 103ms.
+
+
 
