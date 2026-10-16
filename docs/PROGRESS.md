@@ -97,6 +97,7 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 ## PART 3 — Company research via Gemini Grounding with Google Search
 
 - **Status**: DONE
+- **Commit**: `a96daf1`
 - **Date**: 2026-10-16
 - **Summary**:
   - Implemented `researchCompany` in `apps/agent/adk/research/company.ts` utilizing `GEMINI_SMART_MODEL` (`gemini-4-argon`) with Google Search Grounding (`config: { tools: [{ googleSearch: {} }] }`) on Google Cloud Vertex AI.
