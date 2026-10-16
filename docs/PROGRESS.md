@@ -26,35 +26,38 @@ Running log tracking all parts, steps, execution status, commit hashes, and veri
     - `fixtures/call-recording-uk.txt`: UK fleet logistics telematics call transcript (£32,500 GBP).
   - Executed autonomous intake pipeline test (`scripts/test-intake-flow.ts`) against all 5 fixtures.
 
-### Real Intake Verification Outputs
+### Real Intake Verification Outputs (Post-Fix B1, B2, B3)
 
 ```
 TEST 1: Ingesting Valves Manufacturing Enquiry (India/B2B) (valves-enquiry.txt)
-  Contact: Vikram Malhotra | Company: Apex Flow Controls
+  Contact: Vikram Malhotra (9820198201) | Company: Apex Flow Controls
   Deal: "SS316 Industrial Ball Valves (Class 150) - 2 inch and 3 inch" | Stage: Negotiation | Amount: 450000 INR
-  Facts: 8 total (5 APPLIED, 3 PROPOSED)
+  Facts: 9 total (5 APPLIED, 4 PROPOSED)
+    - [PROPOSED] companyProfile: "No confident public match found" [matchConfidence: 0.00]
   Tasks Created: 1 ("Send formal quotation PDF via email or WhatsApp" | due: 2026-10-15T06:25:00.000Z)
 
 TEST 2: Ingesting Education Course Enquiry (India/SMB) (coaching-institute.txt)
-  Contact: Sunita Rao | Company: Apex IIT Academy
-  Deal: "Class 11 & 12 JEE (Advanced) Two-Year Classroom Coaching Program" | Stage: Meeting/Demo | Amount: 45000 INR
+  Contact: Sunita Rao (No phone) | Company: None (B2 Fixed: seller organisation "Apex IIT Academy" cleared)
+  Deal: "Class 11 & 12 JEE (Advanced) Two-Year Classroom Coaching Program" | Stage: Meeting/Demo | Amount: 180000 INR (B3 Fixed: 180,000 INR deterministic extraction)
   Facts: 7 total (4 APPLIED, 3 PROPOSED)
   Tasks Created: 1 ("Schedule JEE diagnostic test and visit centre" | due: 2026-10-17T05:30:00.000Z)
 
 TEST 3: Ingesting English B2B SaaS Enterprise Deal (US) (saas-pipeline-us.txt)
-  Contact: Sarah Jenkins | Company: Datacore Cloud
+  Contact: Sarah Jenkins (+15125550199) | Company: Datacore Cloud
   Deal: "Enterprise Security Monitoring Software for Kubernetes Clusters" | Stage: Negotiation | Amount: 48000 USD
-  Facts: 8 total (5 APPLIED, 3 PROPOSED)
+  Facts: 9 total (5 APPLIED, 4 PROPOSED)
+    - [PROPOSED] companyProfile: "No confident public match found" [matchConfidence: 0.10] (B1 Fixed: rejected DataCore Software match)
   Tasks Created: 1 ("Schedule product demo with security architect" | due: 2026-10-15T14:00:00.000Z)
 
 TEST 4: Ingesting German Manufacturing Enquiry (EU/Germany) (manufacturing-de-whatsapp.txt)
-  Contact: Heinrich Weber | Company: Weber Maschinenbau GmbH
+  Contact: Heinrich Weber (+491715550144) | Company: Weber Maschinenbau GmbH
   Deal: "industrielle Durchflusssensoren und Druckventile für unsere automatisierte Fertigungsstraße" | Stage: Negotiation | Amount: 72000 EUR
-  Facts: 8 total (5 APPLIED, 3 PROPOSED)
+  Facts: 9 total (5 APPLIED, 4 PROPOSED)
+    - [PROPOSED] companyProfile: "No confident public match found" [matchConfidence: 0.25]
   Tasks Created: 1 ("Create and send the formal offer as a PDF via email" | due: 2026-10-12T11:20:00.000Z)
 
 TEST 5: Ingesting English Call-Recording Style Transcript (UK) (call-recording-uk.txt)
-  Contact: Oliver Smith | Company: Apex Fleet Logistics
+  Contact: Oliver Smith (+447700900123) | Company: Apex Fleet Logistics
   Deal: "Upgrade telematics and dispatch management system" | Stage: Negotiation | Amount: 32500 GBP
   Facts: 7 total (4 APPLIED, 3 PROPOSED)
   Tasks Created: 1 ("Email the formal proposal and contract pack" | due: 2026-10-15T17:00:00.000Z)
@@ -97,11 +100,17 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 ## PART 3 — Company research via Gemini Grounding with Google Search
 
 - **Status**: DONE
-- **Commit**: `a96daf1`
+- **Commits**: `a96daf1`, `1b2168d`
 - **Date**: 2026-10-16
 - **Summary**:
   - Implemented `researchCompany` in `apps/agent/adk/research/company.ts` utilizing `GEMINI_SMART_MODEL` (`gemini-4-argon`) with Google Search Grounding (`config: { tools: [{ googleSearch: {} }] }`) on Google Cloud Vertex AI.
-  - Returns structured business profile:
+  - **Bug Fix B1 (Entity-Match Verification)**:
+    - Added `industryContext` to research input and prompt.
+    - Model must confirm match using domain (if known), location, and industry/product context from the conversation.
+    - Emits `matchConfidence` (0–1), `matchReasons` (string[]), and `entityMatched`.
+    - Threshold guard: If `matchConfidence < 0.70`, store nothing except a single `PROPOSED` fact `companyProfile = "No confident public match found"`, suppressing false profile/size/location/news facts.
+    - Added UI badge `Match: XX%` in `apps/app/components/crm/facts.tsx` next to grounded facts.
+  - Returns structured business profile when `matchConfidence >= 0.70`:
     - `overview`: Concise 1-2 sentence description of products, services, and target buyers.
     - `sizeSignals`: Headcount, customer deployment count, and revenue/funding scale signals.
     - `location`: Headquarters and operational offices.
@@ -110,23 +119,9 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
     - Real-time latency tracking (ms) and cost estimation ($0.035 base search grounding + token pricing).
   - Added `web.grounded` evidence kind in `apps/agent/agent/lib/evidence.ts` with weight `0.5`, `primary: false`, and label `grounded web search via Google Grounding on Vertex`.
   - Added new fact fields: `companyProfile`, `companySize`, `companyNews` in `apps/agent/agent/lib/facts.ts`.
-  - Enforced guardrail: uncorroborated `web.grounded` facts store with score `0.5`, band `POSSIBLE`, and status `PROPOSED`, keeping ledger records unpolluted until human review or multi-source corroboration.
-  - Replaced legacy disabled Perplexity tool in `apps/agent/agent/tools/research_company.ts` with the new grounded research tool.
-  - Registered `researchCompanyTool` into `INTAKE_TOOLS` and wired `runCompanyResearchStep` into the autonomous intake pipeline (`apps/agent/adk/intake/agent.ts`) with idempotency check (max 1 research call per company).
-
-### Real Vertex AI Grounded Research Outputs
-
-```json
-{
-  "overview": "DataCore Software provides software-defined storage (SDS), storage virtualization, hyperconverged infrastructure, and container-native storage solutions across block, file, and object formats. They sell to enterprise IT organizations, SMBs, and cloud service providers across industries such as healthcare, government, education, and media and entertainment.",
-  "sizeSignals": "Approximately 350 to 500 employees worldwide, over 10,000 customer deployments, estimated annual revenue around $66M, and roughly $120M–$177M in total funding raised.",
-  "location": "Headquartered in Fort Lauderdale, Florida, with a primary U.S. office in Austin, Texas (originating from its Caringo object storage division), alongside international offices in the UK, Germany, France, Bulgaria, India, Taiwan, and Japan.",
-  "recentNews": "In 2026, DataCore launched its 'Buy with Confidence' hardware price-lock program (June 2026), the Swarm Appliance for edge cyber resilience (March 2026), and Puls8 persistent storage for Kubernetes (January 2026). This followed its 2025 acquisitions of StarWind Software (May 2025) and Arcastream's parallel file system business (February 2025).",
-  "latencyMs": 18730,
-  "estimatedCostUsd": 0.0393,
-  "citations": 9
-}
-```
+  - Enforced guardrail: uncorroborated `web.grounded` facts store with score `0.5`, band `POSSIBLE`, and status `PROPOSED`.
+  - Replaced legacy disabled Perplexity tool with grounded research tool.
+  - Registered `researchCompanyTool` into `INTAKE_TOOLS` and wired `runCompanyResearchStep` into autonomous intake pipeline with idempotency check.
 
 - **Open Issues**: None.
 
@@ -135,7 +130,7 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 ## PART 4 — Hero Flow 2: Lead Revival
 
 - **Status**: DONE
-- **Commit**: `d1f367f`
+- **Commits**: `d1f367f`, `1b2168d`
 - **Date**: 2026-10-16
 - **Summary**:
   - **R1: Stalled Deal Detection Engine** (`apps/agent/adk/revival/detector.ts`):
@@ -169,54 +164,66 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
     - "Run revival now" button triggers `trpc.revival.runNow`.
     - Emits `revival.cycle_started`, `revival.draft_created`, and `revival.cycle_completed` `AgentEvents`.
   - **R6: Verification Against 4 Test Scenarios**:
-    - Created and executed test script `scripts/test-revival-flow.ts` simulating 4 stalled deals with backdated timestamps.
+    - Executed test script `scripts/test-revival-flow.ts` simulating 4 stalled deals with backdated timestamps.
 
 ### Real R6 Revival Execution Outputs
 
 ```text
 === LEAD REVIVAL EXECUTION REPORT ===
-Stalled Deals Detected: 8
-Drafts Generated: 8
+Cycle ID: 835bc80f-782f-4ef8-86ae-672f88e97dc4
+Stalled Deals Detected: 4
+Drafts Generated: 4
 
 --------------------------------------------------
 SCENARIO 1: US SaaS Deal Stuck at Proposal 8 Days (Datacore Enterprise Security)
-Deal ID: cmvaq3uwj0001g5rpj1yb8tbb
+Deal ID: cmvaron6500019vrp8vraovr6
 Channel: WHATSAPP
 Strategy: confirm_next_step
-Rationale: The deal is in the CONTRACT_SENT stage and has been stalled for 8 days while the compliance committee reviews SOC2 details. Offering assistance with both SOC2 Type II and ISO 27001 requirements directly addresses their pre-signing requirements to help confirm the next step toward closing.
+Rationale: The deal is in the CONTRACT_SENT stage and has been stalled for 8 days while the compliance committee reviews SOC2 details. Proactively offering support for both their SOC2 Type II and ISO 27001 requirements aligns with the consultative playbook and helps move the contract toward signature.
 Subject: N/A
-Cited Evidence: ["cmvaq3uwm0002g5rpl2yyvw2p","[2026-10-08T08:46:14.316Z]"]
+Cited Evidence: ["cmvaron6800029vrpqf17bkx7","[2026-10-08T09:30:23.685Z] (Sarah Jenkins): Thanks for sending over the Enterprise Proposal Alex. Our compliance committee is reviewing the SOC2 details."]
 Text:
-Hi Sarah, I hope your week is going well. I wanted to check in and see how your compliance committee's review of our SOC2 details is progressing. Please let me know if they have any questions or need any additional documentation regarding our SOC2 Type II and ISO 27001 certifications before signing the Enterprise Proposal.
-
-Best regards, The Threadline Team
+Hi Sarah, I wanted to check in and see how the compliance committee's review of our SOC2 details is progressing. Since ISO 27001 and SOC2 Type II certifications are required before signing, please let me know if your team needs any additional documentation or a quick call to help finalize the review. Best regards, The Threadline Team.
 
 --------------------------------------------------
 SCENARIO 2: German Manufacturing Enquiry with Unanswered Pricing Question (Weber Precision Valves)
-Deal ID: cmvaq3uwr0005g5rpa6j4jc1d
+Deal ID: cmvaron6c00059vrpsdvvs4k5
 Channel: WHATSAPP
 Strategy: confirm_next_step
-Rationale: The lead asked a specific question about delivery times and volume pricing for 500 high-pressure valves 4 days ago, and the deal is currently in the DEMO_BOOKED stage. Since exact pricing and delivery timelines are not in the facts ledger and must not be invented, the best approach is to acknowledge their inquiry and confirm the upcoming demo/call to walk through the custom quote and timeline details together.
+Rationale: The lead asked a specific question about delivery times and volume pricing for 500 high-pressure valves 4 days ago. Since we cannot invent prices or timelines not in the ledger, the best approach is to acknowledge the unanswered question and confirm the upcoming demo/call to walk through the exact volume pricing and delivery schedules together.
 Subject: N/A
-Cited Evidence: ["cmvaq3uwt0006g5rp37an4p4b","[2026-10-12T08:46:14.316Z]"]
+Cited Evidence: ["cmvaron6e00069vrpg00tjm5o","[2026-10-12T09:30:23.685Z] (Klaus Weber): Guten Tag, können Sie uns die genauen Lieferzeiten und Staffelpreise für 500 Einheiten der Hochdruckventile mitteilen?"]
 Text:
-Guten Tag Herr Weber, vielen Dank für Ihre Nachricht bezüglich der Lieferzeiten und Staffelpreise für die 500 Hochdruckventile. Da diese Details von Ihren genauen Spezifikationen abhängen, stelle ich die entsprechenden Informationen gerne für unseren bevorstehenden Termin zusammen. Passt der geplante Termin noch für Sie, um das Angebot im Detail zu besprechen? Best regards, The Threadline Team.
+Guten Tag Herr Weber, vielen Dank für Ihre Nachricht bezüglich der Lieferzeiten und Staffelpreise für die 500 Einheiten der Hochdruckventile. Da diese Details von Ihren spezifischen Anforderungen abhängen, würde ich Ihnen die genauen Konditionen und unsere schnelle Bereitstellung gerne direkt in unserer geplanten Demo vorstellen. Passt der vereinbarte Termin noch für Sie? Best regards, The Threadline Team.
 
 --------------------------------------------------
 SCENARIO 3: UK Deal with Overdue "Check:" Task (Sterling Route Logistics)
-Deal ID: cmvaq3uwx0009g5rp8cbel00c
+Deal ID: cmvaron6h00099vrphm0wt9f5
 Channel: WHATSAPP
 Strategy: confirm_next_step
-Rationale: Oliver explicitly stated they are eager to move forward once the SLA schedule is confirmed, and there is an open task regarding agreement redlines. The best approach is to align on the SLA schedule and agreement review as the clear next step.
+Rationale: The lead is eager to move forward pending confirmation of the SLA schedule and agreement redlines. Confirming the next step directly addresses the final blocker to close the deal while emphasizing our high-volume reliability.
 Subject: N/A
-Cited Evidence: ["[2026-10-14T08:46:14.316Z] (Oliver Sterling): Hi team, we are eager to move forward once the SLA schedule is confirmed.","Task: Check: Oliver Sterling agreement redlines"]
+Cited Evidence: ["[2026-10-14T09:30:23.685Z] (Oliver Sterling): Hi team, we are eager to move forward once the SLA schedule is confirmed.","Task: Check: Oliver Sterling agreement redlines"]
 Text:
-Hi Oliver, thank you for your patience. We are reviewing the agreement redlines and finalizing the SLA schedule to ensure it aligns with our high-volume reliability and compliance standards. Are you available for a quick call to confirm these final details so we can move forward? Best regards, The Threadline Team.
+Hi Oliver, thank you for your patience. We are reviewing the agreement redlines and finalizing the SLA schedule to ensure it fully supports your high-volume reliability requirements. Would you have a few minutes for a quick call to confirm these final details so we can get you ready for fast deployment? Best regards, The Threadline Team.
 
 --------------------------------------------------
 SCENARIO 4: Opt-Out Exclusion Verification (Elena Rostova - Nordic Supply Deal)
 Contact Elena Rostova optedOut in DB: true
-Draft generated for Elena Rostova: NONE (SUCCESS)
+Draft generated for Elena Rostova: NONE (SUCCESS - Excluded from revival)
 ```
+
+- **Open Issues**: None.
+
+---
+
+## PART 5 — Slack notifications for revival alerts
+
+- **Status**: SKIPPED
+- **Date**: 2026-10-16
+- **Summary**:
+  - `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are not configured in `.env`.
+  - Revival flow gracefully skips Slack channel notifications when credentials are not configured, as per the optional integration rule.
+  - All revival drafts and cycle metrics remain fully accessible in the UI dashboard and through tRPC endpoints.
 
 - **Open Issues**: None.
