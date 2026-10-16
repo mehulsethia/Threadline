@@ -29,6 +29,64 @@ async function main() {
 		data: { finishedAt: new Date(), outcome: "Cleaned up prior test run" },
 	});
 
+	const existingTestContacts = await db.contact.findMany({
+		where: { firstName: { in: ["Vikram", "Sunita"] } },
+		select: { id: true },
+	});
+	const contactIds = existingTestContacts.map((c) => c.id);
+
+	if (contactIds.length > 0) {
+		await db.whatsAppMessage.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.contactFact.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.activity.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.dealContact.deleteMany({
+			where: { contactId: { in: contactIds } },
+		});
+		await db.contact.deleteMany({
+			where: { id: { in: contactIds } },
+		});
+	}
+
+	const existingTestDeals = await db.deal.findMany({
+		where: {
+			OR: [
+				{ name: { contains: "valves", mode: "insensitive" } },
+				{ name: { contains: "JEE", mode: "insensitive" } },
+			],
+		},
+		select: { id: true },
+	});
+	const dealIds = existingTestDeals.map((d) => d.id);
+	if (dealIds.length > 0) {
+		await db.whatsAppMessage.deleteMany({
+			where: { dealId: { in: dealIds } },
+		});
+		await db.contactFact.deleteMany({
+			where: { dealId: { in: dealIds } },
+		});
+		await db.activity.deleteMany({
+			where: { dealId: { in: dealIds } },
+		});
+		await db.dealContact.deleteMany({
+			where: { dealId: { in: dealIds } },
+		});
+		await db.deal.deleteMany({
+			where: { id: { in: dealIds } },
+		});
+	}
+
+	await db.company.deleteMany({
+		where: {
+			name: { in: ["Apex IIT Academy", "Direct Customers"] },
+		},
+	});
+
 	const agentTrigger = new AgentTriggerService(db);
 	const intakeService = new IntakeService(db, agentTrigger);
 
