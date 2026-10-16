@@ -9,9 +9,9 @@ import { LandingNav } from "@/components/landing/landing-nav";
 import { ProductShot } from "@/components/landing/product-shot/product-shot";
 
 export const metadata: Metadata = {
-	title: "The CRM for agents",
+	title: "Threadline — Your conversations, turned into closed deals",
 	description:
-		"The first agentic CRM experience — durable research agents that read your inbox, keep every record current and book their own follow-ups.",
+		"An agentic CRM that turns customer conversations across channels into evidence-backed records, then works the leads.",
 };
 
 export default function Home() {

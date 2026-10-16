@@ -90,7 +90,7 @@ async function SignIn({
 			<>
 				<AuthHeading
 					title="No way in yet"
-					description="This CRM has no sign-in method configured, so nobody can get in — including you."
+					description="Threadline has no sign-in method configured, so nobody can get in — including you."
 				/>
 
 				<p className="text-center text-muted-foreground text-sm/5">
@@ -106,8 +106,8 @@ async function SignIn({
 	return (
 		<>
 			<AuthHeading
-				title="Welcome back"
-				description="Sign in with your account to continue."
+				title="Welcome to Threadline"
+				description="Sign in to your account to continue."
 			/>
 
 			{showSso ? <SsoSignIn providers={providers} /> : null}
