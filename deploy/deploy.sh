@@ -79,7 +79,7 @@ services() {
 		--cpu 1 --memory 1Gi \
 		--timeout 3600 --session-affinity \
 		--set-cloudsql-instances "$SQL" \
-		--set-env-vars "^@^NODE_ENV=production@API_URL=$APP_URL@APP_URL=$APP_URL@VOICE_WS_URL=${API_RUN_URL/https/wss}/api/voice/live@AGENT_URL=$AGENT_URL@AGENT_IAM_AUDIENCE=$AGENT_URL@ALLOWED_SIGN_IN=$ALLOWED_SIGN_IN@${GEMINI_ENV//,/@}" \
+		--set-env-vars "^|^NODE_ENV=production|API_URL=$APP_URL|APP_URL=$APP_URL|VOICE_WS_URL=${API_RUN_URL/https/wss}/api/voice/live|AGENT_URL=$AGENT_URL|AGENT_IAM_AUDIENCE=$AGENT_URL|ALLOWED_SIGN_IN=$ALLOWED_SIGN_IN|${GEMINI_ENV//,/|}" \
 		--set-secrets "$(secret DATABASE_URL database-url),$(secret BETTER_AUTH_SECRET better-auth-secret),$(secret GOOGLE_CLIENT_ID google-client-id),$(secret GOOGLE_CLIENT_SECRET google-client-secret),$(secret SLACK_CLIENT_ID slack-client-id),$(secret SLACK_CLIENT_SECRET slack-client-secret),$(secret SLACK_SIGNING_SECRET slack-signing-secret),$(secret SLACK_STATE_SECRET slack-state-secret),$(secret CRON_SECRET cron-secret),$(secret AGENT_BRIDGE_SECRET agent-bridge-secret)" \
 		--quiet
 
