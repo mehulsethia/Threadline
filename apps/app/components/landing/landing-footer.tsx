@@ -38,13 +38,7 @@ export function LandingFooter() {
 					<p className="flex flex-1 items-center gap-[5px] pt-[2px] text-[13px]/[21px] text-muted-foreground">
 						Built with love by
 						<Logo className="size-[13px] shrink-0 text-foreground" />
-						<Link
-							href="/"
-							target="_blank"
-							className="font-medium text-foreground"
-						>
-							Threadline
-						</Link>
+						<span className="font-medium text-foreground">Threadline</span>
 					</p>
 
 					<p className="flex items-center gap-2 text-[13px]/5 text-muted-foreground">

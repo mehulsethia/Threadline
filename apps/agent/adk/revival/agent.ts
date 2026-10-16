@@ -9,6 +9,8 @@ import {
 import { readPlaybook } from "@crm/db/settings";
 import { getSmartClient } from "../extraction";
 import {
+	assertGreetingMatchesContact,
+	detectContactInboundLanguage,
 	type EvidenceSourceContext,
 	stripUnsupportedClaims,
 	verifyFactualClaims,
@@ -247,6 +249,9 @@ export async function generateRevivalDraft(
 						},
 					},
 					whatsAppMessages: {
+						where: {
+							OR: [{ contactId: stalled.contactId }, { contactId: null }],
+						},
 						orderBy: { timestamp: "asc" },
 						take: 30,
 					},
@@ -254,10 +259,12 @@ export async function generateRevivalDraft(
 			}),
 			db.contactFact.findMany({
 				where: {
-					OR: [{ contactId: stalled.contactId }, { dealId: stalled.dealId }],
+					dealId: stalled.dealId,
+					OR: [{ contactId: stalled.contactId }, { contactId: null }],
 				},
 				select: {
 					id: true,
+					contactId: true,
 					field: true,
 					value: true,
 					status: true,
@@ -297,8 +304,14 @@ export async function generateRevivalDraft(
 		channel = "EMAIL";
 	}
 
-	const languageFact = facts.find((f) => f.field === "language");
-	const language = languageFact?.value || "en";
+	const contactLanguageFact = facts.find(
+		(f) => f.field === "language" && f.contactId === stalled.contactId,
+	);
+	const language = detectContactInboundLanguage(
+		deal.whatsAppMessages,
+		stalled.contactId,
+		contactLanguageFact?.value,
+	);
 
 	const repName = deal.owner?.name || "Alex Morgan";
 	const sellerCompany = organization?.name || "Threadline";
@@ -339,6 +352,7 @@ export async function generateRevivalDraft(
 		`- Stage: ${deal.stage}`,
 		`- Value: ${deal.amount ?? "unknown"} ${deal.currency}`,
 		`- Contact: ${stalled.contactName} (${contact.phone || contact.email || "No direct handle"})`,
+		`- GREETING MANDATE: The draft greeting MUST address ${contact.firstName || contact.lastName || stalled.contactName}. Never address any other person.`,
 		`- Company: ${stalled.companyName || "Unknown"}`,
 		`- Stalled Reason: ${stalled.stalledReason}`,
 		`- Target Channel: ${channel}`,
@@ -484,6 +498,14 @@ export async function generateRevivalDraft(
 		draftText = draftText
 			.replace(/The\s+Threadline\s+Team/gi, `${repName}, ${sellerCompany}`)
 			.replace(/Threadline\s+Team/gi, `${repName}, ${sellerCompany}`);
+	}
+
+	const greetingCheck = assertGreetingMatchesContact(draftText, contact);
+	if (!greetingCheck.matches) {
+		console.warn(
+			`[Revival Guard] Aborting draft for deal "${deal.name}": ${greetingCheck.reason}`,
+		);
+		return null;
 	}
 
 	const structuredCitations = parseStructuredCitations(

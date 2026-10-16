@@ -1,5 +1,5 @@
 import { WORKSPACE_ID } from "@crm/auth";
-import type { Db } from "@crm/db";
+import { type Db, formatDealStage } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { decryptToken } from "./slack-crypto";
@@ -119,7 +119,7 @@ export class SlackRevivalService {
 					},
 					{
 						type: "mrkdwn",
-						text: `*Stage:*\n\`${draft.deal.stage}\``,
+						text: `*Stage:*\n${formatDealStage(draft.deal.stage)}`,
 					},
 					{
 						type: "mrkdwn",

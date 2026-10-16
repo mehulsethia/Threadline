@@ -1,5 +1,5 @@
 import { createDecipheriv, createHash } from "node:crypto";
-import { db } from "@crm/db";
+import { db, formatDealStage } from "@crm/db";
 
 function decryptBotToken(encryptedPayload: string): string {
 	const parts = encryptedPayload.split(":");
@@ -114,7 +114,7 @@ export async function postDraftToSlack(draftId: string): Promise<{
 				},
 				{
 					type: "mrkdwn",
-					text: `*Stage:*\n\`${draft.deal.stage}\``,
+					text: `*Stage:*\n${formatDealStage(draft.deal.stage)}`,
 				},
 				{
 					type: "mrkdwn",

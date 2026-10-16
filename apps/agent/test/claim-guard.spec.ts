@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
+	assertGreetingMatchesContact,
+	detectContactInboundLanguage,
 	type EvidenceSourceContext,
 	stripUnsupportedClaims,
 	verifyFactualClaims,
@@ -102,5 +104,71 @@ describe("Revival Claim Guard", () => {
 		);
 		expect(unsupportedResult.valid).toBe(false);
 		expect(unsupportedResult.unsupportedClaims).toContain("ISO 27001");
+	});
+
+	it("aborts draft when greeting name addresses a different contact (assertion 1)", () => {
+		const contact = {
+			firstName: "Lena",
+			lastName: "Bergström",
+			name: "Lena Bergström",
+		};
+
+		const mismatchedDraft =
+			"Betreff: Nächste Schritte zu Ihrer Anfrage\n\nHallo Frau Rostova,\n\nich wollte kurz nachfragen, ob Sie diese Woche Zeit für die Abstimmung haben.\n\nMit freundlichen Grüßen,\nAlex Miller";
+
+		const mismatchedResult = assertGreetingMatchesContact(
+			mismatchedDraft,
+			contact,
+		);
+		expect(mismatchedResult.matches).toBe(false);
+		expect(mismatchedResult.greetingLine).toBe("Hallo Frau Rostova,");
+		expect(mismatchedResult.reason).toContain("does not match contact name");
+
+		const validFirstNameDraft =
+			"Hi Lena,\n\nI wanted to follow up on your deployment inquiry.";
+		expect(
+			assertGreetingMatchesContact(validFirstNameDraft, contact).matches,
+		).toBe(true);
+
+		const validLastNameDraft =
+			"Guten Tag Frau Bergström,\n\nvielen Dank für Ihre Anfrage.";
+		expect(
+			assertGreetingMatchesContact(validLastNameDraft, contact).matches,
+		).toBe(true);
+	});
+
+	it("resolves language strictly from contact's own inbound messages or defaults to English (requirement 2)", () => {
+		const contactId = "contact-lena-123";
+		const otherContactId = "contact-rostova-456";
+
+		const mixedMessages = [
+			{
+				contactId: otherContactId,
+				direction: "INBOUND",
+				body: "Guten Tag, wir benötigen die Unterlagen auf Deutsch.",
+			},
+		];
+
+		const fallbackLanguage = detectContactInboundLanguage(
+			mixedMessages,
+			contactId,
+			null,
+		);
+		expect(fallbackLanguage).toBe("en");
+
+		const ownMessages = [
+			{
+				contactId,
+				direction: "INBOUND",
+				body: "Bonjour, nous aimerions avoir une démonstration du produit la semaine prochaine.",
+			},
+		];
+
+		const detectedFrench = detectContactInboundLanguage(
+			ownMessages,
+			contactId,
+			null,
+		);
+		expect(detectedFrench).toBe("fr");
 	});
 });

@@ -249,3 +249,118 @@ export function stripUnsupportedClaims(
 
 	return cleaned;
 }
+
+export function assertGreetingMatchesContact(
+	draftText: string,
+	contact: {
+		firstName?: string | null;
+		lastName?: string | null;
+		name?: string | null;
+	},
+): { matches: boolean; greetingLine?: string; reason?: string } {
+	const first = contact.firstName?.trim();
+	const last = contact.lastName?.trim();
+	const full = contact.name?.trim();
+
+	const validTokens: string[] = [];
+	if (first && first.length >= 2) validTokens.push(first.toLowerCase());
+	if (last && last.length >= 2) validTokens.push(last.toLowerCase());
+	if (full && full.length >= 2) {
+		for (const part of full.split(/\s+/)) {
+			if (part.length >= 2) validTokens.push(part.toLowerCase());
+		}
+	}
+
+	if (validTokens.length === 0) {
+		return { matches: true };
+	}
+
+	const lines = draftText
+		.split("\n")
+		.map((l) => l.trim())
+		.filter((l) => l.length > 0 && !/^subject:|^betreff:|^objet:/i.test(l));
+
+	const greetingLine = lines[0];
+	if (!greetingLine) {
+		return { matches: true };
+	}
+
+	const isGreeting =
+		/^(?:hi|hello|hey|dear|hallo|guten tag|sehr geehrte[rn]?|liebe[r]?|bonjour|cher|chère|hola|estimad[oa])/i.test(
+			greetingLine,
+		);
+
+	if (!isGreeting) {
+		return { matches: true };
+	}
+
+	const lowerGreeting = greetingLine.toLowerCase();
+	const matchedToken = validTokens.find((tok) => lowerGreeting.includes(tok));
+
+	if (!matchedToken) {
+		return {
+			matches: false,
+			greetingLine,
+			reason: `Greeting "${greetingLine}" does not match contact name (${first ?? ""} ${last ?? ""}).`,
+		};
+	}
+
+	return { matches: true, greetingLine };
+}
+
+export function detectContactInboundLanguage(
+	messages: Array<{
+		body: string;
+		direction?: string;
+		contactId?: string | null;
+	}>,
+	contactId?: string | null,
+	contactLanguageFact?: string | null,
+): string {
+	const inbound = messages.filter((m) => {
+		const isContact = contactId
+			? m.contactId === contactId ||
+				m.contactId === null ||
+				m.contactId === undefined
+			: true;
+		const isInbound = !m.direction || m.direction === "INBOUND";
+		return isContact && isInbound && m.body && m.body.trim().length > 0;
+	});
+
+	if (inbound.length === 0) {
+		return "en";
+	}
+
+	if (contactLanguageFact && contactLanguageFact.trim().length >= 2) {
+		return contactLanguageFact.trim().toLowerCase();
+	}
+
+	const combined = inbound
+		.map((m) => m.body)
+		.join(" ")
+		.toLowerCase();
+
+	if (
+		/\b(?:und|ich|wir|bitte|termin|bereitstellung|nachfragen|geplante|angebot|grüße|mitteilen|danke|können)\b/i.test(
+			combined,
+		)
+	) {
+		return "de";
+	}
+	if (
+		/\b(?:bonjour|merci|vous|nous|projet|devis|accord|cordialement|suivi|disponible)\b/i.test(
+			combined,
+		)
+	) {
+		return "fr";
+	}
+	if (
+		/\b(?:hola|gracias|nosotros|ustedes|proyecto|presupuesto|saludos|disponible)\b/i.test(
+			combined,
+		)
+	) {
+		return "es";
+	}
+
+	return "en";
+}
