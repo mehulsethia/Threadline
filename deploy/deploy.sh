@@ -52,7 +52,7 @@ migrate() {
 services() {
 	gcloud run deploy threadline-agent \
 		--project "$PROJECT" --region "$REGION" \
-		--image "$REG/agent:$TAG" \
+		--image "$REG/agent:${AGENT_TAG:-$TAG}" \
 		--service-account "$(SA agent)" \
 		--no-allow-unauthenticated \
 		--min-instances 0 --max-instances 1 \
@@ -72,7 +72,7 @@ services() {
 
 	gcloud run deploy threadline-api \
 		--project "$PROJECT" --region "$REGION" \
-		--image "$REG/api:$TAG" \
+		--image "$REG/api:${API_TAG:-$TAG}" \
 		--service-account "$(SA api)" \
 		--allow-unauthenticated \
 		--min-instances 0 --max-instances 3 \
@@ -85,7 +85,7 @@ services() {
 
 	gcloud run deploy threadline-app \
 		--project "$PROJECT" --region "$REGION" \
-		--image "$REG/app:$TAG" \
+		--image "$REG/app:${APP_TAG:-$TAG}" \
 		--service-account "$(SA app)" \
 		--allow-unauthenticated \
 		--min-instances 0 --max-instances 3 \

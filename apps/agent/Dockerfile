@@ -17,11 +17,6 @@ COPY --from=prune /repo/out/json/ .
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --from=prune /repo/out/full/ .
 RUN cd packages/db && bunx prisma generate
-# eve build evaluates agent.ts, which builds the Vertex client from these.
-ARG GOOGLE_CLOUD_PROJECT
-ARG GOOGLE_CLOUD_LOCATION=us-central1
-ENV GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION=$GOOGLE_CLOUD_LOCATION
-RUN cd apps/agent && CRM_TELEMETRY_DISABLED=1 bunx eve build
 
 FROM base AS runtime
 ENV NODE_ENV=production PORT=8080
@@ -29,4 +24,5 @@ COPY --from=build --chown=node:node /repo /repo
 USER node
 EXPOSE 8080
 WORKDIR /repo/apps/agent
-CMD ["bun", "run", "start"]
+# The ADK worker serves the hero flows; see apps/agent/adk/worker.ts.
+CMD ["bun", "adk/worker.ts"]

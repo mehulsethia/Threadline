@@ -1,0 +1,17 @@
+# Rebuilds a single image:  gcloud builds submit --config deploy/cloudbuild-one.yaml \
+#   --substitutions=_APP=agent,_TAG=$(git rev-parse --short HEAD) .
+substitutions:
+  _REGION: us-central1
+  _REPO: threadline
+  _APP: agent
+  _TAG: latest
+serviceAccount: projects/${PROJECT_ID}/serviceAccounts/threadline-build-sa@${PROJECT_ID}.iam.gserviceaccount.com
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, apps/${_APP}/Dockerfile, -t, "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_APP}:${_TAG}", .]
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_APP}:${_TAG}
+timeout: 3600s
