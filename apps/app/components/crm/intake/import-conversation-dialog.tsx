@@ -59,6 +59,7 @@ export function ImportConversationDialog() {
 	const [sourceType, setSourceType] = useState<string>("WHATSAPP_EXPORT");
 	const [participants, setParticipants] = useState<string[]>([]);
 	const [selectedMe, setSelectedMe] = useState<string>("");
+	const [selectedChoice, setSelectedChoice] = useState<string>("");
 	const [autoDetectedMe, setAutoDetectedMe] = useState<string | null>(null);
 	const [confidence, setConfidence] = useState<number>(0);
 	const [customMe, setCustomMe] = useState<string>("");
@@ -102,6 +103,7 @@ export function ImportConversationDialog() {
 		setSourceType("WHATSAPP_EXPORT");
 		setParticipants([]);
 		setSelectedMe("");
+		setSelectedChoice("");
 		setAutoDetectedMe(null);
 		setConfidence(0);
 		setCustomMe("");
@@ -147,14 +149,20 @@ export function ImportConversationDialog() {
 
 				if (preview && preview.participants?.length > 0) {
 					setParticipants(preview.participants);
-					setSelectedMe(preview.me);
+					const initialMe = preview.autoDetected
+						? preview.me
+						: preview.participants[0] || "";
+					setSelectedMe(initialMe);
+					setSelectedChoice(initialMe);
 					setAutoDetectedMe(preview.autoDetected ? preview.me : null);
 					setConfidence(preview.confidence || 0);
 					setStep("preview");
 				} else {
+					setSelectedChoice("someone_else");
 					setStep("preview");
 				}
 			} else {
+				setSelectedChoice("someone_else");
 				setStep("preview");
 			}
 		} catch (err) {
@@ -176,7 +184,10 @@ export function ImportConversationDialog() {
 
 	const handleStart = () => {
 		if (!jobId) return;
-		const me = selectedMe || customMe || undefined;
+		const me =
+			selectedChoice === "someone_else"
+				? customMe.trim() || undefined
+				: selectedChoice || selectedMe || undefined;
 		startMutation.mutate({ jobId, me });
 	};
 
@@ -191,6 +202,23 @@ export function ImportConversationDialog() {
 
 	const createdContactId = statusData?.createdContactIds?.[0];
 	const createdDealId = statusData?.createdDealIds?.[0];
+
+	const timelineEvents = statusData?.timeline ?? [];
+	const factsApplied = timelineEvents.filter(
+		(ev) =>
+			ev.tool === "record_fact" &&
+			(ev.message.includes("as APPLIED") ||
+				(ev.data as Record<string, unknown>)?.status === "APPLIED"),
+	).length;
+	const factsSuggested = timelineEvents.filter(
+		(ev) =>
+			ev.tool === "record_fact" &&
+			(ev.message.includes("as PROPOSED") ||
+				(ev.data as Record<string, unknown>)?.status === "PROPOSED"),
+	).length;
+	const tasksCreated = timelineEvents.filter(
+		(ev) => ev.tool === "create_task",
+	).length;
 
 	return (
 		<Dialog
@@ -316,37 +344,37 @@ export function ImportConversationDialog() {
 						</div>
 
 						{participants.length > 0 ? (
-							<div className="space-y-2">
-								<p className="font-medium text-xs">Which participant is you?</p>
-								<div className="space-y-1.5">
+							<div className="space-y-3">
+								<Label className="font-medium text-xs">
+									Which participant is you?
+								</Label>
+								<div className="space-y-2">
 									{participants.map((person) => {
-										const isSelected = selectedMe === person;
+										const isSelected = selectedChoice === person;
 										const isDetected = autoDetectedMe === person;
 
 										return (
-											<button
+											<label
 												key={person}
-												type="button"
-												onClick={() => setSelectedMe(person)}
-												className={`flex w-full items-center justify-between rounded-lg border p-3 text-left text-xs transition-colors ${
+												className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 text-left text-xs transition-colors ${
 													isSelected
 														? "border-primary bg-primary/5 font-medium"
 														: "border-border hover:bg-muted/40"
 												}`}
 											>
 												<div className="flex items-center gap-2.5">
-													<div
-														className={`flex size-4 items-center justify-center rounded-full border ${
-															isSelected
-																? "border-primary bg-primary text-primary-foreground"
-																: "border-muted-foreground/40"
-														}`}
-													>
-														{isSelected && (
-															<div className="size-1.5 rounded-full bg-white" />
-														)}
-													</div>
-													<span>{person}</span>
+													<input
+														type="radio"
+														name="participant-me-choice"
+														value={person}
+														checked={isSelected}
+														onChange={() => {
+															setSelectedChoice(person);
+															setSelectedMe(person);
+														}}
+														className="size-4 text-primary"
+													/>
+													<span className="text-foreground">{person}</span>
 												</div>
 												{isDetected ? (
 													<Badge
@@ -354,12 +382,44 @@ export function ImportConversationDialog() {
 														className="text-[10px] text-primary"
 													>
 														Auto-detected (
-														{Math.round((confidence || 0.9) * 100)}%)
+														{Math.round((confidence || 0.8) * 100)}%)
 													</Badge>
 												) : null}
-											</button>
+											</label>
 										);
 									})}
+
+									<label
+										className={`flex cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left text-xs transition-colors ${
+											selectedChoice === "someone_else"
+												? "border-primary bg-primary/5"
+												: "border-border hover:bg-muted/40"
+										}`}
+									>
+										<div className="flex items-center gap-2.5">
+											<input
+												type="radio"
+												name="participant-me-choice"
+												value="someone_else"
+												checked={selectedChoice === "someone_else"}
+												onChange={() => setSelectedChoice("someone_else")}
+												className="size-4 text-primary"
+											/>
+											<span className="font-medium text-foreground">
+												Someone else
+											</span>
+										</div>
+										{selectedChoice === "someone_else" && (
+											<Input
+												id="custom-me-input"
+												placeholder="Enter your name / sender handle"
+												value={customMe}
+												onChange={(e) => setCustomMe(e.target.value)}
+												className="mt-1 text-xs"
+												autoFocus
+											/>
+										)}
+									</label>
 								</div>
 							</div>
 						) : (
@@ -372,7 +432,7 @@ export function ImportConversationDialog() {
 								</Label>
 								<Input
 									id="custom-me-input"
-									placeholder="e.g. Rohit Sharma"
+									placeholder="e.g. Sales Rep Name"
 									value={customMe}
 									onChange={(e) => setCustomMe(e.target.value)}
 									className="text-xs"
@@ -514,21 +574,84 @@ export function ImportConversationDialog() {
 							<p className="mb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
 								Imported Summary
 							</p>
-							<div className="grid grid-cols-2 gap-2">
+							<div className="grid grid-cols-3 gap-2">
 								<div className="rounded border bg-background/60 p-2 text-center">
-									<p className="font-semibold text-foreground">
+									<p className="font-semibold text-foreground text-sm">
 										{statusData?.createdContactIds?.length || 0}
 									</p>
 									<p className="text-[10px] text-muted-foreground">Contacts</p>
 								</div>
 								<div className="rounded border bg-background/60 p-2 text-center">
-									<p className="font-semibold text-foreground">
+									<p className="font-semibold text-foreground text-sm">
 										{statusData?.createdDealIds?.length || 0}
 									</p>
 									<p className="text-[10px] text-muted-foreground">Deals</p>
 								</div>
+								<div className="rounded border bg-background/60 p-2 text-center">
+									<p className="font-semibold text-foreground text-sm">
+										{tasksCreated}
+									</p>
+									<p className="text-[10px] text-muted-foreground">
+										Tasks Created
+									</p>
+								</div>
+								<div className="col-span-1 rounded border bg-background/60 p-2 text-center">
+									<p className="font-semibold text-primary text-sm">
+										{factsApplied}
+									</p>
+									<p className="text-[10px] text-muted-foreground">
+										Facts Applied
+									</p>
+								</div>
+								<div className="col-span-2 rounded border bg-background/60 p-2 text-center">
+									<p className="font-semibold text-muted-foreground text-sm">
+										{factsSuggested}
+									</p>
+									<p className="text-[10px] text-muted-foreground">
+										Facts Suggested
+									</p>
+								</div>
 							</div>
 						</div>
+
+						<details className="group rounded-lg border bg-background/50 p-3 text-xs">
+							<summary className="flex cursor-pointer select-none items-center justify-between font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+								<span>Agent Step Timeline ({timelineEvents.length} steps)</span>
+								<span className="text-[10px] text-primary group-open:hidden">
+									Expand
+								</span>
+								<span className="hidden text-[10px] text-primary group-open:inline">
+									Collapse
+								</span>
+							</summary>
+							<div className="mt-3 max-h-52 space-y-2.5 overflow-y-auto border-t pt-2.5">
+								{timelineEvents.map((ev) => (
+									<div key={ev.id} className="flex items-start gap-2 text-xs">
+										<div className="mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+											<Icon icon={Checkmark} className="size-2.5" />
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="font-medium text-foreground">
+												{TOOL_TITLES[ev.tool] || ev.tool}
+											</p>
+											<p className="text-muted-foreground text-[11px] break-words">
+												{ev.message}
+											</p>
+										</div>
+										<span className="shrink-0 text-[10px] text-muted-foreground/60">
+											<LocalDateTime
+												date={ev.timestamp}
+												options={{
+													hour: "numeric",
+													minute: "2-digit",
+													second: "2-digit",
+												}}
+											/>
+										</span>
+									</div>
+								))}
+							</div>
+						</details>
 
 						<DialogFooter className="gap-2 pt-2">
 							<Button variant="ghost" size="sm" onClick={reset}>

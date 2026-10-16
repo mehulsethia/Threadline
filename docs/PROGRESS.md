@@ -7,6 +7,7 @@ Running log tracking all parts, steps, execution status, commit hashes, and veri
 ## PART 1 — Positioning correction (docs + defaults)
 
 - **Status**: DONE
+- **Commit**: `095e74e`
 - **Date**: 2026-10-16
 - **Summary**:
   - Repositioned Threadline in `docs/HACKATHON_BRIEF.md` as a global B2B product for mid-market and enterprise sales teams worldwide.
@@ -66,3 +67,27 @@ IDEMPOTENCY VERIFICATION (Re-importing US SaaS fixture):
 ```
 
 - **Open Issues**: None.
+
+---
+
+## PART 2 — Fixes from browser test
+
+- **Status**: DONE
+- **Date**: 2026-10-16
+- **Summary**:
+  - **Hydration error resolved**:
+    - Identified root cause of `StatCard` hydration error: Node SSR environment defaults to `en-US` (`$0`), whereas client browsers in other regions (e.g. `en-GB`, `en-CA`) default to regional symbol (`US$0`).
+    - Standardized `formatMoney(cents, currency, locale = "en-US")`, `formatMoneyCompact(cents, currency, locale = "en-US")`, and `formatDate(date, locale = "en-US", timeZone = "UTC")` in `@crm/ui/lib/format` with explicit default locale and timezone so server and client always render identical strings.
+  - **Import dialog participant step**:
+    - Replaced free-text field with interactive radio list from `intake.previewParticipants`.
+    - Auto-detected "me" participant pre-selected with confidence percentage badge.
+    - Added "Someone else" radio option with expandable text input as a seamless fallback.
+  - **Result card enhancements**:
+    - Expanded import result card to display breakdown of: Contacts created, Deals created, Tasks created, Facts Applied (verified to ledger), and Facts Suggested (pending review).
+    - Kept agent step timeline visible via a collapsible accordion detail view showing full sequence of executed agent tools and timestamps.
+  - **Rebrand to Threadline**:
+    - Updated web application metadata, page titles (`Threadline — Your conversations, turned into closed deals`), favicon links, header branding, and sign-in page copy.
+    - Preserved MIT license and Comp AI attribution in `README.md` and footer.
+
+- **Open Issues**: None.
+
