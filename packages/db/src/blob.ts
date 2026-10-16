@@ -36,10 +36,18 @@ async function getStorageClient(): Promise<Storage> {
 			scopes: ["https://www.googleapis.com/auth/cloud-platform"],
 		});
 
+		// On Cloud Run the service's own identity signs URLs (through the IAM
+		// signBlob API), so no impersonation is needed or allowed.
+		if (process.env.K_SERVICE) {
+			return new Storage({ projectId });
+		}
+
 		const client = await googleAuth.getClient();
 		if ("client_email" in client && typeof client.client_email === "string") {
 			return new Storage({ projectId, authClient: client });
 		}
+
+		// Local user credentials cannot sign URLs; borrow a service account.
 
 		const targetPrincipal =
 			process.env.GCS_SERVICE_ACCOUNT ||
