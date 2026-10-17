@@ -21,6 +21,8 @@ import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import { Label } from "@crm/ui/components/label";
 import { Spinner } from "@crm/ui/components/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
+import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -65,6 +67,10 @@ export function ImportConversationDialog() {
 	const [autoDetectedMe, setAutoDetectedMe] = useState<string | null>(null);
 	const [confidence, setConfidence] = useState<number>(0);
 	const [customMe, setCustomMe] = useState<string>("");
+	const [mode, setMode] = useState<"conversation" | "transcript">(
+		"conversation",
+	);
+	const [pasted, setPasted] = useState("");
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const trpc = useTRPC();
@@ -109,15 +115,19 @@ export function ImportConversationDialog() {
 		setAutoDetectedMe(null);
 		setConfidence(0);
 		setCustomMe("");
+		setMode("conversation");
+		setPasted("");
 	};
 
-	const handleFileChosen = async (chosenFile: File) => {
+	const handleFileChosen = async (chosenFile: File | null, text?: string) => {
 		setFile(chosenFile);
 		setUploading(true);
 
 		try {
 			const formData = new FormData();
-			formData.append("file", chosenFile);
+			if (chosenFile) formData.append("file", chosenFile);
+			if (text) formData.append("text", text);
+			formData.append("kind", mode);
 			formData.append("autoStart", "false");
 
 			const res = await fetch("/api/intake/upload", {
@@ -140,7 +150,10 @@ export function ImportConversationDialog() {
 			setJobId(data.jobId);
 			setSourceType(data.sourceType);
 
-			if (data.sourceType === "WHATSAPP_EXPORT") {
+			if (
+				data.sourceType === "WHATSAPP_EXPORT" ||
+				data.sourceType === "MEETING_TRANSCRIPT"
+			) {
 				const previewRes = await fetch(
 					`/api/trpc/intake.previewParticipants?input=${encodeURIComponent(
 						JSON.stringify({ jobId: data.jobId }),
@@ -241,7 +254,9 @@ export function ImportConversationDialog() {
 					<DialogTitle>Import conversation</DialogTitle>
 					<DialogDescription>
 						{step === "upload" &&
-							"Upload WhatsApp chat export (.txt/.zip) or voice recording (.opus/.m4a/.mp3/.wav)."}
+							(mode === "conversation"
+								? "Upload a WhatsApp chat export (.txt/.zip) or a voice recording (.opus/.m4a/.mp3/.wav)."
+								: "Upload a meeting transcript (.txt/.md/.pdf/.docx) or paste it below.")}
 						{step === "preview" &&
 							"Identify which participant is you so Threadline extracts lead details for the other person."}
 						{step === "processing" &&
@@ -253,10 +268,27 @@ export function ImportConversationDialog() {
 
 				{step === "upload" && (
 					<div className="space-y-4 py-2">
+						<Tabs
+							value={mode}
+							onValueChange={(value) =>
+								setMode(value === "transcript" ? "transcript" : "conversation")
+							}
+						>
+							<TabsList>
+								<TabsTrigger value="conversation">
+									Chat or recording
+								</TabsTrigger>
+								<TabsTrigger value="transcript">Meeting transcript</TabsTrigger>
+							</TabsList>
+						</Tabs>
 						<input
 							ref={fileInputRef}
 							type="file"
-							accept=".txt,.zip,.opus,.m4a,.mp3,.wav"
+							accept={
+								mode === "transcript"
+									? ".txt,.md,.pdf,.docx"
+									: ".txt,.zip,.opus,.m4a,.mp3,.wav"
+							}
 							className="hidden"
 							onChange={(e) => {
 								const selected = e.target.files?.[0];
@@ -297,28 +329,41 @@ export function ImportConversationDialog() {
 										</p>
 									</div>
 									<div className="flex flex-wrap items-center justify-center gap-1 pt-1">
-										<Badge variant="mono" className="text-[10px]">
-											.txt
-										</Badge>
-										<Badge variant="mono" className="text-[10px]">
-											.zip
-										</Badge>
-										<Badge variant="mono" className="text-[10px]">
-											.opus
-										</Badge>
-										<Badge variant="mono" className="text-[10px]">
-											.m4a
-										</Badge>
-										<Badge variant="mono" className="text-[10px]">
-											.mp3
-										</Badge>
-										<Badge variant="mono" className="text-[10px]">
-											.wav
-										</Badge>
+										{(mode === "transcript"
+											? [".txt", ".md", ".pdf", ".docx"]
+											: [".txt", ".zip", ".opus", ".m4a", ".mp3", ".wav"]
+										).map((ext) => (
+											<Badge key={ext} variant="mono" className="text-[10px]">
+												{ext}
+											</Badge>
+										))}
 									</div>
 								</>
 							)}
 						</button>
+						{mode === "transcript" ? (
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="pasted-transcript" className="text-xs">
+									Or paste a transcript
+								</Label>
+								<Textarea
+									id="pasted-transcript"
+									rows={6}
+									value={pasted}
+									onChange={(event) => setPasted(event.target.value)}
+									placeholder={
+										"Priya Shah: We need 200 sensors by March.\nYou: I will send a quote today."
+									}
+								/>
+								<Button
+									type="button"
+									disabled={uploading || pasted.trim().length < 20}
+									onClick={() => handleFileChosen(null, pasted.trim())}
+								>
+									Import pasted transcript
+								</Button>
+							</div>
+						) : null}
 					</div>
 				)}
 
@@ -330,11 +375,15 @@ export function ImportConversationDialog() {
 									icon={Document}
 									className="size-4 text-muted-foreground"
 								/>
-								<span className="font-medium truncate">{file?.name}</span>
+								<span className="font-medium truncate">
+									{file?.name ?? "Pasted transcript"}
+								</span>
 								<Badge variant="mono" className="ml-auto text-[10px]">
 									{sourceType === "WHATSAPP_EXPORT"
 										? "WhatsApp Chat"
-										: "Audio Recording"}
+										: sourceType === "MEETING_TRANSCRIPT"
+											? "Meeting transcript"
+											: "Audio Recording"}
 								</Badge>
 							</div>
 						</div>

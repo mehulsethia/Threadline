@@ -1,6 +1,9 @@
+import {
+	docxText,
+	parseTranscriptText,
+} from "@crm/validation/transcript-parser";
 import { z } from "zod";
 
-/** The step name and message an intake agent event carries. */
 const intakeEventData = z
 	.looseObject({
 		tool: z.string().optional().catch(undefined),
@@ -33,6 +36,7 @@ import type {
 } from "./intake.contracts";
 
 const ALLOWED_EXTENSIONS = [".zip", ".txt", ".opus", ".m4a", ".mp3", ".wav"];
+const TRANSCRIPT_EXTENSIONS = [".txt", ".md", ".pdf", ".docx"];
 
 async function readFileBytes(fileUrl: string): Promise<Buffer> {
 	if (existsSync(fileUrl)) {
@@ -88,6 +92,7 @@ export class IntakeService {
 			me?: string;
 			autoStart?: boolean;
 			userId?: string | null;
+			kind?: "conversation" | "transcript";
 		},
 	): Promise<{
 		jobId: string;
@@ -100,14 +105,17 @@ export class IntakeService {
 		const ext =
 			dotIndex !== -1 ? originalName.slice(dotIndex).toLowerCase() : "";
 
-		if (!ALLOWED_EXTENSIONS.includes(ext)) {
+		const transcript = options?.kind === "transcript";
+		const allowed = transcript ? TRANSCRIPT_EXTENSIONS : ALLOWED_EXTENSIONS;
+		if (!allowed.includes(ext)) {
 			throw new BadRequestException(
-				`Unsupported file extension "${ext}". Allowed extensions: ${ALLOWED_EXTENSIONS.join(", ")}`,
+				`Unsupported file extension "${ext}". Allowed extensions: ${allowed.join(", ")}`,
 			);
 		}
 
-		const sourceType =
-			ext === ".zip" || ext === ".txt"
+		const sourceType = transcript
+			? IntakeSourceType.MEETING_TRANSCRIPT
+			: ext === ".zip" || ext === ".txt"
 				? IntakeSourceType.WHATSAPP_EXPORT
 				: IntakeSourceType.VOICE_NOTE;
 
@@ -130,6 +138,7 @@ export class IntakeService {
 				userId: options?.userId ?? null,
 				sourceType,
 				fileUrl,
+				title: transcript ? originalName : null,
 				status: IntakeJobStatus.QUEUED,
 			},
 		});
@@ -162,6 +171,7 @@ export class IntakeService {
 		input: IntakePreviewInput,
 	): Promise<IntakePreviewOutput> {
 		let targetUrl = input.fileUrl;
+		let transcriptJob = false;
 		if (input.jobId) {
 			const job = await this.db.intakeJob.findUnique({
 				where: { id: input.jobId },
@@ -170,6 +180,7 @@ export class IntakeService {
 				throw new NotFoundException(`Intake job ${input.jobId} not found.`);
 			}
 			targetUrl = job.fileUrl;
+			transcriptJob = job.sourceType === IntakeSourceType.MEETING_TRANSCRIPT;
 		}
 
 		if (!targetUrl) {
@@ -180,6 +191,24 @@ export class IntakeService {
 
 		try {
 			const bytes = await readFileBytes(targetUrl);
+			if (transcriptJob) {
+				const path = targetUrl.split("?")[0]?.toLowerCase() ?? "";
+				const text = path.endsWith(".pdf")
+					? ""
+					: path.endsWith(".docx")
+						? docxText(bytes)
+						: bytes.toString("utf8");
+				const turns = parseTranscriptText(text);
+				const detected = detectParticipants(turns.speakers, turns.turns);
+				return {
+					participants: turns.speakers,
+					me: detected.me,
+					lead: detected.lead,
+					confidence: detected.confidence,
+					autoDetected: detected.autoDetected,
+					messageCount: turns.turns.length,
+				};
+			}
 			const parsed = parseWhatsAppExport(bytes);
 			const detected = detectParticipants(parsed.participants, parsed.messages);
 			return {

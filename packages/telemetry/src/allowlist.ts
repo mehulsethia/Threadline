@@ -167,6 +167,9 @@ export function permittedTool(name: string | null | undefined): string {
 
 export const EVIDENCE_KINDS = [
 	"whatsapp.message",
+	"email.message",
+	"slack.message",
+	"meeting.transcript",
 	"voice.transcript",
 	"voice.live-call",
 	"agent.inference",

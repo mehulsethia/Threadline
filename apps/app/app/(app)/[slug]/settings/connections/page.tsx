@@ -1,3 +1,4 @@
+import Microphone from "@carbon/icons-react/es/Microphone";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
 import MicrosoftLogo from "@crm/ui/components/brand-logos/microsoft";
 import SlackLogo from "@crm/ui/components/brand-logos/slack";
@@ -30,18 +31,23 @@ async function ConnectionsSettingsPageContent({
 	const [{ slug }, query] = await Promise.all([params, searchParams]);
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	const [google, microsoft, slack] = await Promise.all([
+	const [google, microsoft, slack, recorders] = await Promise.all([
 		queryClient.fetchQuery(trpc.google.status.queryOptions()),
 		queryClient.fetchQuery(trpc.microsoft.status.queryOptions()),
 		queryClient.fetchQuery(trpc.slack.status.queryOptions()),
+		queryClient.fetchQuery(trpc.recorders.status.queryOptions()),
 	]);
+	const recordersConnected = recorders.providers
+		.filter((row) => row.connected)
+		.map((row) => (row.provider === "fireflies" ? "Fireflies" : "Fathom"));
 	const rows = [
 		...(google.linked
 			? [
 					{
 						name: "Google Workspace",
 						status: "Connected",
-						bringsIn: "Emails, meetings and the people on them",
+						bringsIn:
+							"Email threads and meetings, turned into facts, deals and tasks",
 						sends: "Nothing yet",
 						href: `/${slug}/settings/connections/google`,
 						logo: GoogleLogo,
@@ -55,10 +61,23 @@ async function ConnectionsSettingsPageContent({
 						status: slack.workspace
 							? `Connected to ${slack.workspace}`
 							: "Connected",
-						bringsIn: "Workspace members and channels the app has joined",
+						bringsIn:
+							"Messages in channels the app is invited to, turned into facts and deals",
 						sends: "Messages to approved channels and people",
 						href: `/${slug}/settings/connections/slack`,
 						logo: SlackLogo,
+					},
+				]
+			: []),
+		...(recordersConnected.length > 0
+			? [
+					{
+						name: "Meeting recorders",
+						status: `Connected to ${recordersConnected.join(" and ")}`,
+						bringsIn: "Meeting transcripts, every 15 minutes",
+						sends: "Nothing",
+						href: `/${slug}/settings/connections/recorders`,
+						logo: Microphone,
 					},
 				]
 			: []),

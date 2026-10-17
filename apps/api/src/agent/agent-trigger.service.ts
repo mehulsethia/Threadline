@@ -586,6 +586,18 @@ export class AgentTriggerService {
 		);
 	}
 
+	async queueMeetingSync(): Promise<boolean> {
+		const queued = await this.enqueue({
+			kind: "meeting-sync",
+			reason: "Fetch new meeting recorder transcripts",
+			priority: PRIORITY.meetingSync,
+			budget: 2,
+			payload: { trigger: "cron" },
+		});
+		if (queued) this.poke();
+		return queued;
+	}
+
 	async queueRevival(required = false): Promise<boolean> {
 		return this.enqueue(
 			{

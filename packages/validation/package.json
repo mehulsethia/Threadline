@@ -9,6 +9,7 @@
 		"./agent-events": "./src/agent-events.ts",
 		"./agent-manifest": "./src/agent-manifest.ts",
 		"./builder-question": "./src/builder-question.ts",
+		"./captured-conversation": "./src/captured-conversation.ts",
 		"./cited-evidence": "./src/cited-evidence.ts",
 		"./enrichment-queue": "./src/enrichment-queue.ts",
 		"./eve-stream": "./src/eve-stream.ts",
@@ -16,6 +17,7 @@
 		"./field-backfill": "./src/field-backfill.ts",
 		"./field-templates": "./src/field-templates.ts",
 		"./json-text": "./src/json-text.ts",
+		"./transcript-parser": "./src/transcript-parser.ts",
 		"./saved-view": "./src/saved-view.ts",
 		"./whatsapp-parser": "./src/whatsapp-parser.ts"
 	},

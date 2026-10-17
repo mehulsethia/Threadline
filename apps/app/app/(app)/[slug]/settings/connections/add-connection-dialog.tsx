@@ -1,5 +1,6 @@
 "use client";
 
+import Microphone from "@carbon/icons-react/es/Microphone";
 import Plug from "@carbon/icons-react/es/Plug";
 import DocusignLogo from "@crm/ui/components/brand-logos/docusign";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
@@ -65,6 +66,12 @@ export function AddConnectionDialog({
 							href={`/${slug}/settings/connections/microsoft`}
 						/>
 					) : null}
+					<CatalogRow
+						logo={Microphone}
+						name="Fireflies & Fathom"
+						description="Turn recorded meeting transcripts into facts and deals"
+						href={`/${slug}/settings/connections/recorders`}
+					/>
 					<CatalogRow
 						logo={StripeLogo}
 						name="Stripe"

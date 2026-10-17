@@ -3,6 +3,7 @@ import { AgentModule } from "../agent/agent.module";
 import { TrpcModule } from "../trpc/trpc.module";
 import { SlackController } from "./slack.controller";
 import { SlackRouter } from "./slack.router";
+import { SlackCaptureService } from "./slack-capture.service";
 import { SlackChannelsService } from "./slack-channels.service";
 import { SlackConnectionService } from "./slack-connection.service";
 import { SlackRevivalService } from "./slack-revival.service";
@@ -12,6 +13,7 @@ import { SlackSocketService } from "./slack-socket.service";
 	imports: [TrpcModule, AgentModule],
 	controllers: [SlackController],
 	providers: [
+		SlackCaptureService,
 		SlackChannelsService,
 		SlackConnectionService,
 		SlackRevivalService,

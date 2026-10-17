@@ -2,9 +2,9 @@
 
 import { authClient } from "@crm/auth/client";
 import {
+	GOOGLE_REQUESTED_SCOPES,
 	type MailboxProviderId,
 	MICROSOFT_SYNC_SCOPES,
-	SYNC_SCOPES,
 } from "@crm/auth/scopes";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
 import MicrosoftLogo from "@crm/ui/components/brand-logos/microsoft";
@@ -24,7 +24,7 @@ type ProviderGrant = {
 const PROVIDERS = {
 	google: {
 		label: "Grant Google access",
-		scopes: [...SYNC_SCOPES],
+		scopes: [...GOOGLE_REQUESTED_SCOPES],
 		Logo: GoogleLogo,
 	},
 	microsoft: {

@@ -1331,6 +1331,10 @@ model AppSetting {
 
   contextDevApiKey String?
 
+  firefliesApiKey  String?
+  fathomApiKey     String?
+  recordersSyncedAt DateTime?
+
   reportingCurrency String?
 
   ratesRefreshedAt DateTime?
@@ -1700,6 +1704,9 @@ enum IntakeSourceType {
   WHATSAPP_EXPORT
   VOICE_NOTE
   CALL_RECORDING
+  EMAIL_THREAD
+  SLACK_THREAD
+  MEETING_TRANSCRIPT
 }
 
 enum IntakeJobStatus {
@@ -1715,6 +1722,10 @@ model IntakeJob {
   user              User?            @relation("UserIntakeJobs", fields: [userId], references: [id], onDelete: SetNull)
   sourceType        IntakeSourceType
   fileUrl           String
+  externalId        String?          @unique
+  title             String?
+  transcript        Json?
+  contentHash       String?
   status            IntakeJobStatus  @default(QUEUED)
   summary           Json?
   error             String?
@@ -1728,3 +1739,19 @@ model IntakeJob {
   @@map("intakeJob")
 }
 
+
+model Notification {
+  id        String    @id @default(cuid())
+  kind      String
+  title     String
+  body      String?
+  entity    String?
+  entityId  String?
+  source    String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([createdAt])
+  @@index([readAt, createdAt])
+  @@map("notification")
+}

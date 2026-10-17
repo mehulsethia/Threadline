@@ -16,7 +16,11 @@ export const CALENDAR_SCOPE =
 	"https://www.googleapis.com/auth/calendar.readonly";
 export const OUTLOOK_MAIL_SCOPE = "Mail.Read";
 
+export const MEET_SCOPE =
+	"https://www.googleapis.com/auth/meetings.space.readonly";
+
 export const SYNC_SCOPES = [GMAIL_SCOPE, CALENDAR_SCOPE] as const;
+export const GOOGLE_REQUESTED_SCOPES = [...SYNC_SCOPES, MEET_SCOPE] as const;
 export const MICROSOFT_SYNC_SCOPES = [OUTLOOK_MAIL_SCOPE] as const;
 
 export const SYNC_SCOPES_FOR = {

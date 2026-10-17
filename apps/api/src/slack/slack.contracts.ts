@@ -190,9 +190,56 @@ export const slackBlockActionPayload = z.object({
 export type SlackBlockActionPayload = z.infer<typeof slackBlockActionPayload>;
 
 /** The fields of an Events API body this app reads. */
+export const slackMessageEvent = z.object({
+	type: z.literal("message"),
+	subtype: z.string().optional(),
+	bot_id: z.string().optional(),
+	user: z.string().optional(),
+	text: z.string().optional(),
+	channel: z.string(),
+	ts: z.string(),
+	thread_ts: z.string().optional(),
+});
+
+export type SlackMessageEvent = z.infer<typeof slackMessageEvent>;
+
 export const slackEventBody = z.object({
 	type: z.string().optional(),
 	challenge: z.string().optional(),
+	team_id: z.string().optional(),
+	event: z.unknown().optional(),
+});
+
+export const slackHistoryResponse = z.object({
+	ok: z.boolean(),
+	error: z.string().optional(),
+	messages: z
+		.array(
+			z.object({
+				user: z.string().optional(),
+				bot_id: z.string().optional(),
+				subtype: z.string().optional(),
+				text: z.string().optional(),
+				ts: z.string(),
+			}),
+		)
+		.optional(),
+});
+
+export const slackUserInfoResponse = z.object({
+	ok: z.boolean(),
+	user: z
+		.object({
+			real_name: z.string().optional(),
+			name: z.string().optional(),
+			profile: z
+				.object({
+					real_name: z.string().optional(),
+					display_name: z.string().optional(),
+				})
+				.optional(),
+		})
+		.optional(),
 });
 
 /** A Socket Mode envelope; its payload is parsed by the receiver. */

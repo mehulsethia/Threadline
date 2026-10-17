@@ -24,6 +24,9 @@ export type AudioTranscriptionResult = {
 
 export type EvidenceSourceKind =
 	| "whatsapp.message"
+	| "email.message"
+	| "slack.message"
+	| "meeting.transcript"
 	| "voice.transcript"
 	| "voice.live-call"
 	| "agent.inference";
@@ -151,6 +154,30 @@ export function getSmartClient(): GeminiClient {
 	});
 
 	return { ai, model };
+}
+
+export async function pdfText(bytes: Buffer): Promise<string> {
+	const { ai, model } = getFastClient();
+	const response = await ai.models.generateContent({
+		model,
+		contents: [
+			{
+				role: "user",
+				parts: [
+					{
+						inlineData: {
+							mimeType: "application/pdf",
+							data: bytes.toString("base64"),
+						},
+					},
+					{
+						text: "Return the full text of this meeting transcript exactly as written, one speaker turn per line in the form 'Speaker Name: words'. Do not summarise, translate or add anything.",
+					},
+				],
+			},
+		],
+	});
+	return response.text?.trim() ?? "";
 }
 
 export async function transcribeAudio(
@@ -530,6 +557,9 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 
 const SOURCE_KINDS = [
 	"whatsapp.message",
+	"email.message",
+	"slack.message",
+	"meeting.transcript",
 	"voice.transcript",
 	"voice.live-call",
 	"agent.inference",

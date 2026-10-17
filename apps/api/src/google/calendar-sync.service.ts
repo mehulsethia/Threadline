@@ -22,6 +22,7 @@ import {
 	eventTime,
 	type GoogleEvent,
 } from "./calendar.client";
+import { MeetTranscriptService } from "./meet-transcript.service";
 
 const MAX_PAGES_PER_TICK = 5;
 
@@ -48,6 +49,7 @@ export class CalendarSyncService {
 		private readonly state: SyncStateService,
 		private readonly stamp: ActivityStampService,
 		private readonly agent: AgentTriggerService,
+		private readonly meet: MeetTranscriptService,
 	) {}
 
 	async sync(row: MailboxSync): Promise<SyncOutcome> {
@@ -73,6 +75,7 @@ export class CalendarSyncService {
 		}
 
 		await this.state.markRunning(row.id);
+		await this.meet.safeCapture(row.userId, token.accessToken);
 
 		const [internal, suppressedDomains, suppressedEmails] = await Promise.all([
 			this.match.internalIdentity(),

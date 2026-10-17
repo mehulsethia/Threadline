@@ -13,6 +13,7 @@ import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
+	GOOGLE_REQUESTED_SCOPES,
 	MICROSOFT_PROVIDER_ID,
 	MICROSOFT_SYNC_SCOPES,
 	SLACK_PROVIDER_ID,
@@ -29,7 +30,7 @@ import {
 	primaryWorkspaceDomain,
 } from "./workspace";
 
-const ENABLE_MICROSOFT_AUTH = false;
+const ENABLE_MICROSOFT_AUTH = true;
 const ENABLE_SLACK = false;
 
 const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
@@ -43,7 +44,7 @@ if (env.google) {
 	const google: NonNullable<typeof socialProviders.google> = {
 		...env.google,
 
-		scope: [...SYNC_SCOPES],
+		scope: [...GOOGLE_REQUESTED_SCOPES],
 
 		accessType: "offline",
 	};

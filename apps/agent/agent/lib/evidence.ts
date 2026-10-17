@@ -13,6 +13,9 @@ export type EvidenceKind =
 	| "employer-only"
 	| "contradiction"
 	| "whatsapp.message"
+	| "email.message"
+	| "slack.message"
+	| "meeting.transcript"
 	| "voice.transcript"
 	| "voice.live-call"
 	| "agent.inference"
@@ -29,6 +32,21 @@ export const WEIGHTS = {
 		weight: 0.9,
 		primary: true,
 		label: "the lead said it in a WhatsApp message",
+	},
+	"email.message": {
+		weight: 0.9,
+		primary: true,
+		label: "the lead wrote it in an email",
+	},
+	"slack.message": {
+		weight: 0.85,
+		primary: true,
+		label: "the lead wrote it in a Slack message",
+	},
+	"meeting.transcript": {
+		weight: 0.85,
+		primary: true,
+		label: "the lead said it in a recorded meeting",
 	},
 	"voice.transcript": {
 		weight: 0.85,

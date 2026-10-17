@@ -7,6 +7,7 @@ import {
 	OutboundDraftStatus,
 	type Prisma,
 } from "@crm/db";
+import { notify } from "@crm/db/notifications";
 import { readPlaybook } from "@crm/db/settings";
 import { WORKSPACE_ID } from "@crm/db/workspace";
 import { z } from "zod";
@@ -622,6 +623,14 @@ export async function generateRevivalDraft(
 	});
 
 	await postDraftToSlack(created.id);
+	await notify(db, {
+		kind: "revival.draft",
+		title: `Follow-up draft ready for ${deal.name}`,
+		body: stalled.stalledReason ?? undefined,
+		entity: "deal",
+		entityId: stalled.dealId,
+		source: "revival",
+	});
 
 	await db.agentEvent.create({
 		data: {

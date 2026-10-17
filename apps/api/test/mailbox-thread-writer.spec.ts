@@ -4,6 +4,7 @@ import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { EnrichmentLogService } from "../src/crm/enrichment-log.service";
+import type { EmailCaptureService } from "../src/mailbox/email-capture.service";
 import { MailboxMatchService } from "../src/mailbox/mailbox-match.service";
 import {
 	type IncomingMessage,
@@ -30,7 +31,10 @@ const stamp = new ActivityStampService(db);
 const directory = new CompanyDirectoryService(agent);
 const log = new EnrichmentLogService(db, stamp);
 const match = new MailboxMatchService(db, directory, agent, log);
-const threads = new ThreadWriterService(db, match, stamp);
+const capture = {
+	captureThread: async () => undefined,
+} as unknown as EmailCaptureService;
+const threads = new ThreadWriterService(db, match, stamp, capture);
 
 let row: MailboxSync;
 

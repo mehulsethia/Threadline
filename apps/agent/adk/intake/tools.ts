@@ -11,6 +11,10 @@ import {
 import { downloadFile } from "@crm/db/blob";
 import { readReportingCurrency } from "@crm/db/settings";
 import {
+	docxText,
+	parseTranscriptText,
+} from "@crm/validation/transcript-parser";
+import {
 	type ParsedWhatsAppExport,
 	parseWhatsAppExport,
 	type WhatsAppMessageItem,
@@ -20,6 +24,7 @@ import { z } from "zod";
 import type { EvidenceKind } from "../../agent/lib/evidence";
 import { type FactField, recordFact } from "../../agent/lib/facts";
 import {
+	pdfText,
 	extractLeadFacts as runExtractLeadFacts,
 	transcribeAudio as runTranscribeAudio,
 } from "../extraction";
@@ -103,6 +108,8 @@ export async function loadIntakeJob(input: { jobId: string }) {
 		status: job.status,
 		sourceType: job.sourceType,
 		fileUrl: job.fileUrl,
+		title: job.title,
+		transcript: job.transcript,
 		summary: job.summary,
 	};
 }
@@ -124,6 +131,28 @@ export async function parseWhatsAppExportFile(input: {
 		...parsed,
 		messageCount: parsed.messages.length,
 	};
+}
+
+export async function readTranscriptDocument(input: {
+	jobId: string;
+	fileUrl: string;
+}) {
+	const bytes = await readFileBytes(input.fileUrl);
+	const path = input.fileUrl.split("?")[0]?.toLowerCase() ?? "";
+	const text = path.endsWith(".pdf")
+		? await pdfText(bytes)
+		: path.endsWith(".docx")
+			? docxText(bytes)
+			: bytes.toString("utf8");
+	const parsed = parseTranscriptText(text);
+	await emitIntakeEvent(
+		input.jobId,
+		"read_transcript",
+		`Read transcript (${parsed.turns.length} speaker turns, ${parsed.speakers.length} speakers)`,
+		null,
+		{ turns: parsed.turns.length, speakers: parsed.speakers.length },
+	);
+	return parsed;
 }
 
 export async function transcribeAudioFile(input: {
@@ -604,7 +633,7 @@ export async function storeMessagesAction(input: {
 
 export async function logActivityAction(input: {
 	jobId: string;
-	type: "WHATSAPP" | "VOICE_NOTE";
+	type: ActivityType;
 	contactId?: string;
 	dealId?: string;
 	companyId?: string;
@@ -614,7 +643,7 @@ export async function logActivityAction(input: {
 }) {
 	const existing = await db.activity.findFirst({
 		where: {
-			type: input.type as ActivityType,
+			type: input.type,
 			contactId: input.contactId || null,
 			dealId: input.dealId || null,
 		},

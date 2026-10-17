@@ -21,7 +21,12 @@ import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import { InjectDatabase } from "../database/database.constants";
-import { slackBlockActionPayload, slackEventBody } from "./slack.contracts";
+import {
+	slackBlockActionPayload,
+	slackEventBody,
+	slackMessageEvent,
+} from "./slack.contracts";
+import { SlackCaptureService } from "./slack-capture.service";
 import {
 	encryptToken,
 	signSlackState,
@@ -36,8 +41,8 @@ const BOT_SCOPES = [
 	"channels:read",
 	"channels:join",
 	"groups:read",
-	"im:read",
-	"mpim:read",
+	"channels:history",
+	"groups:history",
 	"users:read",
 	"users:read.email",
 ].join(",");
@@ -59,6 +64,7 @@ export class SlackController {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly revival: SlackRevivalService,
+		private readonly capture: SlackCaptureService,
 	) {}
 
 	/**
@@ -266,6 +272,10 @@ export class SlackController {
 		}
 		if (body.data.type === "url_verification") {
 			return { challenge: body.data.challenge };
+		}
+		const message = slackMessageEvent.safeParse(body.data.event);
+		if (body.data.type === "event_callback" && message.success) {
+			this.capture.receive(body.data.team_id, message.data);
 		}
 
 		return { ok: true };

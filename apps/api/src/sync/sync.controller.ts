@@ -3,6 +3,7 @@ import {
 	ForbiddenException,
 	Get,
 	Headers,
+	Inject,
 	Logger,
 	Post,
 	ServiceUnavailableException,
@@ -18,6 +19,7 @@ import {
 	ApiTags,
 } from "@nestjs/swagger";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
+import { AgentTriggerService } from "../agent/agent-trigger.service";
 import type { EnvironmentVariables } from "../config/env.validation";
 import { MailboxSyncService } from "./mailbox-sync.service";
 
@@ -36,6 +38,7 @@ export class SyncController {
 
 	constructor(
 		private readonly sync: MailboxSyncService,
+		@Inject(AgentTriggerService) private readonly agent: AgentTriggerService,
 		config: ConfigService<EnvironmentVariables, true>,
 	) {
 		this.secret = config.get("CRON_SECRET", { infer: true });
@@ -85,7 +88,11 @@ export class SyncController {
 			throw new ForbiddenException();
 		}
 
-		return this.sync.runDue();
+		const [mailboxes, meetings] = await Promise.all([
+			this.sync.runDue(),
+			this.agent.queueMeetingSync(),
+		]);
+		return { ...mailboxes, meetingSyncQueued: meetings };
 	}
 }
 

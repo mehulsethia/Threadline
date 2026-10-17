@@ -27,6 +27,8 @@ import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { RecordersModule } from "./recorders/recorders.module";
 import { RevivalModule } from "./revival/revival.module";
 import { SavedViewsModule } from "./saved-views/saved-views.module";
 import { SearchModule } from "./search/search.module";
@@ -67,6 +69,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ActivitiesModule,
 		AgentModule,
 		IntakeModule,
+		NotificationsModule,
+		RecordersModule,
 		RevivalModule,
 		EnrichmentModule,
 		DashboardModule,

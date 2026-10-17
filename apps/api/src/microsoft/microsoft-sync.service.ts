@@ -6,7 +6,7 @@ import {
 } from "./microsoft.constants";
 import { OutlookSyncService } from "./outlook-sync.service";
 
-const ENABLE_MICROSOFT_SYNC = false;
+const ENABLE_MICROSOFT_SYNC = true;
 
 @Injectable()
 export class MicrosoftSyncService {

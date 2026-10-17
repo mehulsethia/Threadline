@@ -10,6 +10,7 @@ import {
 import { Injectable, Logger } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
+import { EmailCaptureService } from "./email-capture.service";
 import type { SyncSource } from "./mailbox.constants";
 import {
 	MailboxMatchService,
@@ -39,6 +40,7 @@ export class ThreadWriterService {
 		@InjectDatabase() private readonly db: Db,
 		private readonly match: MailboxMatchService,
 		private readonly stamp: ActivityStampService,
+		private readonly capture: EmailCaptureService,
 	) {}
 
 	async context(): Promise<MatchContext> {
@@ -119,6 +121,7 @@ export class ThreadWriterService {
 		}
 
 		let occurredAt: Date;
+		let storedThreadId: string | null = null;
 
 		try {
 			occurredAt = await this.db.$transaction(async (tx) => {
@@ -138,6 +141,8 @@ export class ThreadWriterService {
 							update: {},
 							select: { id: true },
 						});
+
+				storedThreadId = record.id;
 
 				if (!repair) {
 					await tx.emailMessage.create({
@@ -197,6 +202,10 @@ export class ThreadWriterService {
 		}
 
 		await this.touch({ companyId, contactId }, occurredAt, parsed.rfcMessageId);
+
+		if (storedThreadId && contactId) {
+			await this.capture.captureThread(storedThreadId, row.userId);
+		}
 
 		return !repair;
 	}

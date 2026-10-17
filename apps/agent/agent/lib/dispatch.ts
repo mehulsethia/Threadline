@@ -1,5 +1,7 @@
-import { EnrichmentStatus } from "@crm/db";
+import { db, EnrichmentStatus } from "@crm/db";
+import { PRIORITY } from "@crm/db/agent-tasks";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
+import { captureRecorderMeetings } from "../../adk/capture/recorders";
 import { runAdkIntakeTask } from "../../adk/intake";
 import { runLeadRevivalCycle } from "../../adk/revival/service";
 import { APP_AUTH, type AppAuth } from "./app-auth";
@@ -131,6 +133,29 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 	if (task.kind === "intake") {
 		const outcome = await runAdkIntakeTask(task);
 		await completeTask(task.id, outcome);
+		return;
+	}
+
+	if (task.kind === "meeting-sync") {
+		const report = await captureRecorderMeetings();
+		for (const job of report.jobs) {
+			await db.agentTask.create({
+				data: {
+					kind: "intake",
+					reason: "Meeting recorder transcript",
+					priority: PRIORITY.intake,
+					budget: 4,
+					dueAt: new Date(),
+					payload: { jobId: job.jobId, me: job.me },
+				},
+			});
+		}
+		await completeTask(
+			task.id,
+			report.errors.length > 0
+				? `Checked ${report.checked} meetings, queued ${report.jobs.length}. ${report.errors.join(" ")}`
+				: `Checked ${report.checked} meetings, queued ${report.jobs.length}.`,
+		);
 		return;
 	}
 

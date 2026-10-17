@@ -13,6 +13,7 @@ export const TASK_KINDS = [
 	"agent-event",
 	"intake",
 	"revival",
+	"meeting-sync",
 ] as const;
 
 export type TaskKind = (typeof TASK_KINDS)[number];
@@ -25,6 +26,7 @@ export const DIRECT_KINDS = [
 	"agent-event",
 	"intake",
 	"revival",
+	"meeting-sync",
 ] as const;
 
 export type DirectKind = (typeof DIRECT_KINDS)[number];
@@ -65,4 +67,5 @@ export const PRIORITY = {
 	event: 700,
 	intake: 920,
 	revival: 850,
+	meetingSync: 880,
 } as const;

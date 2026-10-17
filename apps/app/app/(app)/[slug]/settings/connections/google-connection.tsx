@@ -3,7 +3,7 @@
 import Launch from "@carbon/icons-react/es/Launch";
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { SYNC_SCOPES } from "@crm/auth/scopes";
+import { GOOGLE_REQUESTED_SCOPES } from "@crm/auth/scopes";
 import {
 	Alert,
 	AlertAction,
@@ -151,7 +151,7 @@ function ConnectGoogle({
 
 		const { error } = await authClient.linkSocial({
 			provider: "google",
-			scopes: [...SYNC_SCOPES],
+			scopes: [...GOOGLE_REQUESTED_SCOPES],
 			callbackURL: `${origin}/${slug}/settings/connections/google`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
 		});

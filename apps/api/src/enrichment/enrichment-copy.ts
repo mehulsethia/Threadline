@@ -17,6 +17,7 @@ const STEPS = {
 	"agent-event": "Reacting to a change",
 	intake: "Processing conversation intake",
 	revival: "Reviewing stalled deals",
+	"meeting-sync": "Fetching meeting transcripts",
 } satisfies Record<TaskKind, string>;
 
 const STEP_BY_KIND = new Map<string, string>(Object.entries(STEPS));

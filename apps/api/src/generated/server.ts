@@ -27,6 +27,8 @@ import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { intakePreviewInput, intakePreviewOutput, intakeStartInput, intakeStartOutput, intakeStatusInput, intakeStatusOutput } from "../intake/intake.contracts";
+import { notificationListInput, notificationListOutput, notificationMarkReadInput, notificationMarkReadOutput } from "../notifications/notifications.contracts";
+import { recorderStatusOutput, recorderSetKeyInput, recorderRemoveKeyInput, recorderSyncOutput } from "../recorders/recorders.contracts";
 import { revivalListInput, revivalListOutput, revivalRunInput, revivalRunOutput, revivalApproveInput, revivalApproveOutput, revivalUpdateInput, revivalUpdateOutput, revivalRejectInput, revivalRejectOutput, revivalSettingsInput, revivalSettingsOutput, revivalUpdateSettingsInput, revivalUpdateSettingsOutput } from "../revival/revival.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
@@ -595,6 +597,32 @@ const appRouter = t.router({
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
       .output(microsoftConnectionStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  notifications: t.router({
+    list: publicProcedure
+      .input(notificationListInput)
+      .output(notificationListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    markRead: publicProcedure
+      .input(notificationMarkReadInput)
+      .output(notificationMarkReadOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  recorders: t.router({
+    status: publicProcedure
+      .output(recorderStatusOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    setKey: publicProcedure
+      .input(recorderSetKeyInput)
+      .output(recorderStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    removeKey: publicProcedure
+      .input(recorderRemoveKeyInput)
+      .output(recorderStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    syncNow: publicProcedure
+      .output(recorderSyncOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   revival: t.router({

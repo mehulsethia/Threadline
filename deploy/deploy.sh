@@ -118,6 +118,7 @@ scheduler() {
 	}
 
 	upsert threadline-revival-hourly "0 * * * *" "$API_RUN_URL/internal/revival/run" "$cron"
+	upsert threadline-capture-15min "*/15 * * * *" "$API_RUN_URL/internal/sync/mailboxes" "$cron"
 	upsert threadline-demo-reset-nightly "0 3 * * *" "$APP_URL/api/demo/reset" "$reset"
 }
 

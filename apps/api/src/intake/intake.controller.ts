@@ -40,9 +40,21 @@ export class IntakeController {
 		@UploadedFile() file: UploadedFileRecord | undefined,
 		@Body("me") me?: string,
 		@Body("autoStart") autoStart?: string | boolean,
+		@Body("kind") kind?: string,
+		@Body("text") text?: string,
 	) {
-		if (!file) {
-			throw new BadRequestException("No file provided in request");
+		const pasted = text?.trim();
+		const upload: UploadedFileRecord | undefined =
+			file ??
+			(pasted
+				? {
+						buffer: Buffer.from(pasted, "utf8"),
+						originalname: "pasted-transcript.txt",
+						mimetype: "text/plain",
+					}
+				: undefined);
+		if (!upload) {
+			throw new BadRequestException("No file or text provided in request");
 		}
 		if (!(await this.intake.consumeImportQuota(session.user.id))) {
 			throw new HttpException(
@@ -54,10 +66,14 @@ export class IntakeController {
 		const autoStartBool =
 			autoStart === "false" || autoStart === false ? false : true;
 
-		return this.intake.uploadAndCreateJob(file, {
+		return this.intake.uploadAndCreateJob(upload, {
 			me,
 			autoStart: autoStartBool,
 			userId: session.user.id,
+			kind:
+				kind === "transcript" || (!file && pasted)
+					? "transcript"
+					: "conversation",
 		});
 	}
 }

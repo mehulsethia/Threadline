@@ -1,8 +1,18 @@
-import { db, IntakeJobStatus } from "@crm/db";
+import {
+	ActivityType,
+	db,
+	FactStatus,
+	IntakeJobStatus,
+	type IntakeSourceType,
+} from "@crm/db";
+import { TEXT_CAPTURE_SOURCES } from "@crm/db/capture";
+import { type NotificationSource, notify } from "@crm/db/notifications";
 import { readReportingCurrency } from "@crm/db/settings";
+import { parseCapturedTranscript } from "@crm/validation/captured-conversation";
 import { Gemini, LlmAgent } from "@google/adk";
 import { z } from "zod";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
+import type { EvidenceSourceKind } from "../extraction";
 import { researchCompany } from "../research/company";
 import {
 	createTaskAction,
@@ -14,6 +24,7 @@ import {
 	loadIntakeJob,
 	logActivityAction,
 	parseWhatsAppExportFile,
+	readTranscriptDocument,
 	recordFactAction,
 	storeMessagesAction,
 	transcribeAudioFile,
@@ -27,6 +38,7 @@ const intakeTaskPayload = z
 	.object({
 		jobId: z.string().optional().catch(undefined),
 		me: z.string().optional().catch(undefined),
+		contactId: z.string().optional().catch(undefined),
 	})
 	.catch({});
 
@@ -166,36 +178,113 @@ async function runCompanyResearchStep(input: {
 	}
 }
 
+const CAPTURE_PROFILE = {
+	EMAIL_THREAD: {
+		kind: "email.message",
+		activity: ActivityType.EMAIL,
+		source: "email",
+		label: "email thread",
+	},
+	SLACK_THREAD: {
+		kind: "slack.message",
+		activity: ActivityType.NOTE,
+		source: "slack",
+		label: "Slack conversation",
+	},
+	MEETING_TRANSCRIPT: {
+		kind: "meeting.transcript",
+		activity: ActivityType.MEETING,
+		source: "meeting",
+		label: "meeting transcript",
+	},
+	WHATSAPP_EXPORT: {
+		kind: "whatsapp.message",
+		activity: ActivityType.WHATSAPP,
+		source: "whatsapp",
+		label: "WhatsApp chat",
+	},
+	VOICE_NOTE: {
+		kind: "voice.transcript",
+		activity: ActivityType.VOICE_NOTE,
+		source: "voice",
+		label: "voice note",
+	},
+	CALL_RECORDING: {
+		kind: "voice.transcript",
+		activity: ActivityType.VOICE_NOTE,
+		source: "voice",
+		label: "call recording",
+	},
+} as const satisfies Record<
+	IntakeSourceType,
+	{
+		kind: string;
+		activity: ActivityType;
+		source: NotificationSource;
+		label: string;
+	}
+>;
+
+type JobSource = {
+	messages: Array<{
+		lineNo: number;
+		timestamp: Date;
+		sender: string;
+		text: string;
+	}>;
+	transcriptText: string;
+};
+
+async function readJobSource(
+	jobId: string,
+	job: Awaited<ReturnType<typeof loadIntakeJob>>,
+): Promise<JobSource> {
+	if (TEXT_CAPTURE_SOURCES.includes(job.sourceType) && job.transcript) {
+		return {
+			messages: parseCapturedTranscript(job.transcript),
+			transcriptText: "",
+		};
+	}
+	if (job.sourceType === "MEETING_TRANSCRIPT") {
+		const document = await readTranscriptDocument({
+			jobId,
+			fileUrl: job.fileUrl,
+		});
+		return document.speakers.length >= 2
+			? { messages: document.turns, transcriptText: "" }
+			: { messages: [], transcriptText: document.plainText };
+	}
+	if (job.sourceType === "WHATSAPP_EXPORT") {
+		const parsed = await parseWhatsAppExportFile({
+			jobId,
+			fileUrl: job.fileUrl,
+		});
+		return { messages: parsed.messages, transcriptText: "" };
+	}
+	const transcribed = await transcribeAudioFile({
+		jobId,
+		fileUrl: job.fileUrl,
+	});
+	return { messages: [], transcriptText: transcribed.transcript };
+}
+
 export async function runDeterministicIntakePipeline(
 	jobId: string,
 	meOverride?: string,
+	contactHint?: string,
 ): Promise<{ contactId: string; dealId: string }> {
 	const job = await loadIntakeJob({ jobId });
 	console.log(
 		`[Intake] Starting pipeline for job ${jobId} (${job.sourceType})`,
 	);
 
-	let parsedMessages: Array<{
-		lineNo: number;
-		timestamp: Date;
-		sender: string;
-		text: string;
-	}> = [];
-	let transcriptText = "";
-
-	if (job.sourceType === "WHATSAPP_EXPORT") {
-		const parsed = await parseWhatsAppExportFile({
-			jobId,
-			fileUrl: job.fileUrl,
-		});
-		parsedMessages = parsed.messages;
-	} else {
-		const transcribed = await transcribeAudioFile({
-			jobId,
-			fileUrl: job.fileUrl,
-		});
-		transcriptText = transcribed.transcript;
-	}
+	const profile = CAPTURE_PROFILE[job.sourceType];
+	const kindOf = (kind: EvidenceSourceKind): EvidenceSourceKind =>
+		kind === "whatsapp.message" ? profile.kind : kind;
+	const { messages: parsedMessages, transcriptText } = await readJobSource(
+		jobId,
+		job,
+	);
 
 	console.log(
 		`[Intake] Calling Vertex AI Gemini extraction for job ${jobId}...`,
@@ -215,12 +304,14 @@ export async function runDeterministicIntakePipeline(
 		`[Intake] Facts extracted for ${leadName} at ${companyName || "No company"}`,
 	);
 
-	const matchResult = await findMatchingContact({
-		jobId,
-		phone: leadPhone,
-		name: leadName,
-		companyName,
-	});
+	const matchResult = contactHint
+		? { contactId: contactHint, possibleDuplicateName: null }
+		: await findMatchingContact({
+				jobId,
+				phone: leadPhone,
+				name: leadName,
+				companyName,
+			});
 
 	let companyId: string | undefined;
 	if (companyName) {
@@ -278,7 +369,7 @@ export async function runDeterministicIntakePipeline(
 			dealId,
 			field: "need",
 			value: facts.deal.need.value,
-			sourceKind: facts.deal.need.evidence.sourceKind,
+			sourceKind: kindOf(facts.deal.need.evidence.sourceKind),
 			quote: facts.deal.need.evidence.quote,
 			lineNos: facts.deal.need.evidence.lineNos,
 			speaker: facts.deal.need.evidence.speaker,
@@ -291,7 +382,7 @@ export async function runDeterministicIntakePipeline(
 			dealId,
 			field: "leadBudget",
 			value: String(facts.deal.leadBudget.value),
-			sourceKind: facts.deal.leadBudget.evidence.sourceKind,
+			sourceKind: kindOf(facts.deal.leadBudget.evidence.sourceKind),
 			quote: facts.deal.leadBudget.evidence.quote,
 			lineNos: facts.deal.leadBudget.evidence.lineNos,
 			speaker: facts.deal.leadBudget.evidence.speaker,
@@ -307,7 +398,7 @@ export async function runDeterministicIntakePipeline(
 			dealId,
 			field: "quotedValue",
 			value: String(facts.deal.quotedValue.value),
-			sourceKind: facts.deal.quotedValue.evidence.sourceKind,
+			sourceKind: kindOf(facts.deal.quotedValue.evidence.sourceKind),
 			quote: facts.deal.quotedValue.evidence.quote,
 			lineNos: facts.deal.quotedValue.evidence.lineNos,
 			speaker: facts.deal.quotedValue.evidence.speaker,
@@ -323,7 +414,7 @@ export async function runDeterministicIntakePipeline(
 			dealId,
 			field: "timeline",
 			value: timelineVal,
-			sourceKind: facts.deal.timeline.evidence.sourceKind,
+			sourceKind: kindOf(facts.deal.timeline.evidence.sourceKind),
 			quote: facts.deal.timeline.evidence.quote,
 			lineNos: facts.deal.timeline.evidence.lineNos,
 			speaker: facts.deal.timeline.evidence.speaker,
@@ -336,7 +427,7 @@ export async function runDeterministicIntakePipeline(
 			dealId,
 			field: "stage",
 			value: facts.deal.stageSuggestion.value,
-			sourceKind: facts.deal.stageSuggestion.evidence.sourceKind,
+			sourceKind: kindOf(facts.deal.stageSuggestion.evidence.sourceKind),
 			quote: facts.deal.stageSuggestion.evidence.quote,
 			lineNos: facts.deal.stageSuggestion.evidence.lineNos,
 			speaker: facts.deal.stageSuggestion.evidence.speaker,
@@ -349,7 +440,7 @@ export async function runDeterministicIntakePipeline(
 			contactId,
 			field: "language",
 			value: facts.languagePreference.value,
-			sourceKind: facts.languagePreference.evidence.sourceKind,
+			sourceKind: kindOf(facts.languagePreference.evidence.sourceKind),
 			quote: facts.languagePreference.evidence.quote,
 			lineNos: facts.languagePreference.evidence.lineNos,
 			speaker: facts.languagePreference.evidence.speaker,
@@ -362,7 +453,7 @@ export async function runDeterministicIntakePipeline(
 			contactId,
 			field: "sentiment",
 			value: facts.sentiment.value,
-			sourceKind: facts.sentiment.evidence.sourceKind,
+			sourceKind: kindOf(facts.sentiment.evidence.sourceKind),
 			quote: facts.sentiment.evidence.quote,
 			lineNos: facts.sentiment.evidence.lineNos,
 			speaker: facts.sentiment.evidence.speaker,
@@ -376,7 +467,7 @@ export async function runDeterministicIntakePipeline(
 				dealId,
 				field: "objections",
 				value: obj.objection,
-				sourceKind: obj.evidence.sourceKind,
+				sourceKind: kindOf(obj.evidence.sourceKind),
 				quote: obj.evidence.quote,
 				lineNos: obj.evidence.lineNos,
 				speaker: obj.evidence.speaker,
@@ -437,11 +528,11 @@ export async function runDeterministicIntakePipeline(
 
 	await logActivityAction({
 		jobId,
-		type: job.sourceType === "WHATSAPP_EXPORT" ? "WHATSAPP" : "VOICE_NOTE",
+		type: profile.activity,
 		contactId,
 		dealId,
 		companyId,
-		subject: `Imported ${job.sourceType.toLowerCase().replace("_", " ")}`,
+		subject: job.title ?? `Imported ${profile.label}`,
 		body: facts.deal.need.value || "Lead intake completed",
 	});
 
@@ -486,6 +577,27 @@ export async function runDeterministicIntakePipeline(
 		dealIds: [dealId],
 	});
 
+	const proposed = await db.contactFact.count({
+		where: {
+			OR: [{ dealId }, { contactId }],
+			status: FactStatus.PROPOSED,
+		},
+	});
+	await notify(db, {
+		kind: "intake.completed",
+		title: `${leadName}${companyName ? ` · ${companyName}` : ""} updated from a ${profile.label}`,
+		body: [
+			facts.deal.need.value,
+			proposed > 0 ? `${proposed} suggested facts need review` : null,
+		]
+			.filter(Boolean)
+			.join(" — "),
+		entity: "deal",
+		entityId: dealId,
+		source: profile.source,
+		slack: proposed > 0,
+	});
+
 	return { contactId, dealId };
 }
 
@@ -509,7 +621,11 @@ export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
 		`Starting Threadline autonomous intake agent for job ${jobId}`,
 	);
 
-	const res = await runDeterministicIntakePipeline(jobId, meOverride);
+	const res = await runDeterministicIntakePipeline(
+		jobId,
+		meOverride,
+		payload.contactId,
+	);
 	const outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
 
 	await completeTask(task.id, outcome, jobId);
