@@ -1,4 +1,5 @@
 import { isGoogleConfigured, signsInWithGoogle } from "@crm/auth";
+import { MEET_SCOPE } from "@crm/auth/scopes";
 import type { Db, Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { normalizeDomain } from "../companies/domain";
@@ -20,6 +21,7 @@ import type {
 	RevokeAccessOutput,
 	SuppressDomainOutput,
 } from "./google.contracts";
+import { isWorkspaceAccount } from "./meet-transcript.service";
 
 const PURGE_TIMEOUT_MS = 60_000;
 
@@ -38,11 +40,15 @@ export class GoogleConnectionService {
 	async status(userId: string): Promise<GoogleConnectionStatus> {
 		await this.onConnected(userId);
 
-		const [granted, rows, hasRefreshToken, accounts] = await Promise.all([
+		const [granted, rows, hasRefreshToken, accounts, user] = await Promise.all([
 			this.tokens.grantedScopes(userId, GOOGLE_PROVIDER_ID),
 			this.state.listForUser(userId, GOOGLE_SYNC_SOURCES),
 			this.tokens.hasRefreshToken(userId, GOOGLE_PROVIDER_ID),
 			this.tokens.signInAccounts(userId),
+			this.db.user.findUnique({
+				where: { id: userId },
+				select: { email: true },
+			}),
 		]);
 
 		const bySource = new Map(rows.map((row) => [row.source, row]));
@@ -69,6 +75,10 @@ export class GoogleConnectionService {
 			required: signsInWithGoogle(accounts),
 			hasRefreshToken,
 			sources,
+			meet: {
+				eligible: isWorkspaceAccount(user?.email),
+				granted: granted.has(MEET_SCOPE),
+			},
 		};
 	}
 

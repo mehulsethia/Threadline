@@ -160,10 +160,15 @@ export class SlackCaptureService {
 		});
 		if (!captured.queued) return;
 
-		const queued = await this.agent.queueIntake(captured.jobId, {
-			jobId: captured.jobId,
-			me: installer?.name ?? null,
-		});
+		const queued = await this.agent.queueIntake(
+			captured.jobId,
+			{
+				jobId: captured.jobId,
+				me: installer?.name ?? null,
+			},
+			false,
+			CAPTURE.batchDelayMs,
+		);
 		if (queued) this.agent.poke();
 	}
 

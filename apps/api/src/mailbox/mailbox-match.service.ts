@@ -1,6 +1,7 @@
 import { workspaceDomains } from "@crm/auth/workspace";
 import { type Db, RecordSource } from "@crm/db";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
+import { notify } from "@crm/db/notifications";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
@@ -270,6 +271,17 @@ export class MailboxMatchService {
 				subject: "Contact added from your inbox",
 				body: `${person.email} appeared in a ${request.source === "CALENDAR" ? "meeting" : "thread"}.`,
 				meta: { source: request.source },
+			});
+			const name = [contact.firstName, contact.lastName]
+				.filter(Boolean)
+				.join(" ");
+			await notify(this.db, {
+				kind: "contact.created",
+				title: `New contact from your ${request.source === "CALENDAR" ? "calendar" : "inbox"}: ${name || person.email}`,
+				body: person.email,
+				entity: "contact",
+				entityId: contact.id,
+				source: request.source === "CALENDAR" ? "calendar" : "email",
 			});
 		}
 

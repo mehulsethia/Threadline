@@ -3,7 +3,7 @@
 import Launch from "@carbon/icons-react/es/Launch";
 import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
-import { GOOGLE_REQUESTED_SCOPES } from "@crm/auth/scopes";
+import { MEET_OPT_IN_SCOPES, SYNC_SCOPES } from "@crm/auth/scopes";
 import {
 	Alert,
 	AlertAction,
@@ -151,7 +151,7 @@ function ConnectGoogle({
 
 		const { error } = await authClient.linkSocial({
 			provider: "google",
-			scopes: [...GOOGLE_REQUESTED_SCOPES],
+			scopes: [...SYNC_SCOPES],
 			callbackURL: `${origin}/${slug}/settings/connections/google`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
 		});
@@ -372,6 +372,8 @@ export function GoogleConnection({
 					</p>
 				)}
 
+				<MeetOptIn slug={slug} meet={status.data.meet} />
+
 				{sources.map((source) => {
 					const copy = SOURCES[source.source];
 
@@ -475,5 +477,50 @@ export function GoogleConnection({
 				</CardFooter>
 			</CardContent>
 		</Card>
+	);
+}
+
+function MeetOptIn({
+	slug,
+	meet,
+}: {
+	slug: string;
+	meet: { eligible: boolean; granted: boolean };
+}) {
+	const [pending, setPending] = useState(false);
+
+	async function enable() {
+		setPending(true);
+		const origin = window.location.origin;
+		const { error } = await authClient.linkSocial({
+			provider: "google",
+			scopes: [...MEET_OPT_IN_SCOPES],
+			callbackURL: `${origin}/${slug}/settings/connections/google`,
+			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
+		});
+		if (error) {
+			setPending(false);
+			toast.error(error.message ?? "Could not reach Google.");
+		}
+	}
+
+	return (
+		<div className="flex items-center justify-between gap-6">
+			<div className="flex flex-col gap-1">
+				<span className="text-sm">Google Meet transcripts</span>
+				<span className="text-muted-foreground text-xs">
+					{!meet.eligible
+						? "Needs a Google Workspace account. Personal Gmail accounts have no Meet transcripts."
+						: meet.granted
+							? "On. Transcripts of meetings you join become facts and deals."
+							: "Off. Turn on to import transcripts of meetings you join."}
+				</span>
+			</div>
+			{meet.eligible && !meet.granted ? (
+				<Button size="sm" disabled={pending} onClick={() => void enable()}>
+					Turn on
+				</Button>
+			) : null}
+		</div>
 	);
 }

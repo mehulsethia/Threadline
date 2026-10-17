@@ -43,6 +43,7 @@ export const googleConnectionStatusOutput = z.object({
 	required: z.boolean(),
 	hasRefreshToken: z.boolean(),
 	sources: z.array(googleSourceStatusOutput),
+	meet: z.object({ eligible: z.boolean(), granted: z.boolean() }),
 });
 
 export const purgeSyncedDataOutput = z.object({

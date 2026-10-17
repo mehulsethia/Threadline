@@ -92,6 +92,7 @@ export class SyncController {
 			this.sync.runDue(),
 			this.agent.queueMeetingSync(),
 		]);
+		this.agent.poke();
 		return { ...mailboxes, meetingSyncQueued: meetings };
 	}
 }

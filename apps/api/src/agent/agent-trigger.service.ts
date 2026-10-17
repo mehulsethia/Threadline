@@ -466,6 +466,7 @@ export class AgentTriggerService {
 			budget: number;
 			payload?: Prisma.InputJsonValue;
 			subject?: { path: string[]; value: string };
+			delayMs?: number;
 		},
 		required = false,
 		client?: Prisma.TransactionClient,
@@ -498,7 +499,7 @@ export class AgentTriggerService {
 						reason: task.reason,
 						priority: task.priority,
 						budget: task.budget,
-						dueAt: new Date(),
+						dueAt: new Date(Date.now() + (task.delayMs ?? 0)),
 						payload: task.payload ?? undefined,
 					},
 				});
@@ -572,6 +573,7 @@ export class AgentTriggerService {
 		jobId: string,
 		payload?: Prisma.InputJsonValue,
 		required = false,
+		delayMs = 0,
 	): Promise<boolean> {
 		return this.enqueue(
 			{
@@ -581,6 +583,7 @@ export class AgentTriggerService {
 				budget: 4,
 				payload: payload ?? { jobId },
 				subject: { path: ["jobId"], value: jobId },
+				delayMs,
 			},
 			required,
 		);

@@ -159,10 +159,15 @@ export class MeetTranscriptService {
 			})),
 		});
 		if (!captured.queued) return false;
-		const queued = await this.agent.queueIntake(captured.jobId, {
-			jobId: captured.jobId,
-			me,
-		});
+		const queued = await this.agent.queueIntake(
+			captured.jobId,
+			{
+				jobId: captured.jobId,
+				me,
+			},
+			false,
+			CAPTURE.batchDelayMs,
+		);
 		if (queued) this.agent.poke();
 		return true;
 	}

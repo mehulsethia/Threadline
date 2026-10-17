@@ -13,7 +13,6 @@ import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
-	GOOGLE_REQUESTED_SCOPES,
 	MICROSOFT_PROVIDER_ID,
 	MICROSOFT_SYNC_SCOPES,
 	SLACK_PROVIDER_ID,
@@ -44,7 +43,7 @@ if (env.google) {
 	const google: NonNullable<typeof socialProviders.google> = {
 		...env.google,
 
-		scope: [...GOOGLE_REQUESTED_SCOPES],
+		scope: [...SYNC_SCOPES],
 
 		accessType: "offline",
 	};

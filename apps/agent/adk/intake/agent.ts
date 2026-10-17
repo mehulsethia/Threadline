@@ -9,18 +9,18 @@ import { TEXT_CAPTURE_SOURCES } from "@crm/db/capture";
 import { type NotificationSource, notify } from "@crm/db/notifications";
 import { readReportingCurrency } from "@crm/db/settings";
 import { parseCapturedTranscript } from "@crm/validation/captured-conversation";
-import { Gemini, LlmAgent } from "@google/adk";
 import { z } from "zod";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
 import type { EvidenceSourceKind } from "../extraction";
 import { researchCompany } from "../research/company";
+import { runFollowUpAgent } from "./follow-up-agent";
+import { FOLLOW_UP } from "./follow-up-config";
 import {
 	createTaskAction,
 	emitIntakeEvent,
 	extractLeadFactsFromInput,
 	findMatchingContact,
 	finishJobAction,
-	INTAKE_TOOLS,
 	loadIntakeJob,
 	logActivityAction,
 	parseWhatsAppExportFile,
@@ -33,7 +33,6 @@ import {
 	upsertDeal,
 } from "./tools";
 
-/** What an intake AgentTask carries; anything else is ignored. */
 const intakeTaskPayload = z
 	.object({
 		jobId: z.string().optional().catch(undefined),
@@ -41,44 +40,6 @@ const intakeTaskPayload = z
 		contactId: z.string().optional().catch(undefined),
 	})
 	.catch({});
-
-let intakeAgent: LlmAgent | null = null;
-
-/**
- * The intake LlmAgent, built on first use so importing this module needs no
- * Vertex project (tests and the worker's other lanes import it too).
- */
-export function getIntakeAgent(): LlmAgent {
-	intakeAgent ??= new LlmAgent({
-		name: "threadline_intake_agent",
-		model: new Gemini({
-			model: process.env.GEMINI_SMART_MODEL || "gemini-4-argon",
-			vertexai: true,
-			project: process.env.GOOGLE_CLOUD_PROJECT,
-			location: process.env.GEMINI_SMART_LOCATION || "global",
-		}),
-		instruction: `You are the Threadline Autonomous Intake Agent.
-Your responsibility is to ingest WhatsApp exports and audio recordings, extract sales intelligence, and populate the CRM database accurately.
-
-Follow these strict rules:
-1. Always load the job details using load_intake_job.
-2. If WhatsApp export, parse the file with parse_whatsapp_export. If audio note, transcribe with transcribe_audio.
-3. Extract lead facts with extract_lead_facts.
-4. Deduplicate contacts using find_matching_contact. Never create the business-side participant as a contact.
-5. Upsert company using upsert_company if company name is known.
-6. Upsert the lead contact using upsert_contact. Never invent missing details.
-7. Upsert the deal using upsert_deal with the correct CRM DealStage enum, budget or quoted price, and target closing date.
-8. Record every extracted fact using record_fact so facts are recorded in the evidence ledger.
-9. Store messages idempotently using store_messages.
-10. Log the activity using log_activity (WHATSAPP or VOICE_NOTE).
-11. If nextStep owner is "us", create a follow-up task with create_task. If nextStep owner is "lead" and has a dueAt, create a task for us: "Check: <lead's next step>" due 2 hours after it.
-12. Finalize the job with finish_job.
-
-Never invent values. Skip null fields. Explain each decision in one concise line.`,
-		tools: INTAKE_TOOLS,
-	});
-	return intakeAgent;
-}
 
 async function runCompanyResearchStep(input: {
 	jobId: string;
@@ -224,6 +185,43 @@ const CAPTURE_PROFILE = {
 		label: string;
 	}
 >;
+
+function domainFromMessages(
+	messages: JobSource["messages"],
+): string | undefined {
+	const personal = ["gmail", "yahoo", "outlook", "hotmail"];
+	const fromEmail = messages
+		.map((m) => m.text.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)?.[1])
+		.find((d) => d && !personal.some((p) => d.includes(p)));
+	if (fromEmail) return fromEmail;
+	return messages
+		.map(
+			(m) =>
+				m.text.match(
+					/\b([a-zA-Z0-9-]+\.(?:com|org|io|ai|net|co|de|uk|in))\b/i,
+				)?.[1],
+		)
+		.find(Boolean);
+}
+
+function defaultFollowUpTask(nextStep: {
+	value: string | null;
+	owner: "us" | "lead" | null;
+	dueAt: string | null;
+}): { subject: string; dueAt: string | null } | null {
+	if (!nextStep.value) return null;
+	if (nextStep.owner === "us") {
+		return { subject: nextStep.value, dueAt: nextStep.dueAt };
+	}
+	if (nextStep.owner !== "lead" || !nextStep.dueAt) return null;
+	const due = new Date(nextStep.dueAt);
+	return {
+		subject: `Check: ${nextStep.value}`,
+		dueAt: Number.isNaN(due.getTime())
+			? null
+			: new Date(due.getTime() + FOLLOW_UP.lateCheckOffsetMs).toISOString(),
+	};
+}
 
 type JobSource = {
 	messages: Array<{
@@ -475,42 +473,6 @@ export async function runDeterministicIntakePipeline(
 		}
 	}
 
-	if (companyName) {
-		const extractedDomain =
-			parsedMessages
-				.map((m) => {
-					const match = m.text.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-					return match ? match[1] : null;
-				})
-				.find(
-					(d) =>
-						d &&
-						!d.includes("gmail") &&
-						!d.includes("yahoo") &&
-						!d.includes("outlook") &&
-						!d.includes("hotmail"),
-				) ||
-			parsedMessages
-				.map((m) => {
-					const match = m.text.match(
-						/\b([a-zA-Z0-9-]+\.(?:com|org|io|ai|net|co|de|uk|in))\b/i,
-					);
-					return match ? match[1] : null;
-				})
-				.find((d) => Boolean(d)) ||
-			undefined;
-
-		await runCompanyResearchStep({
-			jobId,
-			companyName,
-			city: facts.company.city.value || undefined,
-			contactId,
-			dealId,
-			domain: extractedDomain,
-			industryContext: facts.deal.need.value || undefined,
-		});
-	}
-
 	if (parsedMessages.length > 0) {
 		await storeMessagesAction({
 			jobId,
@@ -536,32 +498,6 @@ export async function runDeterministicIntakePipeline(
 		body: facts.deal.need.value || "Lead intake completed",
 	});
 
-	if (facts.nextStep.value) {
-		if (facts.nextStep.owner === "us") {
-			await createTaskAction({
-				jobId,
-				subject: facts.nextStep.value,
-				dueAt: facts.nextStep.dueAt || undefined,
-				contactId,
-				dealId,
-				companyId,
-			});
-		} else if (facts.nextStep.owner === "lead" && facts.nextStep.dueAt) {
-			const leadDue = new Date(facts.nextStep.dueAt);
-			const checkDue = !Number.isNaN(leadDue.getTime())
-				? new Date(leadDue.getTime() + 2 * 3600 * 1000).toISOString()
-				: undefined;
-			await createTaskAction({
-				jobId,
-				subject: `Check: ${facts.nextStep.value}`,
-				dueAt: checkDue,
-				contactId,
-				dealId,
-				companyId,
-			});
-		}
-	}
-
 	await finishJobAction({
 		jobId,
 		summary: {
@@ -583,6 +519,99 @@ export async function runDeterministicIntakePipeline(
 			status: FactStatus.PROPOSED,
 		},
 	});
+
+	const domain = domainFromMessages(parsedMessages);
+	const research = async (domainOverride: string | null) => {
+		if (!companyName) return "No company named.";
+		await runCompanyResearchStep({
+			jobId,
+			companyName,
+			city: facts.company.city.value || undefined,
+			contactId,
+			dealId,
+			domain: domainOverride || domain || undefined,
+			industryContext: facts.deal.need.value || undefined,
+		});
+		return `Researched ${companyName}.`;
+	};
+	const createTask = async (subject: string, dueAt: string | null) => {
+		const task = await createTaskAction({
+			jobId,
+			subject,
+			dueAt: dueAt || undefined,
+			contactId,
+			dealId,
+			companyId,
+		});
+		return `Task ${task.taskId} is open.`;
+	};
+	const priorResearch = await db.contactFact.count({
+		where: {
+			field: "companyProfile",
+			OR: [{ contactId }, { dealId }],
+		},
+	});
+
+	await emitIntakeEvent(
+		jobId,
+		"follow_up_agent",
+		"Google ADK follow-up agent is deciding the next actions",
+		contactId,
+	);
+	const followUp = await runFollowUpAgent(
+		{
+			source: profile.label,
+			lead: leadName,
+			company: companyName ?? null,
+			need: facts.deal.need.value,
+			budget: facts.deal.leadBudget.value,
+			currency: facts.deal.currency.value,
+			timeline: facts.deal.timelineResolved ?? facts.deal.timeline.value,
+			stage: facts.deal.stageSuggestion.value,
+			objections: facts.objections.map((o) => o.objection),
+			nextStep: {
+				value: facts.nextStep.value,
+				owner: facts.nextStep.owner,
+				dueAt: facts.nextStep.dueAt,
+			},
+			sentiment: facts.sentiment.value,
+			suggestedFacts: proposed,
+			alreadyResearched: priorResearch > 0,
+			domainHint: domain ?? null,
+			today: new Date().toISOString(),
+		},
+		{
+			research,
+			createTask,
+			alert: async (title, body) => {
+				await notify(db, {
+					kind: "intake.alert",
+					title,
+					body,
+					entity: "deal",
+					entityId: dealId,
+					source: profile.source,
+					slack: true,
+				});
+				return "Team alerted.";
+			},
+		},
+	);
+	await emitIntakeEvent(
+		jobId,
+		"follow_up_agent",
+		followUp.ok
+			? `Follow-up agent used ${followUp.tools.join(", ") || "no tools"}. ${followUp.summary}`
+			: `Follow-up agent failed (${followUp.reason}); applied the default follow-up.`,
+		contactId,
+	);
+
+	if (!followUp.ok && companyName && priorResearch === 0) await research(null);
+	if (!followUp.ok || !followUp.createdTask) {
+		const fallback = defaultFollowUpTask(facts.nextStep);
+		if (fallback) await createTask(fallback.subject, fallback.dueAt);
+	}
+
 	await notify(db, {
 		kind: "intake.completed",
 		title: `${leadName}${companyName ? ` · ${companyName}` : ""} updated from a ${profile.label}`,
@@ -595,7 +624,6 @@ export async function runDeterministicIntakePipeline(
 		entity: "deal",
 		entityId: dealId,
 		source: profile.source,
-		slack: proposed > 0,
 	});
 
 	return { contactId, dealId };

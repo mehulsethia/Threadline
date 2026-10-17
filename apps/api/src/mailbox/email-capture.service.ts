@@ -63,11 +63,16 @@ export class EmailCaptureService {
 			});
 			if (!captured.queued) return;
 
-			const queued = await this.agent.queueIntake(captured.jobId, {
-				jobId: captured.jobId,
-				me: owner?.name?.trim() || owner?.email || null,
-				contactId: thread.contactId,
-			});
+			const queued = await this.agent.queueIntake(
+				captured.jobId,
+				{
+					jobId: captured.jobId,
+					me: owner?.name?.trim() || owner?.email || null,
+					contactId: thread.contactId,
+				},
+				false,
+				CAPTURE.batchDelayMs,
+			);
 			if (queued) this.agent.poke();
 		} catch (error) {
 			this.logger.warn({

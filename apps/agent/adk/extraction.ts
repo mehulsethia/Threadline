@@ -9,6 +9,8 @@ import {
 	validateAndEnrichFacts,
 } from "./validator";
 
+const GEMINI_RETRY = { attempts: 5, baseDelayMs: 5_000 } as const;
+
 export type AudioSegment = {
 	start: string;
 	end: string;
@@ -222,7 +224,7 @@ export async function transcribeAudio(
 	].join("\n");
 
 	let response: any;
-	for (let attempt = 0; attempt < 3; attempt++) {
+	for (let attempt = 0; attempt < GEMINI_RETRY.attempts; attempt++) {
 		try {
 			response = await ai.models.generateContent({
 				model,
@@ -250,13 +252,13 @@ export async function transcribeAudio(
 		} catch (err: unknown) {
 			const errorObj = err as { status?: number; message?: string } | null;
 			if (
-				attempt < 2 &&
+				attempt < GEMINI_RETRY.attempts - 1 &&
 				(errorObj?.status === 429 ||
 					String(errorObj?.message || "").includes("429") ||
 					String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED"))
 			) {
 				await new Promise((resolve) =>
-					setTimeout(resolve, 4000 * (attempt + 1)),
+					setTimeout(resolve, GEMINI_RETRY.baseDelayMs * 2 ** attempt),
 				);
 				continue;
 			}
@@ -490,7 +492,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 	const { ai, model } = getSmartClient();
 
 	let response: any;
-	for (let attempt = 0; attempt < 3; attempt++) {
+	for (let attempt = 0; attempt < GEMINI_RETRY.attempts; attempt++) {
 		try {
 			response = await ai.models.generateContent({
 				model,
@@ -523,9 +525,9 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 				errorObj?.status === 429 ||
 				String(errorObj?.message || "").includes("429") ||
 				String(errorObj?.message || "").includes("RESOURCE_EXHAUSTED");
-			if (attempt < 2 && (isRateLimit || isAbort)) {
+			if (attempt < GEMINI_RETRY.attempts - 1 && (isRateLimit || isAbort)) {
 				await new Promise((resolve) =>
-					setTimeout(resolve, 3000 * (attempt + 1)),
+					setTimeout(resolve, GEMINI_RETRY.baseDelayMs * 2 ** attempt),
 				);
 				continue;
 			}
