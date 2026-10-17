@@ -43,7 +43,7 @@ async function currentSession() {
 
 export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
 	return (
-		<AuthShell>
+		<AuthShell variant="sign-in">
 			<Suspense
 				fallback={
 					<AuthHeading

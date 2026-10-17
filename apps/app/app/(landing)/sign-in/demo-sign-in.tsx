@@ -40,20 +40,20 @@ export function DemoSignIn() {
 	}
 
 	return (
-		<div className="w-full space-y-3 pt-2">
-			<div className="relative flex items-center justify-center">
-				<div className="absolute inset-0 flex items-center">
-					<div className="w-full border-t border-border" />
-				</div>
-				<span className="relative bg-background px-3 text-xs uppercase font-medium text-muted-foreground">
+		<div className="flex w-full flex-col gap-4 pt-2">
+			<div className="flex flex-col gap-1">
+				<span className="font-mono text-xs/4 font-medium tracking-wide text-primary uppercase">
 					Hackathon Evaluation
 				</span>
+				<p className="text-sm/5 text-muted-foreground">
+					Explore the Northwind Systems demo workspace.
+				</p>
 			</div>
 
 			<Button
 				type="button"
 				variant="default"
-				className="w-full gap-2 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+				className="w-full gap-2 font-medium"
 				disabled={pending}
 				onClick={() => {
 					void handleDemoLogin();
@@ -64,10 +64,10 @@ export function DemoSignIn() {
 				) : (
 					<span className="inline-block text-base">✨</span>
 				)}
-				<span>Try the live demo (Northwind Systems)</span>
+				<span>Explore the live demo</span>
 			</Button>
 
-			<p className="text-center text-[11px] text-muted-foreground">
+			<p className="text-sm/5 text-muted-foreground">
 				Instantly access 12 pre-seeded global enterprise deals with real facts,
 				tasks & lead revival drafts.
 			</p>
