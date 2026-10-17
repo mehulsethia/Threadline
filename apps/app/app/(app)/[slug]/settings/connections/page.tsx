@@ -95,6 +95,34 @@ async function ConnectionsSettingsPageContent({
 			: []),
 	];
 
+	const connectedNames = new Set(rows.map((row) => row.name));
+	const available = [
+		{
+			logo: GoogleLogo,
+			name: "Google Workspace",
+			description: "Gmail threads, Calendar meetings and Meet transcripts",
+			href: `/${slug}/settings/connections/google`,
+		},
+		{
+			logo: SlackLogo,
+			name: "Slack",
+			description: "Messages in channels the app is invited to",
+			href: `/${slug}/settings/connections/slack`,
+		},
+		{
+			logo: Microphone,
+			name: "Meeting recorders",
+			description: "Fireflies and Fathom meeting transcripts",
+			href: `/${slug}/settings/connections/recorders`,
+		},
+		{
+			logo: MicrosoftLogo,
+			name: "Microsoft 365",
+			description: "Outlook email and the people on it",
+			href: `/${slug}/settings/connections/microsoft`,
+		},
+	].filter((row) => !connectedNames.has(row.name));
+
 	return (
 		<main
 			id="main"
@@ -123,6 +151,18 @@ async function ConnectionsSettingsPageContent({
 							<ConnectionCard key={row.name} {...row} />
 						))}
 					</div>
+					{available.length > 0 ? (
+						<section className="flex flex-col gap-2">
+							<h2 className="px-(--spacing-block-inline) font-medium text-base">
+								Available to connect
+							</h2>
+							<div className="flex flex-col divide-y rounded-lg border bg-card px-(--spacing-block-inline)">
+								{available.map((row) => (
+									<StarterRow key={row.name} {...row} />
+								))}
+							</div>
+						</section>
+					) : null}
 				</div>
 			) : (
 				<div className="mx-auto flex w-full max-w-(--container-narrow) flex-1 flex-col justify-center gap-(--spacing-page-gap) text-center">
@@ -154,6 +194,12 @@ async function ConnectionsSettingsPageContent({
 							name="Microsoft 365"
 							description="File Outlook email against the right company"
 							href={`/${slug}/settings/connections/microsoft`}
+						/>
+						<StarterRow
+							logo={Microphone}
+							name="Meeting recorders"
+							description="Fireflies and Fathom meeting transcripts"
+							href={`/${slug}/settings/connections/recorders`}
 						/>
 					</div>
 					<p className="px-(--spacing-block-inline) text-muted-foreground text-sm">

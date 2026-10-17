@@ -1,5 +1,4 @@
 export const REPO_URL = "https://github.com/mehulsethia/Threadline";
-export const REPO_STARS = "4.4k";
 
 export const REPO_LINKS = [
 	{ label: "GitHub", href: REPO_URL },

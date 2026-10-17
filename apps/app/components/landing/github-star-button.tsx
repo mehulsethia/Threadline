@@ -3,7 +3,7 @@
 import GitHubLogo from "@crm/ui/components/brand-logos/github";
 import { Button } from "@crm/ui/components/button";
 import { type CtaLocation, captureLanding } from "./analytics";
-import { REPO_STARS, REPO_URL } from "./links";
+import { REPO_URL } from "./links";
 
 export function GitHubStarButton({ location }: { location: CtaLocation }) {
 	return (
@@ -16,14 +16,10 @@ export function GitHubStarButton({ location }: { location: CtaLocation }) {
 			>
 				<GitHubLogo data-icon="inline-start" className="size-[15px]" />
 				Star on GitHub
-				<span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
-				<span
+				<StarIcon
 					data-icon="inline-end"
-					className="flex items-center gap-[5px] font-mono font-normal text-[13px] text-muted-foreground"
-				>
-					<StarIcon className="size-[13px] shrink-0 text-primary" />
-					{REPO_STARS}
-				</span>
+					className="size-[13px] shrink-0 text-primary"
+				/>
 			</a>
 		</Button>
 	);

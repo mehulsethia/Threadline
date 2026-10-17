@@ -67,6 +67,8 @@ function byProvider(models: CatalogModel[]): [string, CatalogModel[]][] {
 	return [...groups];
 }
 
+const PROVIDER_LABEL = new Map([["google", "Google Gemini on Vertex AI"]]);
+
 export function AgentModel() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -147,7 +149,10 @@ export function AgentModel() {
 								</CommandGroup>
 
 								{byProvider(models).map(([provider, group]) => (
-									<CommandGroup key={provider} heading={provider}>
+									<CommandGroup
+										key={provider}
+										heading={PROVIDER_LABEL.get(provider) ?? provider}
+									>
 										{group.map((model) => {
 											const price = priceHint(model);
 

@@ -498,21 +498,6 @@ export async function runDeterministicIntakePipeline(
 		body: facts.deal.need.value || "Lead intake completed",
 	});
 
-	await finishJobAction({
-		jobId,
-		summary: {
-			lead: leadName,
-			company: companyName,
-			dealNeed: facts.deal.need.value,
-			dealValue,
-			stage: facts.deal.stageSuggestion.value,
-			timeline: facts.deal.timelineResolved,
-			participants: facts.participants,
-		},
-		contactIds: [contactId],
-		dealIds: [dealId],
-	});
-
 	const proposed = await db.contactFact.count({
 		where: {
 			OR: [{ dealId }, { contactId }],
@@ -611,6 +596,21 @@ export async function runDeterministicIntakePipeline(
 		const fallback = defaultFollowUpTask(facts.nextStep);
 		if (fallback) await createTask(fallback.subject, fallback.dueAt);
 	}
+
+	await finishJobAction({
+		jobId,
+		summary: {
+			lead: leadName,
+			company: companyName,
+			dealNeed: facts.deal.need.value,
+			dealValue,
+			stage: facts.deal.stageSuggestion.value,
+			timeline: facts.deal.timelineResolved,
+			participants: facts.participants,
+		},
+		contactIds: [contactId],
+		dealIds: [dealId],
+	});
 
 	await notify(db, {
 		kind: "intake.completed",
