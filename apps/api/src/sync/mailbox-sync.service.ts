@@ -11,7 +11,6 @@ import { MicrosoftConnectionService } from "../microsoft/microsoft-connection.se
 import { MicrosoftSyncService } from "../microsoft/microsoft-sync.service";
 
 const TICK_BUDGET_MS = 60_000;
-const ENABLE_MAILBOX_SYNC = false;
 
 export type TickSummary = {
 	attempted: number;
@@ -35,17 +34,6 @@ export class MailboxSyncService {
 	) {}
 
 	async runDue(): Promise<TickSummary> {
-		if (!ENABLE_MAILBOX_SYNC) {
-			return {
-				attempted: 0,
-				synced: 0,
-				skipped: 0,
-				rateLimited: 0,
-				failed: 0,
-				durationMs: 0,
-			};
-		}
-
 		const startedAt = Date.now();
 		const summary: TickSummary = {
 			attempted: 0,
@@ -125,7 +113,6 @@ export class MailboxSyncService {
 	}
 
 	private async runOne(userId: string, source: string) {
-		if (!ENABLE_MAILBOX_SYNC) return null;
 		if (isGoogleSyncSource(source)) return this.google.runOne(userId, source);
 
 		if (isMicrosoftSyncSource(source)) {

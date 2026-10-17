@@ -72,6 +72,21 @@ export function parseEnv(source: string): EnvValues {
 	return values;
 }
 
+/**
+ * Windows editors and PowerShell's `>` often save `.env` as UTF-16 or with a
+ * byte-order mark; read those as well as plain UTF-8.
+ */
+export function decodeEnvFile(bytes: Uint8Array): string {
+	if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+		return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+	}
+	if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+		return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+	}
+	const text = new TextDecoder("utf-8").decode(bytes);
+	return text.startsWith("\uFEFF") ? text.slice(1) : text;
+}
+
 export function loadRootEnv(): void {
 	if (loaded) return;
 	loaded = true;
@@ -86,7 +101,7 @@ export function loadRootEnv(): void {
 		try {
 			Object.assign(
 				merged,
-				parseEnv(runtimeFs.readFileSync(join(root, file), "utf8")),
+				parseEnv(decodeEnvFile(runtimeFs.readFileSync(join(root, file)))),
 			);
 		} catch {}
 	}

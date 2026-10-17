@@ -47,7 +47,6 @@ export function capabilitiesFrom(
 	return [
 		{
 			...fromEnv("PERPLEXITY_API_KEY"),
-			enabled: false,
 			label: "Web research",
 			gives:
 				"open-web context with citations, and the search that finds a LinkedIn slug in the first place",
@@ -57,7 +56,7 @@ export function capabilitiesFrom(
 			from: "Settings → General",
 			label: "Company brand data",
 			gives: "a company's logo, industry, location and socials from its domain",
-			enabled: Boolean(contextDev),
+			enabled: contextDev !== null,
 		},
 		{
 			id: CONTEXT_DEV_PEOPLE,
@@ -65,7 +64,7 @@ export function capabilitiesFrom(
 			label: "LinkedIn",
 			gives:
 				"a person read back from a LinkedIn URL you already hold — their real name, bio, current title and employer, every earlier role with its dates, their education and their other public profiles, all self-reported and so authoritative on identity",
-			enabled: false,
+			enabled: contextDev !== null,
 		},
 		{
 			...fromEnv("BLOB_READ_WRITE_TOKEN"),
