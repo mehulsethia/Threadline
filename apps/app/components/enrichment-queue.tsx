@@ -95,12 +95,21 @@ export function EnrichmentQueue() {
 			onOpenChange={(next) => (next ? setOpen(true) : close())}
 		>
 			<PopoverTrigger asChild>
-				<Button variant="outline" size="sm">
+				<Button
+					variant="outline"
+					size="sm"
+					aria-label={
+						total > 0 ? `Enrichment queue, ${total} active` : "Enrichment queue"
+					}
+				>
 					<IndicatorDot
 						tone={total > 0 ? "primary" : "neutral"}
 						aria-hidden="true"
 					/>
-					{total > 0 ? `Enriching ${total}` : "Enriching"}
+					<span className="hidden sm:inline">
+						{total > 0 ? `Enriching ${total}` : "Enriching"}
+					</span>
+					<span className="sm:hidden">Queue{total > 0 ? ` ${total}` : ""}</span>
 				</Button>
 			</PopoverTrigger>
 

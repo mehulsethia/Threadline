@@ -16,7 +16,10 @@ export const metadata: Metadata = {
 
 export default function Home() {
 	return (
-		<div className="dark flex min-h-svh w-full flex-col items-center overflow-clip bg-background font-sans text-foreground">
+		<main
+			id="main"
+			className="flex min-h-svh w-full flex-col items-center overflow-clip bg-background font-sans text-foreground"
+		>
 			<LandingNav />
 			<Hero />
 			<ProductShot />
@@ -25,6 +28,6 @@ export default function Home() {
 			<ClosingCta />
 			<LandingFooter />
 			<LandingAnalytics />
-		</div>
+		</main>
 	);
 }

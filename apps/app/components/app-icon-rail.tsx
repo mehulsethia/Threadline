@@ -89,7 +89,7 @@ function RailLink({
 					className={cn(
 						"text-muted-foreground",
 						active &&
-							"bg-muted text-foreground hover:bg-muted hover:text-foreground",
+							"bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
 					)}
 				>
 					<Link
@@ -128,7 +128,7 @@ function MobileRailLink({
 			className={cn(
 				"justify-start gap-3 text-muted-foreground",
 				active &&
-					"bg-muted text-foreground hover:bg-muted hover:text-foreground",
+					"bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
 			)}
 		>
 			<Link
@@ -168,7 +168,7 @@ function MobileRailIconLink({
 			className={cn(
 				"text-muted-foreground",
 				active &&
-					"bg-muted text-foreground hover:bg-muted hover:text-foreground",
+					"bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
 			)}
 		>
 			<Link
@@ -191,7 +191,7 @@ export function AppIconRailFallback() {
 		<nav
 			aria-label="Primary"
 			aria-busy="true"
-			className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+			className="hidden w-20 shrink-0 flex-col items-center gap-2 border-r bg-sidebar py-4 md:flex [view-transition-name:app-rail]"
 		>
 			{ITEMS.map((item) => (
 				<Button
@@ -233,7 +233,7 @@ export function AppIconRail() {
 		<>
 			<nav
 				aria-label="Primary"
-				className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
+				className="hidden w-20 shrink-0 flex-col items-center gap-2 border-r bg-sidebar py-4 md:flex [view-transition-name:app-rail]"
 			>
 				{items.map((item) => (
 					<RailLink

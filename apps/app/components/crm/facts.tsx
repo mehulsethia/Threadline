@@ -116,7 +116,7 @@ export function FactEvidenceChips({ fact }: { fact: GenericFact }) {
 						{item.matchConfidence !== undefined ? (
 							<Badge
 								variant="outline"
-								className="h-4 px-1.5 py-0 font-mono text-[10px] text-emerald-600 dark:text-emerald-400"
+								className="h-4 px-1.5 py-0 font-mono text-[10px] text-success"
 							>
 								Match: {Math.round(item.matchConfidence * 100)}%
 							</Badge>
@@ -311,7 +311,7 @@ export function RecordFactsSection({
 			<div className="flex flex-col gap-3 py-1">
 				{proposed.length > 0 ? (
 					<div className="space-y-2">
-						<div className="flex items-center gap-1.5 font-medium text-xs text-amber-600 dark:text-amber-400">
+						<div className="flex items-center gap-1.5 font-medium text-warning text-xs">
 							<Icon icon={Information} className="size-3.5" />
 							<span>Proposed Suggestions (Requires Approval)</span>
 						</div>
@@ -335,7 +335,7 @@ export function RecordFactsSection({
 													{matchConfidence !== undefined ? (
 														<Badge
 															variant="outline"
-															className="h-4 px-1.5 py-0 font-mono text-[10px] text-emerald-600 dark:text-emerald-400"
+															className="h-4 px-1.5 py-0 font-mono text-[10px] text-success"
 														>
 															Match: {Math.round(matchConfidence * 100)}%
 														</Badge>

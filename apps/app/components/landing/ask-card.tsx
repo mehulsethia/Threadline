@@ -29,7 +29,7 @@ export function AskCard() {
 			/>
 
 			<div className="flex grow flex-col justify-end gap-2.5">
-				<p className="select-none font-medium text-[#5A5A5A] text-[11px]/4">
+				<p className="select-none font-medium text-muted-foreground text-[11px]/4">
 					SUGGESTED
 				</p>
 				{QUESTIONS.map((question) => (
@@ -50,11 +50,11 @@ export function AskCard() {
 				))}
 			</div>
 
-			<div className="flex h-11 shrink-0 items-center gap-2.5 rounded-md border border-border bg-[#1A1A1A] pr-1.5 pl-3.5 transition-colors focus-within:border-ring">
+			<div className="flex h-11 shrink-0 items-center gap-2.5 rounded-md border border-border bg-background pr-1.5 pl-3.5 transition-colors focus-within:border-ring">
 				<span
 					className={cn(
 						"min-w-0 grow truncate text-[13px]/[18px]",
-						asked ? "text-foreground" : "text-[#6E6E6E]",
+						asked ? "text-foreground" : "text-muted-foreground",
 					)}
 				>
 					{asked ?? PLACEHOLDER}

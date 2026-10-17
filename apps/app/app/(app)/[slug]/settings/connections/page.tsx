@@ -77,7 +77,10 @@ async function ConnectionsSettingsPageContent({
 	];
 
 	return (
-		<main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-(--spacing-page-inline) pt-(--spacing-page-top) pb-(--spacing-page-bottom)">
+		<main
+			id="main"
+			className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-(--spacing-page-inline) pt-(--spacing-page-top) pb-(--spacing-page-bottom)"
+		>
 			{rows.length > 0 ? (
 				<div className="mx-auto flex w-full max-w-(--container-page) flex-col gap-(--spacing-page-gap)">
 					<header className="flex items-start justify-between gap-4 px-(--spacing-block-inline)">
@@ -156,7 +159,10 @@ async function ConnectionsSettingsPageContent({
 
 function ConnectionsFallback() {
 	return (
-		<main className="flex min-h-0 min-w-0 flex-1 items-center justify-center px-(--spacing-page-inline) pt-(--spacing-page-top) pb-(--spacing-page-bottom)">
+		<main
+			id="main"
+			className="flex min-h-0 min-w-0 flex-1 items-center justify-center px-(--spacing-page-inline) pt-(--spacing-page-top) pb-(--spacing-page-bottom)"
+		>
 			<Spinner size="lg" />
 		</main>
 	);

@@ -40,8 +40,8 @@ export function AppHeader({ user }: { user: User }) {
 	const label = workspaceLabel(workspace.data?.name);
 
 	return (
-		<header className="flex h-12 shrink-0 items-center gap-2 border-b px-3 [view-transition-name:app-header]">
-			<div className="flex shrink-0 items-center gap-1">
+		<header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4 md:h-16 md:px-6 [view-transition-name:app-header]">
+			<div className="flex min-w-0 shrink items-center gap-1">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -59,10 +59,12 @@ export function AppHeader({ user }: { user: User }) {
 					<Logo className="size-5" />
 				</Link>
 				<Separator orientation="vertical" className="mx-1 h-5 bg-transparent" />
-				<span className="min-w-0 truncate font-medium text-sm">{label}</span>
+				<span className="min-w-0 max-w-24 truncate font-medium text-sm sm:max-w-none">
+					{label}
+				</span>
 			</div>
 
-			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+			<div className="ml-auto flex shrink-0 items-center gap-2">
 				<ImportConversationDialog />
 				<EnrichmentQueue />
 				<UserMenu
@@ -81,7 +83,7 @@ export function AppHeader({ user }: { user: User }) {
 export function AppHeaderFallback() {
 	return (
 		<header
-			className="flex h-12 shrink-0 items-center gap-2 border-b px-3 [view-transition-name:app-header]"
+			className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4 md:h-16 md:px-6 [view-transition-name:app-header]"
 			aria-busy="true"
 		>
 			<div className="flex shrink-0 items-center gap-1">
@@ -92,7 +94,7 @@ export function AppHeaderFallback() {
 				<Skeleton className="h-4 w-24" />
 			</div>
 
-			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+			<div className="ml-auto flex shrink-0 items-center gap-2">
 				<Avatar className="size-7">
 					<AvatarFallback />
 				</Avatar>
