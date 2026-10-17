@@ -528,8 +528,8 @@ export function VoiceQualifierModal({
 								</Badge>
 								{status === "in_call" && (
 									<Badge
-										variant="default"
-										className="animate-pulse bg-emerald-600 text-white font-mono text-xs flex items-center gap-1.5"
+										variant="success"
+										className="animate-pulse flex items-center gap-1.5 font-mono text-xs"
 									>
 										<span className="h-2 w-2 rounded-full bg-white" />
 										LIVE {formatTimer(seconds)}
@@ -765,7 +765,7 @@ export function VoiceQualifierModal({
 												{covered ? (
 													<Icon
 														icon={CheckmarkFilled}
-														className="text-emerald-500"
+														className="text-success"
 														size="sm"
 													/>
 												) : (

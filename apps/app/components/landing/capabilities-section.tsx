@@ -1,4 +1,5 @@
 import ArrowRight from "@carbon/icons-react/es/ArrowRight";
+import { Badge } from "@crm/ui/components/badge";
 import GitHubLogo from "@crm/ui/components/brand-logos/github";
 import StripeLogo from "@crm/ui/components/brand-logos/stripe";
 import VercelLogo from "@crm/ui/components/brand-logos/vercel";
@@ -24,7 +25,7 @@ const ENRICHMENT_ROWS = [
 	{
 		name: "Vercel",
 		domain: "vercel.com",
-		logo: <VercelLogo className="size-5 shrink-0 text-white" />,
+		logo: <VercelLogo className="size-5 shrink-0 text-foreground" />,
 		researching: false,
 	},
 	{
@@ -95,14 +96,12 @@ function EnrichmentCard() {
 							{row.domain}
 						</span>
 						{row.researching ? (
-							<StatusBadge className="gap-1 bg-border text-muted-foreground">
+							<StatusBadge variant="outline" className="gap-1">
 								<ResearchingSpinner />
 								Researching
 							</StatusBadge>
 						) : (
-							<StatusBadge className="bg-primary text-primary-foreground">
-								Enriched
-							</StatusBadge>
+							<StatusBadge variant="success">Enriched</StatusBadge>
 						)}
 					</div>
 				))}
@@ -149,7 +148,9 @@ function FollowUpCard() {
 						<span
 							className={cn(
 								"size-[7px] shrink-0 rounded-full",
-								item.next ? "animate-pulse bg-primary" : "bg-[#3A3A3A]",
+								item.next
+									? "animate-pulse bg-primary"
+									: "bg-muted-foreground/40",
 							)}
 						/>
 						<span
@@ -160,7 +161,7 @@ function FollowUpCard() {
 						>
 							{item.label}
 						</span>
-						<span className="shrink-0 font-mono text-[11px]/[18px] text-[#6E6E6E]">
+						<span className="shrink-0 font-mono text-[11px]/[18px] text-muted-foreground">
 							{item.due}
 						</span>
 					</li>
@@ -179,21 +180,21 @@ function FollowUpCard() {
 }
 
 function StatusBadge({
+	variant,
 	className,
 	children,
 }: {
+	variant: "outline" | "success";
 	className?: string;
 	children: React.ReactNode;
 }) {
 	return (
-		<span
-			className={cn(
-				"flex w-[104px] shrink-0 items-center justify-center rounded-sm px-2 py-[3px] text-[11px]/[14px]",
-				className,
-			)}
+		<Badge
+			variant={variant}
+			className={cn("min-w-[104px] justify-center", className)}
 		>
 			{children}
-		</span>
+		</Badge>
 	);
 }
 
@@ -203,14 +204,14 @@ function ResearchingSpinner() {
 			viewBox="0 0 16 16"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
-			className="size-[11px] shrink-0 animate-spin"
+			className="size-[11px] shrink-0 animate-spin text-muted-foreground"
 		>
 			<circle
 				cx="8"
 				cy="8"
 				r="6"
 				fill="none"
-				stroke="#4A4A4A"
+				stroke="currentColor"
 				strokeWidth="2"
 			/>
 			<path

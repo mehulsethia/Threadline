@@ -54,7 +54,7 @@ export function ProductShot() {
 
 function AppHeader() {
 	return (
-		<div className="flex h-12 shrink-0 items-center gap-2 border-border border-b px-3">
+		<div className="flex h-14 shrink-0 items-center gap-2 border-border border-b bg-card px-3 lg:h-16">
 			<div className="flex shrink-0 items-center gap-1">
 				<span className="flex size-8 shrink-0 items-center justify-center">
 					<Logo className="size-5 shrink-0 text-foreground" />
@@ -80,11 +80,11 @@ function AppHeader() {
 
 function AppRail() {
 	return (
-		<div className="flex w-14 shrink-0 flex-col items-center gap-1 border-border border-r py-3">
+		<div className="flex w-20 shrink-0 flex-col items-center gap-2 border-border border-r bg-sidebar py-4">
 			{RAIL.map(({ icon: Icon, label, active }) => (
 				<span
 					key={label}
-					className={`flex size-8 shrink-0 items-center justify-center rounded-md ${active ? "bg-muted text-foreground" : "text-muted-foreground"}`}
+					className={`flex size-10 shrink-0 items-center justify-center rounded-md ${active ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
 				>
 					<Icon size={16} aria-label={label} />
 				</span>

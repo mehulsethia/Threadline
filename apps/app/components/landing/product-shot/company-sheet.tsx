@@ -178,13 +178,13 @@ function SheetTabs({ compact }: { compact?: boolean }) {
 					key={tab.label}
 					className={cn(
 						"relative flex h-[calc(100%-1px)] shrink-0 items-center gap-1.5 rounded-sm py-0.5 font-medium text-xs/[133%]",
-						tab.active ? "text-foreground" : "text-muted-foreground",
+						tab.active ? "text-primary" : "text-muted-foreground",
 					)}
 				>
 					{tab.label}
 					{tab.count ? <span className="tabular-nums">{tab.count}</span> : null}
 					{tab.active ? (
-						<span className="-bottom-[5px] absolute inset-x-0 h-0.5 bg-foreground" />
+						<span className="-bottom-[5px] absolute inset-x-0 h-0.5 bg-primary" />
 					) : null}
 				</span>
 			))}
@@ -202,8 +202,8 @@ function AgentEmptyState({ compact }: { compact?: boolean }) {
 		>
 			<div className="flex max-w-xl flex-col items-center gap-2">
 				<span className="flex shrink-0 items-center justify-center pb-2">
-					<span className="flex size-8 shrink-0 items-center justify-center bg-foreground">
-						<Logo className="size-4 shrink-0 text-background" />
+					<span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary">
+						<Logo className="size-4 shrink-0 text-primary-foreground" />
 					</span>
 				</span>
 				<p className="text-center font-medium text-sm/5">

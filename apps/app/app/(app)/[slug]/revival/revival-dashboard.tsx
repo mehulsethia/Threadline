@@ -327,7 +327,7 @@ function RevivalDraftCard({
 							className={cn(
 								"font-mono text-xs",
 								(draft.priorityScore ?? 0) >= 70
-									? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+									? "border-warning/20 bg-warning/10 text-warning"
 									: "",
 							)}
 						>
@@ -337,8 +337,8 @@ function RevivalDraftCard({
 				</div>
 
 				{draft.stalledReason && (
-					<div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
-						<Warning className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+					<div className="mt-3 flex items-start gap-2 rounded-md bg-warning/10 p-2.5 text-xs text-warning">
+						<Warning className="mt-0.5 size-4 shrink-0 text-warning" />
 						<div>
 							<span className="font-semibold">Why stalled: </span>
 							{draft.stalledReason}
@@ -362,18 +362,12 @@ function RevivalDraftCard({
 
 					<div className="flex items-center gap-1.5">
 						{draft.channel === "WHATSAPP" ? (
-							<Badge
-								variant="outline"
-								className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs"
-							>
+							<Badge variant="outline" className="gap-1 text-xs">
 								<Chat className="size-3" />
 								WhatsApp
 							</Badge>
 						) : (
-							<Badge
-								variant="outline"
-								className="gap-1 border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400 text-xs"
-							>
+							<Badge variant="outline" className="gap-1 text-xs">
 								<Email className="size-3" />
 								Email
 							</Badge>
@@ -530,7 +524,7 @@ function RevivalDraftCard({
 								draftText: editedText,
 							})
 						}
-						className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+						className="gap-1.5 text-xs"
 					>
 						{approveMutation.isPending ? (
 							<Spinner className="size-3.5" />
@@ -545,7 +539,7 @@ function RevivalDraftCard({
 			{!isPending && (
 				<CardFooter className="flex items-center justify-between border-t bg-muted/10 py-2.5 text-xs text-muted-foreground">
 					<div className="flex items-center gap-1.5">
-						<Checkmark className="size-3.5 text-emerald-600" />
+						<Checkmark className="size-3.5 text-success" />
 						Status:{" "}
 						<span className="font-medium capitalize">{draft.status}</span>
 					</div>

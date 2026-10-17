@@ -36,22 +36,20 @@ export function AgentSection() {
 
 function Composer() {
 	return (
-		<div className="flex min-h-24 w-3xl max-w-full shrink-0 select-none flex-col justify-between rounded-lg border border-[#3D3D3D] bg-muted p-[11px]">
+		<div className="flex min-h-24 w-3xl max-w-full shrink-0 select-none flex-col justify-between rounded-lg border border-border bg-muted p-[11px]">
 			<p className="flex flex-wrap items-center gap-1 p-1 text-[13px]/6">
-				<span className="text-[#00805E]">/Create agent</span>
-				<span className="text-white">Send a new message to</span>
-				<Chip className="gap-1 text-white">
+				<span className="text-primary">/Create agent</span>
+				<span>Send a new message to</span>
+				<Chip className="gap-1">
 					<SlackLogo className="size-[15px] shrink-0" />
 					Slack
 				</Chip>
-				<span className="text-white">and ping</span>
-				<Chip className="gap-1 text-white">
+				<span>and ping</span>
+				<Chip className="gap-1">
 					<DanAvatar />
 					Dan
 				</Chip>
-				<span className="text-white">
-					when a company misses their invoice deadline
-				</span>
+				<span>when a company misses their invoice deadline</span>
 			</p>
 
 			<div className="flex items-center">

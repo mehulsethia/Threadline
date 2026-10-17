@@ -21,7 +21,7 @@ export function GitHubStarButton({ location }: { location: CtaLocation }) {
 					data-icon="inline-end"
 					className="flex items-center gap-[5px] font-mono font-normal text-[13px] text-muted-foreground"
 				>
-					<StarIcon className="size-[13px] shrink-0 text-[#E3B341]" />
+					<StarIcon className="size-[13px] shrink-0 text-primary" />
 					{REPO_STARS}
 				</span>
 			</a>
