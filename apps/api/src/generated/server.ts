@@ -32,7 +32,7 @@ import { recorderStatusOutput, recorderSetKeyInput, recorderRemoveKeyInput, reco
 import { revivalListInput, revivalListOutput, revivalRunInput, revivalRunOutput, revivalApproveInput, revivalApproveOutput, revivalUpdateInput, revivalUpdateOutput, revivalRejectInput, revivalRejectOutput, revivalSettingsInput, revivalSettingsOutput, revivalUpdateSettingsInput, revivalUpdateSettingsOutput } from "../revival/revival.contracts";
 import { savedViewListInput, savedViewListOutput, savedViewCreateInput, savedViewOutput, savedViewUpdateArgs, savedViewIdInput, savedViewDeleteOutput } from "../saved-views/saved-views.contracts";
 import { agentModelOutput, modelCatalogOutput, setAgentModelInput, researchKeyOutput, setResearchKeyInput, archiveRetentionOutput, setArchiveRetentionDaysInput } from "../settings/settings.contracts";
-import { slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackSetAlertsChannelInput, slackSetAlertsChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
+import { slackSyncOutput, slackStatusOutput, slackMatchesOutput, slackChannelsInput, slackChannelsOutput, slackJoinChannelInput, slackJoinChannelOutput, slackRefreshPeopleOutput, slackCreateChannelInput, slackCreateChannelOutput, slackSetAlertsChannelInput, slackSetAlertsChannelOutput, slackDisconnectOutput } from "../slack/slack.contracts";
 import { ssoSignInOptionsOutput, ssoSettingsOutput, ssoProviderListInput, ssoProviderListOutput, registerSsoProviderInput, ssoProviderOutput, deleteSsoProviderInput, deleteSsoProviderOutput } from "../sso/sso.contracts";
 import { trackingSettingsOutput, trackingFlagInput, cookieLifetimeInput, addDomainInput, trackedDomainOutput, removeDomainInput, rotateSiteIdOutput, verifyInput, verifyOutput, sourcesOutput, companyActivityInput, websiteActivityOutput, contactActivityInput } from "../tracking/tracking.contracts";
 import { voiceDealContextInput, voiceDealContextOutput, voiceLiveTicketOutput, voiceTranscribeQualifyInput, voiceTranscribeQualifyOutput } from "../voice/voice.contracts";
@@ -718,6 +718,9 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   slack: t.router({
+    syncNow: publicProcedure
+      .output(slackSyncOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     status: publicProcedure
       .output(slackStatusOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),

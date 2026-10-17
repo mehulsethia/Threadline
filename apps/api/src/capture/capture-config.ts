@@ -15,6 +15,8 @@ export const CAPTURE = {
 		apiUrl: "https://meet.googleapis.com/v2",
 	},
 	slack: {
+		backfillMs: DAY_MS,
+		maxChannels: 20,
 		maxMessages: 200,
 		maxCharactersPerMessage: 4_000,
 		requestTimeoutMs: 10_000,

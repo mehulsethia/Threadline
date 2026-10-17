@@ -24,7 +24,9 @@ import {
 	slackSetAlertsChannelInput,
 	slackSetAlertsChannelOutput,
 	slackStatusOutput,
+	slackSyncOutput,
 } from "./slack.contracts";
+import { SlackCaptureService } from "./slack-capture.service";
 import { SlackConnectionService } from "./slack-connection.service";
 
 @Router({ alias: "slack" })
@@ -33,7 +35,17 @@ export class SlackRouter {
 	constructor(
 		@Inject(SlackConnectionService)
 		private readonly connection: SlackConnectionService,
+		@Inject(SlackCaptureService)
+		private readonly capture: SlackCaptureService,
 	) {}
+
+	@Mutation({
+		output: slackSyncOutput,
+		meta: restMeta("POST", "/slack/sync", ["Slack"]),
+	})
+	syncNow() {
+		return this.capture.syncRecent();
+	}
 
 	@Query({
 		output: slackStatusOutput,

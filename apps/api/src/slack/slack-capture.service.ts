@@ -7,6 +7,7 @@ import { InjectDatabase } from "../database/database.constants";
 import {
 	type SlackMessageEvent,
 	slackHistoryResponse,
+	slackMemberChannelsResponse,
 	slackUserInfoResponse,
 } from "./slack.contracts";
 import { decryptToken } from "./slack-crypto";
@@ -40,6 +41,46 @@ export class SlackCaptureService {
 				error: error instanceof Error ? error.message : String(error),
 			}),
 		);
+	}
+
+	async syncRecent(): Promise<{ channels: number }> {
+		const install = await this.db.slackInstallation.findFirst({
+			orderBy: { createdAt: "desc" },
+		});
+		if (!install?.botToken) return { channels: 0 };
+		const token = decryptToken(install.botToken);
+		const joined = slackMemberChannelsResponse.parse(
+			await this.call(token, "users.conversations", {
+				types: "public_channel,private_channel",
+				exclude_archived: "true",
+				limit: String(CAPTURE.slack.maxChannels),
+			}),
+		);
+		const oldest = String((Date.now() - CAPTURE.slack.backfillMs) / 1000);
+		let channels = 0;
+		for (const channel of joined.channels ?? []) {
+			if (channel.id === install.alertsChannelId) continue;
+			const history = slackHistoryResponse.parse(
+				await this.call(token, "conversations.history", {
+					channel: channel.id,
+					oldest,
+					limit: String(CAPTURE.slack.maxMessages),
+				}),
+			);
+			const latest = (history.messages ?? []).find(
+				(row) => row.user && !row.bot_id && row.text?.trim(),
+			);
+			if (!latest) continue;
+			channels += 1;
+			await this.capture(install.teamId, {
+				type: "message",
+				channel: channel.id,
+				ts: latest.ts,
+				user: latest.user,
+				text: latest.text,
+			});
+		}
+		return { channels };
 	}
 
 	private async capture(teamId: string, event: SlackMessageEvent) {

@@ -1,6 +1,7 @@
 import { db, EnrichmentStatus } from "@crm/db";
 import { PRIORITY } from "@crm/db/agent-tasks";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
+import { z } from "zod";
 import { captureRecorderMeetings } from "../../adk/capture/recorders";
 import { runAdkIntakeTask } from "../../adk/intake";
 import { runLeadRevivalCycle } from "../../adk/revival/service";
@@ -20,6 +21,10 @@ import {
 	type LeasedTask,
 	noteSession,
 } from "./tasks";
+
+const meetingSyncPayload = z
+	.object({ trigger: z.string().optional().catch(undefined) })
+	.catch({});
 
 export const VISIBLE_BATCH = DISPATCH.visible.batch;
 export const VISIBLE_CONCURRENCY = DISPATCH.visible.concurrency;
@@ -137,7 +142,9 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 	}
 
 	if (task.kind === "meeting-sync") {
-		const report = await captureRecorderMeetings();
+		const report = await captureRecorderMeetings(
+			meetingSyncPayload.parse(task.payload).trigger === "manual",
+		);
 		for (const job of report.jobs) {
 			await db.agentTask.create({
 				data: {

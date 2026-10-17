@@ -31,6 +31,7 @@ import {
 } from "./slack-connect-button";
 import { SlackDisconnectButton } from "./slack-disconnect-button";
 import { SlackScopeGroups } from "./slack-scope-groups";
+import { SlackSyncButton } from "./slack-sync-button";
 
 const PRIVATE_CHANNEL_SCOPES = [
 	"groups:read",
@@ -190,6 +191,7 @@ function ConnectedSlack({
 					<span className="ml-auto text-muted-foreground text-sm">
 						{status.workspace ?? "Connected"}
 					</span>
+					<SlackSyncButton />
 					<SlackDisconnectButton
 						canManage={status.canManage}
 						workspace={status.workspace}

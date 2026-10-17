@@ -74,7 +74,7 @@ async function ConnectionsSettingsPageContent({
 					{
 						name: "Meeting recorders",
 						status: `Connected to ${recordersConnected.join(" and ")}`,
-						bringsIn: "Meeting transcripts, every 15 minutes",
+						bringsIn: "Meeting transcripts, every hour",
 						sends: "Nothing",
 						href: `/${slug}/settings/connections/recorders`,
 						logo: Microphone,

@@ -60,7 +60,7 @@ export class RecordersService {
 			create: { id: SETTINGS_ID, [COLUMN[provider]]: sealed },
 			update: { [COLUMN[provider]]: sealed },
 		});
-		await this.agent.queueMeetingSync();
+		await this.agent.queueMeetingSync("manual");
 		return this.status();
 	}
 
@@ -74,6 +74,6 @@ export class RecordersService {
 	}
 
 	async syncNow(): Promise<{ queued: boolean }> {
-		return { queued: await this.agent.queueMeetingSync() };
+		return { queued: await this.agent.queueMeetingSync("manual") };
 	}
 }

@@ -226,6 +226,14 @@ export const slackHistoryResponse = z.object({
 		.optional(),
 });
 
+export const slackMemberChannelsResponse = z.object({
+	ok: z.boolean(),
+	error: z.string().optional(),
+	channels: z.array(z.object({ id: z.string() })).optional(),
+});
+
+export const slackSyncOutput = z.object({ channels: z.number().int() });
+
 export const slackUserInfoResponse = z.object({
 	ok: z.boolean(),
 	user: z

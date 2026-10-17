@@ -31,9 +31,9 @@ async function RecordersConnectionPageContent({
 					Meeting recorders
 				</h1>
 				<p className="text-muted-foreground text-sm leading-relaxed">
-					Connect your own Fireflies or Fathom account. Every 15 minutes
-					Threadline fetches new transcripts, extracts facts with quotes, and
-					updates the right contact and deal.
+					Connect your own Fireflies or Fathom account. Every hour Threadline
+					fetches new transcripts, extracts facts with quotes, and updates the
+					right contact and deal. Use Sync now to check straight away.
 				</p>
 			</header>
 			<RecorderKeys />

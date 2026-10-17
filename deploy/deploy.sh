@@ -91,7 +91,7 @@ services() {
 		--min-instances 0 --max-instances 3 \
 		--cpu 1 --memory 1Gi \
 		--set-cloudsql-instances "$SQL" \
-		--set-env-vars "NODE_ENV=production,API_INTERNAL_URL=$API_RUN_URL,APP_URL=$APP_URL,AGENT_URL=$AGENT_URL,AGENT_IAM_AUDIENCE=$AGENT_URL" \
+		--set-env-vars "NODE_ENV=production,IS_MARKETING=true,API_INTERNAL_URL=$API_RUN_URL,APP_URL=$APP_URL,AGENT_URL=$AGENT_URL,AGENT_IAM_AUDIENCE=$AGENT_URL" \
 		--set-secrets "$(secret DATABASE_URL database-url),$(secret BETTER_AUTH_SECRET better-auth-secret),$(secret DEMO_RESET_SECRET demo-reset-secret),$(secret AGENT_BRIDGE_SECRET agent-bridge-secret)" \
 		--quiet
 }

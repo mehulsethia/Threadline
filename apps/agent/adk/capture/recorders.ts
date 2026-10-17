@@ -202,7 +202,9 @@ export async function memberSpeaker(
 	return match ?? host;
 }
 
-export async function captureRecorderMeetings(): Promise<
+export async function captureRecorderMeetings(
+	manual: boolean,
+): Promise<
 	RecorderSyncReport & { jobs: { jobId: string; me: string | null }[] }
 > {
 	const settings = await db.appSetting.findUnique({
@@ -214,6 +216,14 @@ export async function captureRecorderMeetings(): Promise<
 		},
 	});
 	const startedAt = new Date();
+	if (
+		!manual &&
+		settings?.recordersSyncedAt &&
+		startedAt.getTime() - settings.recordersSyncedAt.getTime() <
+			RECORDERS.minIntervalMs
+	) {
+		return { checked: 0, captured: [], errors: [], jobs: [] };
+	}
 	const since = settings?.recordersSyncedAt
 		? new Date(settings.recordersSyncedAt.getTime() - RECORDERS.overlapMs)
 		: new Date(startedAt.getTime() - RECORDERS.firstLookbackMs);
