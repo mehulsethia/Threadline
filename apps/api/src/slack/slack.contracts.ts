@@ -160,3 +160,44 @@ export const slackSetAlertsChannelOutput = z.object({
 export type SlackSetAlertsChannelResult = z.infer<
 	typeof slackSetAlertsChannelOutput
 >;
+
+/** A Block Kit block on a posted message; unknown fields ride along. */
+export const slackBlock = z.looseObject({
+	type: z.string().optional(),
+	block_id: z.string().optional(),
+});
+
+export type SlackBlock = z.infer<typeof slackBlock>;
+
+/** The interactivity payload Slack sends when someone presses a card button. */
+export const slackBlockActionPayload = z.object({
+	type: z.literal("block_actions"),
+	user: z.object({
+		id: z.string(),
+		username: z.string().optional(),
+		name: z.string().optional(),
+	}),
+	team: z.object({ id: z.string(), domain: z.string().optional() }),
+	channel: z.object({ id: z.string() }),
+	message: z
+		.object({ ts: z.string(), blocks: z.array(slackBlock).optional() })
+		.optional(),
+	actions: z.array(z.object({ action_id: z.string(), value: z.string() })),
+	response_url: z.string().optional(),
+	trigger_id: z.string().optional(),
+});
+
+export type SlackBlockActionPayload = z.infer<typeof slackBlockActionPayload>;
+
+/** The fields of an Events API body this app reads. */
+export const slackEventBody = z.object({
+	type: z.string().optional(),
+	challenge: z.string().optional(),
+});
+
+/** A Socket Mode envelope; its payload is parsed by the receiver. */
+export const slackSocketEnvelope = z.object({
+	envelope_id: z.string().optional(),
+	type: z.string().optional(),
+	payload: z.unknown().optional(),
+});

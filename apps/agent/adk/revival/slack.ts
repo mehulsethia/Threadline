@@ -1,6 +1,7 @@
 import { createDecipheriv, createHash } from "node:crypto";
 import { db, formatDealStage } from "@crm/db";
 import { WORKSPACE_ID } from "@crm/db/workspace";
+import { citedEvidenceList } from "@crm/validation/cited-evidence";
 
 function decryptBotToken(encryptedPayload: string): string {
 	const parts = encryptedPayload.split(":");
@@ -73,14 +74,9 @@ export async function postDraftToSlack(draftId: string): Promise<{
 		};
 	}
 
-	const quotes: string[] = [];
-	if (Array.isArray(draft.citedEvidence)) {
-		for (const item of draft.citedEvidence) {
-			if (typeof item === "object" && item && "quote" in item) {
-				quotes.push(String((item as { quote: unknown }).quote));
-			}
-		}
-	}
+	const quotes = citedEvidenceList
+		.parse(draft.citedEvidence)
+		.map((item) => item.quote);
 
 	const quotedDraft = draft.draftText
 		.split("\n")

@@ -1,7 +1,9 @@
 import { WORKSPACE_ID } from "@crm/auth";
 import { type Db, formatDealStage } from "@crm/db";
+import { citedEvidenceList } from "@crm/validation/cited-evidence";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import type { SlackBlock, SlackBlockActionPayload } from "./slack.contracts";
 import { decryptToken } from "./slack-crypto";
 
 @Injectable()
@@ -75,14 +77,9 @@ export class SlackRevivalService {
 			};
 		}
 
-		const quotes: string[] = [];
-		if (Array.isArray(draft.citedEvidence)) {
-			for (const item of draft.citedEvidence) {
-				if (typeof item === "object" && item && "quote" in item) {
-					quotes.push(String((item as { quote: unknown }).quote));
-				}
-			}
-		}
+		const quotes = citedEvidenceList
+			.parse(draft.citedEvidence)
+			.map((item) => item.quote);
 
 		const contactName =
 			[draft.contact.firstName, draft.contact.lastName]
@@ -236,15 +233,7 @@ export class SlackRevivalService {
 		};
 	}
 
-	async handleBlockAction(payload: {
-		user: { id: string; username?: string; name?: string };
-		team: { id: string; domain?: string };
-		channel: { id: string };
-		message?: { ts: string; blocks?: unknown[] };
-		actions: Array<{ action_id: string; value: string }>;
-		response_url?: string;
-		trigger_id?: string;
-	}) {
+	async handleBlockAction(payload: SlackBlockActionPayload) {
 		const action = payload.actions[0];
 		if (!action) return;
 
@@ -459,19 +448,15 @@ export class SlackRevivalService {
 		botToken: string,
 		channel: string,
 		ts: string,
-		existingBlocks: unknown[] | undefined,
+		existingBlocks: SlackBlock[] | undefined,
 		statusText: string,
 	) {
-		const updatedBlocks = Array.isArray(existingBlocks)
-			? existingBlocks.filter((b) => {
-					if (typeof b !== "object" || b === null) return true;
-					const block = b as { type?: unknown; block_id?: unknown };
-					return (
-						block.type !== "actions" &&
-						!String(block.block_id || "").startsWith("draft_actions_")
-					);
-				})
-			: [];
+		// Drop the buttons so a decided draft cannot be decided again.
+		const updatedBlocks: SlackBlock[] = (existingBlocks ?? []).filter(
+			(block) =>
+				block.type !== "actions" &&
+				!(block.block_id ?? "").startsWith("draft_actions_"),
+		);
 
 		updatedBlocks.push({
 			type: "context",

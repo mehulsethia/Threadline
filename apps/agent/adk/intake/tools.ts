@@ -157,7 +157,10 @@ export async function extractLeadFactsFromInput(input: {
 }) {
 	const extraction = await runExtractLeadFacts({
 		messages: input.messages,
-		transcript: input.transcript,
+		transcript:
+			input.transcript === undefined
+				? undefined
+				: { fullTranscript: input.transcript },
 		me: input.me,
 	});
 	const leadName = extraction.facts.contact.name.value ?? "Unknown";
@@ -774,7 +777,7 @@ export const extractLeadFactsTool = new FunctionTool({
 	}),
 	execute: async ({ jobId, text, me }) => {
 		const extraction = await runExtractLeadFacts({
-			transcript: text,
+			transcript: { fullTranscript: text },
 			me,
 		});
 		const leadName = extraction.facts.contact.name.value ?? "Unknown";

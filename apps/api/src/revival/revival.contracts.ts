@@ -1,3 +1,4 @@
+import { citedEvidenceItem } from "@crm/validation/cited-evidence";
 import { z } from "zod";
 
 export const revivalListInput = z.object({
@@ -24,7 +25,7 @@ export const revivalDraftItem = z.object({
 	draftText: z.string(),
 	subject: z.string().nullable(),
 	confidence: z.number().nullable(),
-	citedEvidence: z.array(z.string()).nullable(),
+	citedEvidence: z.array(citedEvidenceItem),
 	stalledReason: z.string().nullable(),
 	priorityScore: z.number().nullable(),
 	status: z.string(),

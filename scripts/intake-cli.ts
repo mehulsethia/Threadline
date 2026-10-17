@@ -66,7 +66,7 @@ async function main(): Promise<void> {
 	}
 
 	if (isAudioFile(absolutePath)) {
-		const transcript = await transcribeAudio(absolutePath);
+		const transcript = await transcribeAudio({ path: absolutePath });
 		const { facts, validationSummary } = await extractLeadFacts({
 			transcript,
 			me,

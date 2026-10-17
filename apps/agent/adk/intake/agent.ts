@@ -21,17 +21,22 @@ import {
 	upsertDeal,
 } from "./tools";
 
-const gemini = new Gemini({
-	model: process.env.GEMINI_SMART_MODEL || "gemini-4-argon",
-	vertexai: true,
-	project: process.env.GOOGLE_CLOUD_PROJECT,
-	location: process.env.GEMINI_SMART_LOCATION || "global",
-});
+let intakeAgent: LlmAgent | null = null;
 
-export const intakeAgent = new LlmAgent({
-	name: "threadline_intake_agent",
-	model: gemini,
-	instruction: `You are the Threadline Autonomous Intake Agent.
+/**
+ * The intake LlmAgent, built on first use so importing this module needs no
+ * Vertex project (tests and the worker's other lanes import it too).
+ */
+export function getIntakeAgent(): LlmAgent {
+	intakeAgent ??= new LlmAgent({
+		name: "threadline_intake_agent",
+		model: new Gemini({
+			model: process.env.GEMINI_SMART_MODEL || "gemini-4-argon",
+			vertexai: true,
+			project: process.env.GOOGLE_CLOUD_PROJECT,
+			location: process.env.GEMINI_SMART_LOCATION || "global",
+		}),
+		instruction: `You are the Threadline Autonomous Intake Agent.
 Your responsibility is to ingest WhatsApp exports and audio recordings, extract sales intelligence, and populate the CRM database accurately.
 
 Follow these strict rules:
@@ -49,8 +54,10 @@ Follow these strict rules:
 12. Finalize the job with finish_job.
 
 Never invent values. Skip null fields. Explain each decision in one concise line.`,
-	tools: INTAKE_TOOLS,
-});
+		tools: INTAKE_TOOLS,
+	});
+	return intakeAgent;
+}
 
 async function runCompanyResearchStep(input: {
 	jobId: string;

@@ -77,13 +77,14 @@ export function parseEnv(source: string): EnvValues {
  * byte-order mark; read those as well as plain UTF-8.
  */
 export function decodeEnvFile(bytes: Uint8Array): string {
-	if (bytes[0] === 0xff && bytes[1] === 0xfe) {
-		return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+	const buffer = Buffer.from(bytes);
+	if (buffer[0] === 0xff && buffer[1] === 0xfe) {
+		return buffer.subarray(2).toString("utf16le");
 	}
-	if (bytes[0] === 0xfe && bytes[1] === 0xff) {
-		return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+	if (buffer[0] === 0xfe && buffer[1] === 0xff) {
+		return Buffer.from(buffer.subarray(2)).swap16().toString("utf16le");
 	}
-	const text = new TextDecoder("utf-8").decode(bytes);
+	const text = buffer.toString("utf8");
 	return text.startsWith("\uFEFF") ? text.slice(1) : text;
 }
 

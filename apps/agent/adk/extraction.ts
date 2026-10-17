@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import type { DealStage } from "@crm/db";
+import { DealStage } from "@crm/db";
 import type { WhatsAppMessageItem } from "@crm/validation/whatsapp-parser";
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 import {
 	detectParticipants,
 	type ValidationSummary,
@@ -88,13 +89,11 @@ export type ExtractedLeadFacts = {
 
 export type ExtractLeadFactsInput = {
 	messages?: WhatsAppMessageItem[];
-	transcript?:
-		| {
-				language?: string;
-				fullTranscript?: string;
-				segments?: AudioSegment[];
-		  }
-		| string;
+	transcript?: {
+		language?: string;
+		fullTranscript?: string;
+		segments?: AudioSegment[];
+	};
 	me?: string;
 	workspaceName?: string;
 };
@@ -121,7 +120,10 @@ function inferAudioMimeType(filename: string): string {
 	}
 }
 
-export function getFastClient(): { ai: GoogleGenAI; model: string } {
+/** A Vertex Gemini client and the model id configured for its tier. */
+export type GeminiClient = { ai: GoogleGenAI; model: string };
+
+export function getFastClient(): GeminiClient {
 	const project =
 		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
 	const model = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";
@@ -136,7 +138,7 @@ export function getFastClient(): { ai: GoogleGenAI; model: string } {
 	return { ai, model };
 }
 
-export function getSmartClient(): { ai: GoogleGenAI; model: string } {
+export function getSmartClient(): GeminiClient {
 	const project =
 		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
 	const model = process.env.GEMINI_SMART_MODEL || "gemini-4-argon";
@@ -153,15 +155,15 @@ export function getSmartClient(): { ai: GoogleGenAI; model: string } {
 
 export async function transcribeAudio(
 	file:
-		| string
+		| { path: string }
 		| { buffer: Buffer | Uint8Array; filename?: string; mimeType?: string },
 ): Promise<AudioTranscriptionResult> {
 	let bytes: Buffer;
 	let mimeType: string;
 
-	if (typeof file === "string") {
-		bytes = readFileSync(file);
-		mimeType = inferAudioMimeType(file);
+	if ("path" in file) {
+		bytes = readFileSync(file.path);
+		mimeType = inferAudioMimeType(file.path);
 	} else {
 		bytes = Buffer.isBuffer(file.buffer)
 			? file.buffer
@@ -270,21 +272,19 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 
 	if (input.transcript) {
 		contentSections.push("=== AUDIO TRANSCRIPT ===");
-		if (typeof input.transcript === "string") {
-			contentSections.push(input.transcript);
-		} else {
+		if (input.transcript.language) {
 			contentSections.push(
-				`Detected Audio Language: ${input.transcript.language ?? "unknown"}`,
+				`Detected Audio Language: ${input.transcript.language}`,
 			);
-			if (input.transcript.segments && input.transcript.segments.length > 0) {
-				const segmentLines = input.transcript.segments.map(
-					(seg) =>
-						`[Audio ${seg.start} - ${seg.end}] ${seg.speaker ?? "Speaker"}: ${seg.text}`,
-				);
-				contentSections.push(segmentLines.join("\n"));
-			} else if (input.transcript.fullTranscript) {
-				contentSections.push(input.transcript.fullTranscript);
-			}
+		}
+		if (input.transcript.segments && input.transcript.segments.length > 0) {
+			const segmentLines = input.transcript.segments.map(
+				(seg) =>
+					`[Audio ${seg.start} - ${seg.end}] ${seg.speaker ?? "Speaker"}: ${seg.text}`,
+			);
+			contentSections.push(segmentLines.join("\n"));
+		} else if (input.transcript.fullTranscript) {
+			contentSections.push(input.transcript.fullTranscript);
 		}
 	}
 
@@ -506,8 +506,7 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 		}
 	}
 
-	const rawJson = response.text?.trim() ?? "{}";
-	const parsed = JSON.parse(rawJson);
+	const parsed = extractionJson.parse(response.text?.trim() || "{}");
 
 	const facts = normalizeExtractedFacts(parsed, participantInfo);
 
@@ -529,8 +528,139 @@ export async function extractLeadFacts(input: ExtractLeadFactsInput): Promise<{
 	return { facts, validationSummary };
 }
 
+const SOURCE_KINDS = [
+	"whatsapp.message",
+	"voice.transcript",
+	"voice.live-call",
+	"agent.inference",
+] as const satisfies readonly EvidenceSourceKind[];
+
+const text = z.union([z.string(), z.number()]).transform(String);
+
+// Amounts sometimes come back as "4,50,000"; anything else non-numeric is null.
+const amount = z.union([
+	z.number(),
+	z
+		.string()
+		.regex(/^[\d.,\s]+$/)
+		.transform((value) => Number(value.replace(/[,\s]/g, ""))),
+]);
+
+const evidenceShape = z.object({
+	sourceKind: z.enum(SOURCE_KINDS).catch("whatsapp.message"),
+	speaker: z.enum(["lead", "us"]).optional().catch(undefined),
+	quote: text.catch(""),
+	lineNos: z.array(z.number()).optional().catch(undefined),
+	audioRange: z
+		.object({ start: z.string(), end: z.string() })
+		.optional()
+		.catch(undefined),
+});
+
+type ParsedEvidence = z.infer<typeof evidenceShape>;
+
+const evidenceField = evidenceShape.nullable().optional().catch(null);
+
+function withSpeaker(
+	evidence: ParsedEvidence | null | undefined,
+	defaultSpeaker: EvidenceSpeaker,
+): EvidenceRef | null {
+	if (!evidence) return null;
+	return { ...evidence, speaker: evidence.speaker ?? defaultSpeaker };
+}
+
+/** `{ value, evidence }` from the model; a missing or null value means no fact. */
+function factField<T extends z.ZodType>(value: T) {
+	return z
+		.object({
+			value: value.nullable().optional().catch(null),
+			evidence: evidenceField,
+		})
+		.nullable()
+		.optional()
+		.catch(null);
+}
+
+const stringFact = factField(text);
+const amountFact = factField(amount);
+
+const extractionResponse = z
+	.object({
+		contact: z
+			.object({ name: stringFact, phone: stringFact, role: stringFact })
+			.partial()
+			.catch({}),
+		company: z
+			.object({ name: stringFact, city: stringFact })
+			.partial()
+			.catch({}),
+		deal: z
+			.object({
+				need: stringFact,
+				quantity: factField(z.union([z.string(), z.number()])),
+				leadBudget: amountFact,
+				quotedValue: amountFact,
+				currency: stringFact,
+				timeline: stringFact,
+				stageSuggestion: factField(z.enum(DealStage)),
+			})
+			.partial()
+			.catch({}),
+		languagePreference: stringFact,
+		objections: z
+			.array(
+				z
+					.object({ objection: text, evidence: evidenceField })
+					.nullable()
+					.catch(null),
+			)
+			.catch([]),
+		nextStep: z
+			.object({
+				value: text.nullable().optional().catch(null),
+				owner: z.enum(["us", "lead"]).nullable().optional().catch(null),
+				evidence: evidenceField,
+			})
+			.partial()
+			.catch({}),
+		sentiment: factField(z.enum(["positive", "neutral", "negative"])),
+	})
+	.partial()
+	.catch({});
+
+/** Gemini's JSON text, parsed and shaped in one step. */
+const extractionJson = z
+	.string()
+	.transform((raw, ctx) => {
+		try {
+			return JSON.parse(raw);
+		} catch {
+			ctx.addIssue({ code: "custom", message: "Extraction was not JSON." });
+			return z.NEVER;
+		}
+	})
+	.pipe(extractionResponse);
+
+type ExtractionResponse = z.infer<typeof extractionResponse>;
+
+function toField<T>(
+	field:
+		| { value?: T | null; evidence?: ParsedEvidence | null }
+		| null
+		| undefined,
+	defaultSpeaker: EvidenceSpeaker,
+): ExtractedField<T | null> {
+	if (field?.value === null || field?.value === undefined) {
+		return { value: null, evidence: null };
+	}
+	return {
+		value: field.value,
+		evidence: withSpeaker(field.evidence, defaultSpeaker),
+	};
+}
+
 function normalizeExtractedFacts(
-	data: Record<string, unknown>,
+	data: ExtractionResponse,
 	participantInfo: {
 		me: string;
 		lead: string;
@@ -538,132 +668,55 @@ function normalizeExtractedFacts(
 		autoDetected: boolean;
 	},
 ): ExtractedLeadFacts {
-	const normalizeField = <T>(
-		field: unknown,
-		defaultSpeaker: EvidenceSpeaker,
-	): ExtractedField<T> => {
-		if (!field || typeof field !== "object") {
-			return { value: null as T, evidence: null };
-		}
-		const obj = field as { value?: unknown; evidence?: unknown };
-		if (obj.value === null || obj.value === undefined) {
-			return { value: null as T, evidence: null };
-		}
-		const evidenceObj =
-			obj.evidence && typeof obj.evidence === "object"
-				? (obj.evidence as Record<string, unknown>)
-				: null;
+	const contact = data.contact ?? {};
+	const company = data.company ?? {};
+	const deal = data.deal ?? {};
+	const nextStep = data.nextStep ?? {};
 
-		let evidence: EvidenceRef | null = null;
-		if (evidenceObj) {
-			evidence = {
-				sourceKind:
-					(evidenceObj.sourceKind as EvidenceSourceKind) ?? "whatsapp.message",
-				speaker: (evidenceObj.speaker as EvidenceSpeaker) ?? defaultSpeaker,
-				quote: String(evidenceObj.quote ?? ""),
-				lineNos: Array.isArray(evidenceObj.lineNos)
-					? (evidenceObj.lineNos as number[])
-					: undefined,
-				audioRange:
-					evidenceObj.audioRange && typeof evidenceObj.audioRange === "object"
-						? (evidenceObj.audioRange as { start: string; end: string })
-						: undefined,
-			};
-		}
-
-		return {
-			value: obj.value as T,
-			evidence,
-		};
-	};
-
-	const contactRaw = (data.contact as Record<string, unknown>) ?? {};
-	const companyRaw = (data.company as Record<string, unknown>) ?? {};
-	const dealRaw = (data.deal as Record<string, unknown>) ?? {};
-	const nextStepRaw = (data.nextStep as Record<string, unknown>) ?? {};
-
-	const objectionsRaw = Array.isArray(data.objections) ? data.objections : [];
-	const objections: LeadObjection[] = objectionsRaw
-		.filter((item) => item && typeof item === "object" && item.objection)
-		.map((item) => {
-			const evObj = item.evidence as Record<string, unknown> | undefined;
-			return {
-				objection: String(item.objection),
-				evidence: {
-					sourceKind:
-						(evObj?.sourceKind as EvidenceSourceKind) ?? "whatsapp.message",
-					speaker: (evObj?.speaker as EvidenceSpeaker) ?? "lead",
-					quote: String(evObj?.quote ?? ""),
-					lineNos: Array.isArray(evObj?.lineNos)
-						? (evObj.lineNos as number[])
-						: undefined,
-				},
-			};
-		});
-
-	const nextStepEvidence =
-		nextStepRaw.evidence && typeof nextStepRaw.evidence === "object"
-			? (nextStepRaw.evidence as Record<string, unknown>)
-			: null;
+	const objections: LeadObjection[] = (data.objections ?? []).flatMap((item) =>
+		item?.objection
+			? [
+					{
+						objection: item.objection,
+						evidence: withSpeaker(item.evidence, "lead") ?? {
+							sourceKind: "whatsapp.message",
+							speaker: "lead",
+							quote: "",
+						},
+					},
+				]
+			: [],
+	);
 
 	return {
 		contact: {
-			name: normalizeField<string | null>(contactRaw.name, "lead"),
-			phone: normalizeField<string | null>(contactRaw.phone, "lead"),
-			role: normalizeField<string | null>(contactRaw.role, "lead"),
+			name: toField(contact.name, "lead"),
+			phone: toField(contact.phone, "lead"),
+			role: toField(contact.role, "lead"),
 		},
 		company: {
-			name: normalizeField<string | null>(companyRaw.name, "lead"),
-			city: normalizeField<string | null>(companyRaw.city, "lead"),
+			name: toField(company.name, "lead"),
+			city: toField(company.city, "lead"),
 		},
 		deal: {
-			need: normalizeField<string | null>(dealRaw.need, "lead"),
-			quantity: normalizeField<string | number | null>(
-				dealRaw.quantity,
-				"lead",
-			),
-			leadBudget: normalizeField<number | null>(dealRaw.leadBudget, "lead"),
-			quotedValue: normalizeField<number | null>(dealRaw.quotedValue, "us"),
-			currency: normalizeField<string | null>(dealRaw.currency, "lead"),
-			timeline: normalizeField<string | null>(dealRaw.timeline, "lead"),
+			need: toField(deal.need, "lead"),
+			quantity: toField(deal.quantity, "lead"),
+			leadBudget: toField(deal.leadBudget, "lead"),
+			quotedValue: toField(deal.quotedValue, "us"),
+			currency: toField(deal.currency, "lead"),
+			timeline: toField(deal.timeline, "lead"),
 			timelineResolved: null,
-			stageSuggestion: normalizeField<DealStage | null>(
-				dealRaw.stageSuggestion,
-				"us",
-			),
+			stageSuggestion: toField(deal.stageSuggestion, "us"),
 		},
-		languagePreference: normalizeField<string | null>(
-			data.languagePreference,
-			"lead",
-		),
+		languagePreference: toField(data.languagePreference, "lead"),
 		objections,
 		nextStep: {
-			value:
-				nextStepRaw.value !== undefined && nextStepRaw.value !== null
-					? String(nextStepRaw.value)
-					: null,
-			owner:
-				nextStepRaw.owner === "us" || nextStepRaw.owner === "lead"
-					? nextStepRaw.owner
-					: null,
+			value: nextStep.value ?? null,
+			owner: nextStep.owner ?? null,
 			dueAt: null,
-			evidence: nextStepEvidence
-				? {
-						sourceKind:
-							(nextStepEvidence.sourceKind as EvidenceSourceKind) ??
-							"whatsapp.message",
-						speaker: (nextStepEvidence.speaker as EvidenceSpeaker) ?? "us",
-						quote: String(nextStepEvidence.quote ?? ""),
-						lineNos: Array.isArray(nextStepEvidence.lineNos)
-							? (nextStepEvidence.lineNos as number[])
-							: undefined,
-					}
-				: null,
+			evidence: withSpeaker(nextStep.evidence, "us"),
 		},
-		sentiment: normalizeField<"positive" | "neutral" | "negative" | null>(
-			data.sentiment,
-			"lead",
-		),
+		sentiment: toField(data.sentiment, "lead"),
 		participants: participantInfo,
 	};
 }

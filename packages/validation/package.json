@@ -9,11 +9,13 @@
 		"./agent-events": "./src/agent-events.ts",
 		"./agent-manifest": "./src/agent-manifest.ts",
 		"./builder-question": "./src/builder-question.ts",
+		"./cited-evidence": "./src/cited-evidence.ts",
 		"./enrichment-queue": "./src/enrichment-queue.ts",
 		"./eve-stream": "./src/eve-stream.ts",
 		"./eve-tool": "./src/eve-tool.ts",
 		"./field-backfill": "./src/field-backfill.ts",
 		"./field-templates": "./src/field-templates.ts",
+		"./json-text": "./src/json-text.ts",
 		"./saved-view": "./src/saved-view.ts",
 		"./whatsapp-parser": "./src/whatsapp-parser.ts"
 	},

@@ -1,9 +1,14 @@
+import { jsonText } from "@crm/validation/json-text";
 import {
 	Injectable,
 	Logger,
 	type OnModuleDestroy,
 	type OnModuleInit,
 } from "@nestjs/common";
+import {
+	slackBlockActionPayload,
+	slackSocketEnvelope,
+} from "./slack.contracts";
 import { SlackRevivalService } from "./slack-revival.service";
 
 @Injectable()
@@ -76,22 +81,21 @@ export class SlackSocketService implements OnModuleInit, OnModuleDestroy {
 
 			this.ws.onmessage = async (event) => {
 				try {
-					const message = JSON.parse(String(event.data)) as {
-						envelope_id?: string;
-						type?: string;
-						payload?: Record<string, unknown>;
-					};
+					const envelope = jsonText
+						.pipe(slackSocketEnvelope)
+						.safeParse(String(event.data));
+					if (!envelope.success) return;
+					const message = envelope.data;
 
 					if (message.envelope_id && this.ws?.readyState === WebSocket.OPEN) {
 						this.ws.send(JSON.stringify({ envelope_id: message.envelope_id }));
 					}
 
-					if (message.type === "interactive" && message.payload) {
-						await this.revival.handleBlockAction(
-							message.payload as unknown as Parameters<
-								typeof this.revival.handleBlockAction
-							>[0],
-						);
+					if (message.type === "interactive") {
+						const action = slackBlockActionPayload.safeParse(message.payload);
+						if (action.success) {
+							await this.revival.handleBlockAction(action.data);
+						}
 					}
 				} catch (err) {
 					this.logger.error("Error processing Slack socket message", err);

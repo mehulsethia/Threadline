@@ -10,9 +10,9 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runAdkIntakeTask } from "../apps/agent/adk/intake/agent";
 import { AgentTriggerService } from "../apps/api/src/agent/agent-trigger.service";
 import { IntakeService } from "../apps/api/src/intake/intake.service";
-import { runAdkIntakeTask } from "../apps/agent/adk/intake/agent";
 import { ActivityType, db } from "../packages/db/src";
 import { WORKSPACE_ID } from "../packages/db/src/workspace";
 

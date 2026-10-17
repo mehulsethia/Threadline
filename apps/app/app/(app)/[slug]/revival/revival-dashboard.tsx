@@ -48,6 +48,7 @@ import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import { Textarea } from "@crm/ui/components/textarea";
 import { formatMoney } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
+import type { CitedEvidenceItem } from "@crm/validation/cited-evidence";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -82,9 +83,7 @@ type RevivalDraft = {
 	draftText: string;
 	subject: string | null;
 	confidence: number | null;
-	citedEvidence: Array<
-		string | { evidenceId?: string; kind?: string; quote?: string }
-	> | null;
+	citedEvidence: CitedEvidenceItem[];
 	stalledReason: string | null;
 	priorityScore: number | null;
 	status: string;
@@ -290,7 +289,7 @@ function RevivalDraftCard({
 		? formatMoney(amountCents, draft.dealCurrency)
 		: "Unknown";
 
-	const citations = draft.citedEvidence ?? [];
+	const citations = draft.citedEvidence;
 
 	const isPending = draft.status === "PENDING_APPROVAL";
 
@@ -398,22 +397,10 @@ function RevivalDraftCard({
 							Cited evidence:
 						</span>
 						{citations.map((cite, idx) => {
-							const citeId =
-								typeof cite === "string"
-									? cite
-									: cite.evidenceId || String(idx);
-							const quoteText =
-								typeof cite === "string"
-									? cite
-									: cite.quote || "Evidence quote";
-							const citeLabel =
-								typeof cite === "string"
-									? cite.slice(0, 24)
-									: `[${cite.kind || "evidence"}] ${quoteText.slice(0, 24)}...`;
-							const citeDetail =
-								typeof cite === "string"
-									? cite
-									: cite.quote || "Evidence citation";
+							const citeId = cite.evidenceId || String(idx);
+							const quoteText = cite.quote || "Evidence quote";
+							const citeLabel = `[${cite.kind || "evidence"}] ${quoteText.slice(0, 24)}...`;
+							const citeDetail = cite.quote || "Evidence citation";
 
 							return (
 								<Popover key={citeId}>

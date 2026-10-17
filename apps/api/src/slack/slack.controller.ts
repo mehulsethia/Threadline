@@ -1,5 +1,6 @@
 import { auth, WORKSPACE_ID } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { jsonText } from "@crm/validation/json-text";
 import {
 	BadRequestException,
 	Controller,
@@ -20,6 +21,7 @@ import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request, Response } from "express";
 import { InjectDatabase } from "../database/database.constants";
+import { slackBlockActionPayload, slackEventBody } from "./slack.contracts";
 import {
 	encryptToken,
 	signSlackState,
@@ -77,7 +79,7 @@ export class SlackController {
 		if (
 			!timestamp ||
 			!signature ||
-			typeof req.rawBody !== "string" ||
+			req.rawBody === undefined ||
 			!verifySlackSignature({
 				signingSecret,
 				timestamp,
@@ -258,14 +260,12 @@ export class SlackController {
 		// like every other event.
 		this.assertSlackSignature(req, timestamp, signature);
 
-		let body: Record<string, unknown>;
-		try {
-			body = JSON.parse(req.rawBody ?? "{}") as Record<string, unknown>;
-		} catch {
+		const body = jsonText.pipe(slackEventBody).safeParse(req.rawBody ?? "");
+		if (!body.success) {
 			throw new BadRequestException("Malformed Slack event.");
 		}
-		if (body.type === "url_verification") {
-			return { challenge: body.challenge };
+		if (body.data.type === "url_verification") {
+			return { challenge: body.data.challenge };
 		}
 
 		return { ok: true };
@@ -287,11 +287,11 @@ export class SlackController {
 		if (!payloadStr) {
 			throw new BadRequestException("Missing Slack interactivity payload.");
 		}
+		// Other interaction types (shortcuts, view submissions) are not used.
+		const action = jsonText.pipe(slackBlockActionPayload).safeParse(payloadStr);
+		if (!action.success) return { ok: true };
 		try {
-			const payload = JSON.parse(payloadStr);
-			if (payload.type === "block_actions") {
-				await this.revival.handleBlockAction(payload);
-			}
+			await this.revival.handleBlockAction(action.data);
 		} catch (err) {
 			this.logger.error("Error handling Slack interactivity", err);
 		}

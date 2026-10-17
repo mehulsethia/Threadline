@@ -9,6 +9,7 @@ import {
 } from "@crm/db";
 import { readPlaybook } from "@crm/db/settings";
 import { WORKSPACE_ID } from "@crm/db/workspace";
+import { z } from "zod";
 import { getSmartClient } from "../extraction";
 import {
 	assertGreetingMatchesContact,
@@ -20,12 +21,71 @@ import {
 import { messagesForContact, type StalledDealInfo } from "./detector";
 import { postDraftToSlack } from "./slack";
 
-export type RevivalStrategy =
-	| "answer_or_route"
-	| "confirm_next_step"
-	| "value_nudge"
-	| "address_objection"
-	| "polite_close_out";
+const REVIVAL_STRATEGIES = [
+	"answer_or_route",
+	"confirm_next_step",
+	"value_nudge",
+	"address_objection",
+	"polite_close_out",
+] as const;
+
+export type RevivalStrategy = (typeof REVIVAL_STRATEGIES)[number];
+
+type SituationalStrategy = { strategy: RevivalStrategy; rationale: string };
+
+/**
+ * A citation as the model returns it: an object, or a bare id or quote, which
+ * is read as both.
+ */
+const modelCitation = z.union([
+	z
+		.object({
+			evidenceId: z.string().optional(),
+			id: z.string().optional(),
+			quote: z.string().optional(),
+			detail: z.string().optional(),
+		})
+		.transform((c) => ({
+			evidenceId: c.evidenceId ?? c.id ?? "",
+			quote: c.quote ?? c.detail ?? "",
+		})),
+	z
+		.string()
+		.transform((text) => ({ evidenceId: text.trim(), quote: text.trim() })),
+]);
+
+export type ModelCitation = z.infer<typeof modelCitation>;
+
+const modelCitations = z
+	.array(modelCitation.catch({ evidenceId: "", quote: "" }))
+	.catch([]);
+
+/** The draft JSON, parsed once; anything malformed falls back field by field. */
+const draftResponse = z
+	.object({
+		strategy: z.enum(REVIVAL_STRATEGIES).optional().catch(undefined),
+		rationale: z.string().optional().catch(undefined),
+		subject: z.string().nullable().optional().catch(null),
+		draftText: z.string().optional().catch(undefined),
+		confidence: z.number().optional().catch(undefined),
+		citedEvidence: modelCitations.optional(),
+		citedEvidenceIds: modelCitations.optional(),
+	})
+	.catch({});
+
+const regeneratedDraft = z
+	.object({ draftText: z.string().optional().catch(undefined) })
+	.catch({});
+
+/** Model text that must be JSON; a parse failure is a schema failure. */
+const jsonText = z.string().transform((text, ctx) => {
+	try {
+		return JSON.parse(text);
+	} catch {
+		ctx.addIssue({ code: "custom", message: "The model did not return JSON." });
+		return z.NEVER;
+	}
+});
 
 export type CitedEvidenceItem = {
 	evidenceId: string;
@@ -56,7 +116,7 @@ function determineSituationalStrategy(
 	dealStage: string,
 	facts: Array<{ field: string; value: string }>,
 	messages: Array<{ direction: EmailDirection; body: string }>,
-): { strategy: RevivalStrategy; rationale: string } {
+): SituationalStrategy {
 	if (stalled.unansweredQuestion) {
 		return {
 			strategy: "answer_or_route",
@@ -113,7 +173,7 @@ function normalizeQuote(text: string): string {
  * own text, so a citation can never carry words the source does not contain.
  */
 export function parseStructuredCitations(
-	rawCitations: unknown,
+	rawCitations: readonly ModelCitation[],
 	facts: Array<{ id: string; field: string; value: string }>,
 	messages: Array<{ id: string; body: string }>,
 	tasks: Array<{ id: string; subject: string | null }> = [],
@@ -171,20 +231,9 @@ export function parseStructuredCitations(
 		return null;
 	};
 
-	if (Array.isArray(rawCitations)) {
-		for (const item of rawCitations) {
-			if (item && typeof item === "object") {
-				const rec = item as Record<string, unknown>;
-				const resolved = resolve(
-					String(rec.evidenceId ?? rec.id ?? ""),
-					String(rec.quote ?? rec.detail ?? ""),
-				);
-				if (resolved) push(resolved);
-			} else if (typeof item === "string" && item.trim()) {
-				const resolved = resolve(item.trim(), item.trim());
-				if (resolved) push(resolved);
-			}
-		}
+	for (const item of rawCitations) {
+		const resolved = resolve(item.evidenceId, item.quote);
+		if (resolved) push(resolved);
 	}
 
 	if (structured.length === 0) {
@@ -242,15 +291,11 @@ async function applyClaimGuard(
 				responseMimeType: "application/json",
 			},
 		});
-		const regenParsed = JSON.parse(regenRes.text || "{}") as Record<
-			string,
-			unknown
-		>;
-		if (
-			typeof regenParsed.draftText === "string" &&
-			regenParsed.draftText.trim()
-		) {
-			currentDraft = regenParsed.draftText.trim();
+		const regenerated = jsonText
+			.pipe(regeneratedDraft)
+			.safeParse(regenRes.text ?? "");
+		if (regenerated.success && regenerated.data.draftText?.trim()) {
+			currentDraft = regenerated.data.draftText.trim();
 		}
 	} catch {
 		// Ignore regeneration error
@@ -489,43 +534,20 @@ export async function generateRevivalDraft(
 		return null;
 	}
 
-	let strategy: RevivalStrategy = situationalStrategy;
-	let rationale = situationalRationale;
-	let subject: string | null = null;
-	let draftText = "";
-	let confidence = 0.85;
-	let rawCitedEvidence: unknown = [];
-
-	try {
-		const parsed = JSON.parse(rawResponse) as Record<string, unknown>;
-		if (
-			typeof parsed.strategy === "string" &&
-			[
-				"answer_or_route",
-				"confirm_next_step",
-				"value_nudge",
-				"address_objection",
-				"polite_close_out",
-			].includes(parsed.strategy)
-		) {
-			strategy = parsed.strategy as RevivalStrategy;
-		}
-		if (typeof parsed.rationale === "string" && parsed.rationale.trim()) {
-			rationale = parsed.rationale.trim();
-		}
-		if (typeof parsed.subject === "string") {
-			subject = parsed.subject.trim();
-		}
-		if (typeof parsed.draftText === "string") {
-			draftText = parsed.draftText.trim();
-		}
-		if (typeof parsed.confidence === "number") {
-			confidence = Math.min(1.0, Math.max(0.1, parsed.confidence));
-		}
-		rawCitedEvidence = parsed.citedEvidence ?? parsed.citedEvidenceIds;
-	} catch {
-		draftText = rawResponse.slice(0, 300);
-	}
+	const response = jsonText.pipe(draftResponse).safeParse(rawResponse);
+	const parsed = response.success ? response.data : {};
+	const strategy: RevivalStrategy = parsed.strategy ?? situationalStrategy;
+	const rationale = parsed.rationale?.trim() || situationalRationale;
+	const subject = parsed.subject?.trim() ?? null;
+	const confidence =
+		parsed.confidence === undefined
+			? 0.85
+			: Math.min(1.0, Math.max(0.1, parsed.confidence));
+	const rawCitedEvidence =
+		parsed.citedEvidence ?? parsed.citedEvidenceIds ?? [];
+	let draftText = response.success
+		? (parsed.draftText?.trim() ?? "")
+		: rawResponse.slice(0, 300);
 
 	if (!draftText.trim()) {
 		return null;
@@ -591,7 +613,7 @@ export async function generateRevivalDraft(
 			contextRationale: rationale,
 			draftText,
 			confidence,
-			citedEvidence: structuredCitations as unknown as Prisma.InputJsonValue,
+			citedEvidence: structuredCitations satisfies Prisma.InputJsonValue,
 			stalledReason: stalled.stalledReason,
 			priorityScore: stalled.priorityScore,
 			status: OutboundDraftStatus.PENDING_APPROVAL,

@@ -1,36 +1,52 @@
 import { randomUUID } from "node:crypto";
 import { type Db, DealStage, FactBand, FactStatus } from "@crm/db";
 import { consumeDemoQuota } from "@crm/db/demo";
-import { GoogleGenAI } from "@google/genai";
+import { jsonText } from "@crm/validation/json-text";
+import {
+	GoogleGenAI,
+	type LiveServerMessage,
+	Modality,
+	type Session,
+	type Tool,
+	Type,
+} from "@google/genai";
 import {
 	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
 } from "@nestjs/common";
+import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
-import type {
-	VoiceCategory,
-	VoiceDealContextOutput,
-	VoiceTranscribeQualifyOutput,
+import {
+	type VoiceCategory,
+	type VoiceDealContextOutput,
+	type VoiceTranscribeQualifyOutput,
+	voiceCategoryEnum,
 } from "./voice.contracts";
 
-export interface LiveSessionBridge {
-	sendRealtimeInput(params: {
-		media: { mimeType: string; data: string };
-	}): void;
-	sendClientContent(params: {
-		turns: Array<{ role: string; parts: Array<{ text: string }> }>;
-	}): void;
-	sendToolResponse(params: {
-		functionResponses: Array<{
-			id: string;
-			name: string;
-			response: Record<string, unknown>;
-		}>;
-	}): void;
-	close(): void;
-}
+/** The Gemini Live session the gateway streams audio through. */
+export type LiveSessionBridge = Session;
+
+/** `record_answer` arguments from the live model, checked before use. */
+const recordAnswerArgs = z.object({
+	category: voiceCategoryEnum,
+	fact: z.string(),
+	quote: z.string(),
+});
+
+/** The fallback recorder's analysis; malformed facts are dropped. */
+const recordingAnalysis = z.object({
+	transcript: z.string().optional().catch(undefined),
+	facts: z
+		.array(recordAnswerArgs.nullable().catch(null))
+		.catch([])
+		.transform((facts) =>
+			facts.filter(
+				(fact): fact is z.infer<typeof recordAnswerArgs> => fact !== null,
+			),
+		),
+});
 
 const ALL_CATEGORIES: VoiceCategory[] = [
 	"budget",
@@ -269,7 +285,7 @@ export class VoiceQualifierService {
 
 		const systemInstruction = this.buildSystemInstruction(params.context);
 
-		const tools = [
+		const tools: Tool[] = [
 			{
 				functionDeclarations: [
 					{
@@ -277,10 +293,10 @@ export class VoiceQualifierService {
 						description:
 							"Record a verified qualification answer (budget, authority, need, timeline, competitors, or decision process) with verbatim quote spoken by the lead.",
 						parameters: {
-							type: "OBJECT",
+							type: Type.OBJECT,
 							properties: {
 								category: {
-									type: "STRING",
+									type: Type.STRING,
 									description:
 										"One of: budget, authority, need, timeline, competitors, decision_process",
 									enum: [
@@ -293,11 +309,11 @@ export class VoiceQualifierService {
 									],
 								},
 								fact: {
-									type: "STRING",
+									type: Type.STRING,
 									description: "Factual summary of the confirmed answer",
 								},
 								quote: {
-									type: "STRING",
+									type: Type.STRING,
 									description:
 										"Verbatim quote spoken by the prospect during the call",
 								},
@@ -309,12 +325,10 @@ export class VoiceQualifierService {
 			},
 		];
 
-		let session: LiveSessionBridge;
-
-		session = (await (ai.live as any).connect({
+		const session: Session = await ai.live.connect({
 			model,
 			config: {
-				responseModalities: ["AUDIO"],
+				responseModalities: [Modality.AUDIO],
 				systemInstruction: {
 					parts: [{ text: systemInstruction }],
 				},
@@ -326,19 +340,8 @@ export class VoiceQualifierService {
 						`Live session established for deal ${params.context.dealId}`,
 					);
 				},
-				onmessage: async (msg: any) => {
-					const serverContent = msg.serverContent as
-						| {
-								modelTurn?: {
-									parts?: Array<{
-										inlineData?: { data?: string };
-										text?: string;
-									}>;
-								};
-								inputTranscription?: { text?: string };
-								outputTranscription?: { text?: string };
-						  }
-						| undefined;
+				onmessage: async (msg: LiveServerMessage) => {
+					const serverContent = msg.serverContent;
 
 					if (serverContent) {
 						const parts = serverContent.modelTurn?.parts || [];
@@ -366,44 +369,30 @@ export class VoiceQualifierService {
 						}
 					}
 
-					const toolCall = msg.toolCall as
-						| {
-								functionCalls?: Array<{
-									id: string;
-									name: string;
-									args: Record<string, unknown>;
-								}>;
-						  }
-						| undefined;
-
-					if (toolCall?.functionCalls) {
-						for (const call of toolCall.functionCalls) {
-							if (call.name === "record_answer") {
-								const args = call.args as unknown as {
-									category: VoiceCategory;
-									fact: string;
-									quote: string;
-								};
+					for (const call of msg.toolCall?.functionCalls ?? []) {
+						if (call.name === "record_answer") {
+							// The model's arguments are untrusted until they parse.
+							const parsedArgs = recordAnswerArgs.safeParse(call.args);
+							if (parsedArgs.success) {
+								const args = parsedArgs.data;
 
 								const recorded = await this.recordLiveAnswer(
 									params.context.dealId,
 									args,
 								);
 
-								if (session && typeof session.sendToolResponse === "function") {
-									try {
-										session.sendToolResponse({
-											functionResponses: [
-												{
-													id: call.id,
-													name: call.name,
-													response: { success: true, recorded: true },
-												},
-											],
-										});
-									} catch (err) {
-										this.logger.error("Failed to send tool response", err);
-									}
+								try {
+									session.sendToolResponse({
+										functionResponses: [
+											{
+												id: call.id,
+												name: call.name,
+												response: { success: true, recorded: true },
+											},
+										],
+									});
+								} catch (err) {
+									this.logger.error("Failed to send tool response", err);
 								}
 
 								params.onFactProposed({
@@ -417,19 +406,18 @@ export class VoiceQualifierService {
 						}
 					}
 				},
-				onerror: (err: unknown) => {
-					this.logger.error("Live session error", err);
-					const message = err instanceof Error ? err.message : String(err);
-					params.onClose(message);
+				onerror: (event: ErrorEvent) => {
+					this.logger.error("Live session error", event.message);
+					params.onClose(event.message);
 				},
-				onclose: (e: Record<string, unknown>) => {
+				onclose: (event: CloseEvent) => {
 					this.logger.log(
 						`Live session closed for deal ${params.context.dealId}`,
 					);
-					params.onClose(typeof e.reason === "string" ? e.reason : undefined);
+					params.onClose(event.reason || undefined);
 				},
 			},
-		})) as unknown as LiveSessionBridge;
+		});
 
 		return session;
 	}
@@ -608,20 +596,10 @@ export class VoiceQualifierService {
 		});
 
 		const text = response.text || "{}";
-		let parsed: {
-			transcript?: string;
-			facts?: Array<{
-				category: VoiceCategory;
-				fact: string;
-				quote: string;
-			}>;
-		} = {};
-
-		try {
-			parsed = JSON.parse(text);
-		} catch {
-			parsed = { transcript: text, facts: [] };
-		}
+		const result = jsonText.pipe(recordingAnalysis).safeParse(text);
+		const parsed = result.success
+			? result.data
+			: { transcript: text, facts: [] };
 
 		const transcript = parsed.transcript || "Audio recorded.";
 		const recordedFacts: Array<{
@@ -632,19 +610,16 @@ export class VoiceQualifierService {
 
 		let lastScore = context.qualificationScore;
 		let lastStage = context.proposedStage;
-
-		if (Array.isArray(parsed.facts)) {
-			for (const f of parsed.facts) {
-				if (ALL_CATEGORIES.includes(f.category) && f.fact && f.quote) {
-					const res = await this.recordLiveAnswer(input.dealId, {
-						category: f.category,
-						fact: f.fact,
-						quote: f.quote,
-					});
-					lastScore = res.proposedScore;
-					lastStage = res.proposedStage;
-					recordedFacts.push(f);
-				}
+		for (const f of parsed.facts) {
+			if (f.fact && f.quote) {
+				const res = await this.recordLiveAnswer(input.dealId, {
+					category: f.category,
+					fact: f.fact,
+					quote: f.quote,
+				});
+				lastScore = res.proposedScore;
+				lastStage = res.proposedStage;
+				recordedFacts.push(f);
 			}
 		}
 

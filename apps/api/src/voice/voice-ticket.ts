@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { jsonText } from "@crm/validation/json-text";
+import { z } from "zod";
 
 /**
  * A short-lived, single-purpose pass for the voice WebSocket. The browser
@@ -9,7 +11,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  */
 export const VOICE_TICKET_TTL_MS = 60_000;
 
-type VoiceTicket = { userId: string; dealId: string; expiresAt: number };
+const voiceTicket = z.object({
+	userId: z.string(),
+	dealId: z.string(),
+	expiresAt: z.number(),
+});
+
+type VoiceTicket = z.infer<typeof voiceTicket>;
 
 function ticketSecret(): string {
 	const secret = process.env.BETTER_AUTH_SECRET;
@@ -51,20 +59,15 @@ export function verifyVoiceTicket(
 		return null;
 	}
 
-	try {
-		const payload = JSON.parse(
-			Buffer.from(data, "base64url").toString("utf8"),
-		) as Partial<VoiceTicket>;
-		if (
-			typeof payload.userId !== "string" ||
-			payload.dealId !== dealId ||
-			typeof payload.expiresAt !== "number" ||
-			payload.expiresAt < now
-		) {
-			return null;
-		}
-		return { userId: payload.userId };
-	} catch {
+	const payload = jsonText
+		.pipe(voiceTicket)
+		.safeParse(Buffer.from(data, "base64url").toString("utf8"));
+	if (
+		!payload.success ||
+		payload.data.dealId !== dealId ||
+		payload.data.expiresAt < now
+	) {
 		return null;
 	}
+	return { userId: payload.data.userId };
 }

@@ -7,6 +7,7 @@ import {
 	writePlaybook,
 	writeRevivalSlas,
 } from "@crm/db/settings";
+import { citedEvidenceList } from "@crm/validation/cited-evidence";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { TRPCError } from "@trpc/server";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
@@ -57,9 +58,7 @@ export class RevivalService {
 
 		return {
 			drafts: drafts.map((d) => {
-				const cited = Array.isArray(d.citedEvidence)
-					? (d.citedEvidence as string[])
-					: [];
+				const cited = citedEvidenceList.parse(d.citedEvidence);
 				return {
 					id: d.id,
 					dealId: d.dealId,
@@ -192,16 +191,12 @@ export class RevivalService {
 		draftText: string;
 		subject?: string;
 	}) {
-		const updateData: { draftText: string; subject?: string } = {
-			draftText: input.draftText,
-		};
-		if (input.subject !== undefined) {
-			updateData.subject = input.subject;
-		}
-
 		await this.db.outboundDraft.update({
 			where: { id: input.draftId },
-			data: updateData,
+			data: {
+				draftText: input.draftText,
+				subject: input.subject,
+			},
 		});
 
 		return { success: true };

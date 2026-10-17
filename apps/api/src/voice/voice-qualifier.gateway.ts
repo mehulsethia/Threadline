@@ -3,6 +3,7 @@ import type { Socket } from "node:net";
 import { URL } from "node:url";
 import { auth, env, WORKSPACE_ID } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { jsonText } from "@crm/validation/json-text";
 import {
 	Injectable,
 	Logger,
@@ -11,12 +12,20 @@ import {
 import { HttpAdapterHost } from "@nestjs/core";
 import { fromNodeHeaders } from "better-auth/node";
 import { WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 import { InjectDatabase } from "../database/database.constants";
 import {
 	type LiveSessionBridge,
 	VoiceQualifierService,
 } from "./voice-qualifier.service";
 import { verifyVoiceTicket } from "./voice-ticket";
+
+/** What the browser may send over the call socket. */
+const clientMessage = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("audio"), pcm: z.string().min(1) }),
+	z.object({ type: z.literal("text"), text: z.string().min(1) }),
+	z.object({ type: z.literal("end_call") }),
+]);
 
 @Injectable()
 export class VoiceQualifierGateway implements OnApplicationBootstrap {
@@ -192,38 +201,27 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 
 			ws.on("message", (data: WebSocket.RawData) => {
 				try {
-					const msg = JSON.parse(data.toString()) as {
-						type: string;
-						pcm?: string;
-						text?: string;
-					};
+					const parsed = jsonText
+						.pipe(clientMessage)
+						.safeParse(data.toString());
+					if (!parsed.success) return;
+					const msg = parsed.data;
 
-					if (msg.type === "audio" && msg.pcm && liveSession) {
-						if (typeof liveSession.sendRealtimeInput === "function") {
-							liveSession.sendRealtimeInput({
-								media: {
-									mimeType: "audio/pcm;rate=16000",
-									data: msg.pcm,
-								},
-							});
-						}
-					} else if (msg.type === "text" && msg.text && liveSession) {
-						if (typeof liveSession.sendClientContent === "function") {
-							liveSession.sendClientContent({
-								turns: [
-									{
-										role: "user",
-										parts: [{ text: msg.text }],
-									},
-								],
-							});
-						}
-					} else if (msg.type === "end_call") {
-						if (liveSession && typeof liveSession.close === "function") {
-							try {
-								liveSession.close();
-							} catch {}
-						}
+					if (msg.type === "audio") {
+						liveSession?.sendRealtimeInput({
+							media: {
+								mimeType: "audio/pcm;rate=16000",
+								data: msg.pcm,
+							},
+						});
+					} else if (msg.type === "text") {
+						liveSession?.sendClientContent({
+							turns: [{ role: "user", parts: [{ text: msg.text }] }],
+						});
+					} else {
+						try {
+							liveSession?.close();
+						} catch {}
 						ws.send(
 							JSON.stringify({ type: "call_ended", reason: "user_ended" }),
 						);
@@ -235,11 +233,9 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 			});
 
 			ws.on("close", () => {
-				if (liveSession && typeof liveSession.close === "function") {
-					try {
-						liveSession.close();
-					} catch {}
-				}
+				try {
+					liveSession?.close();
+				} catch {}
 			});
 		} catch (err: unknown) {
 			this.logger.error("Connection handler failed", err);

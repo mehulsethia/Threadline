@@ -1,5 +1,5 @@
 export {
-	intakeAgent,
+	getIntakeAgent,
 	runAdkIntakeTask,
 	runDeterministicIntakePipeline,
 } from "./agent";

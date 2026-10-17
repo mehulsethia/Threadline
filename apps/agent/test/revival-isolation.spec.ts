@@ -69,8 +69,8 @@ describe("revival citations", () => {
 	it("resolves ids to the record's own text", () => {
 		const cited = parseStructuredCitations(
 			[
-				{ evidenceId: "f1", kind: "fact", quote: "made-up words" },
-				{ evidenceId: "t1", kind: "task", quote: "x" },
+				{ evidenceId: "f1", quote: "made-up words" },
+				{ evidenceId: "t1", quote: "x" },
 			],
 			facts,
 			messages,
