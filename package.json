@@ -51,6 +51,7 @@
 	"dependencies": {
 		"@google-cloud/storage": "^8.4.0",
 		"@google/genai": "^2.30.0",
-		"google-auth-library": "^11.3.0"
+		"google-auth-library": "^11.3.0",
+		"zod": "^4.4.3"
 	}
 }

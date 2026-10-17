@@ -448,9 +448,9 @@ cp .env.example .env
 # 2. Fill required minimum variables in .env:
 # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/crm?schema=public"
 # TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/crm_test?schema=public"
-# BETTER_AUTH_SECRET="f3b9c7e2a1d485061928374650192837"
+# BETTER_AUTH_SECRET="<generate: openssl rand -base64 32>"
 # ALLOWED_SIGN_IN="mehulpersonal14@gmail.com,sethiamehul14@gmail.com"
-# AGENT_BRIDGE_SECRET="a9b8c7d6e5f4132435465768798091a2"
+# AGENT_BRIDGE_SECRET="<generate: openssl rand -hex 32>"
 # GOOGLE_GENAI_USE_VERTEXAI="1"
 # GOOGLE_CLOUD_PROJECT="project-e705af63-271f-48bf-92f"
 # GOOGLE_CLOUD_LOCATION="us-central1"
