@@ -10,8 +10,8 @@ export function Wordmark({ className }: { className?: string }) {
 			)}
 		>
 			<Logo className="size-[18px] shrink-0 text-foreground" />
-			<span className="font-semibold text-[15px]/5 tracking-[-0.01em]">
-				CRM
+			<span className="font-semibold text-[15px]/5 tracking-[-0.01em] text-foreground">
+				Threadline
 			</span>
 		</span>
 	);
