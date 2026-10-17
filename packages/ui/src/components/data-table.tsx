@@ -577,7 +577,7 @@ export function DataTable<TRow, TSub = unknown>({
 					"table-fixed [&_td:first-child]:pl-4 [&_th:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:last-child]:pr-4",
 					tableClassName,
 				)}
-				containerClassName="min-h-0 flex-1 overflow-auto rounded-lg border bg-card"
+				containerClassName="min-h-0 flex-1 overflow-auto rounded-xl border border-border/70 bg-card shadow-2xs"
 				overlay={
 					deferredRows.length === 0 ? (
 						<div className="absolute inset-x-0 top-11 bottom-0 flex items-center justify-center px-4 py-8 text-center text-muted-foreground">

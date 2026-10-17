@@ -19,11 +19,15 @@ const RAIL = [
 
 export function ProductShot() {
 	return (
-		<section className="relative flex w-full shrink-0 flex-col items-center px-6 pt-20">
+		<section className="relative flex w-full shrink-0 flex-col items-center px-6 pt-12 md:pt-16">
+			<div
+				aria-hidden="true"
+				className="pointer-events-none absolute inset-x-12 top-24 -z-10 h-72 rounded-full bg-primary/10 blur-[130px]"
+			/>
 			<div
 				role="img"
 				aria-label="The companies list with an account open on its Agent tab"
-				className="w-[1183px] max-w-full select-none overflow-clip rounded-xl border border-border bg-background"
+				className="w-[1183px] max-w-full select-none overflow-clip rounded-2xl border border-border/80 bg-background shadow-2xl shadow-primary/10 ring-1 ring-inset ring-white/10 dark:ring-white/5"
 			>
 				<div className="relative hidden h-[690px] w-[1182px] shrink-0 flex-col overflow-clip lg:flex">
 					<div className="flex h-full w-[1392px] shrink-0 flex-col">

@@ -1,4 +1,5 @@
 import type { MailboxProviderId } from "@crm/auth/scopes";
+import { Separator } from "@crm/ui/components/separator";
 import type { Metadata } from "next";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
@@ -10,7 +11,7 @@ import { SocialSignIn } from "./social-sign-in";
 import { type SsoProvider, SsoSignIn } from "./sso-sign-in";
 
 export const metadata: Metadata = {
-	title: "Sign in",
+	title: "Sign in — Threadline",
 };
 
 type SignInOptions = {
@@ -86,37 +87,39 @@ async function SignIn({
 				? configured
 				: [];
 
-	if (!showSso && social.length === 0) {
-		return (
-			<>
-				<AuthHeading
-					title="Welcome to Threadline"
-					description="Evaluate Threadline instantly with our pre-seeded global demo workspace."
-				/>
-
-				<DemoSignIn />
-
-				<div className="pt-4 border-t border-border/50 text-center text-muted-foreground text-xs">
-					For team members: configure GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID to
-					enable standard OAuth.
-				</div>
-			</>
-		);
-	}
+	const hasOtherMethods = showSso || social.length > 0;
 
 	return (
 		<>
 			<AuthHeading
 				title="Welcome to Threadline"
-				description="Sign in to your account to continue."
+				description="Evaluate the agentic CRM instantly or sign in with your enterprise credentials."
 			/>
 
 			<DemoSignIn />
 
-			{showSso ? <SsoSignIn providers={providers} /> : null}
-			{social.map((provider) => (
-				<SocialSignIn key={provider} provider={provider} />
-			))}
+			{hasOtherMethods && (
+				<>
+					<div className="relative flex items-center justify-center py-1">
+						<Separator className="w-full" />
+						<span className="absolute bg-card px-2 font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
+							or continue with
+						</span>
+					</div>
+
+					<div className="flex flex-col gap-2.5">
+						{showSso ? <SsoSignIn providers={providers} /> : null}
+						{social.map((provider) => (
+							<SocialSignIn key={provider} provider={provider} />
+						))}
+					</div>
+				</>
+			)}
+
+			<div className="rounded-lg border border-border/70 bg-surface-container/50 px-3.5 py-2.5 text-center text-muted-foreground text-xs leading-relaxed">
+				For team members: configure GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID to
+				enable production OAuth.
+			</div>
 		</>
 	);
 }

@@ -9,17 +9,17 @@ const buttonVariants = cva(
 		variants: {
 			variant: {
 				default:
-					"bg-primary text-primary-foreground shadow-2xs hover:bg-[color-mix(in_oklch,var(--primary),black_12%)] active:bg-[color-mix(in_oklch,var(--primary),black_22%)] active:shadow-none",
+					"bg-primary text-primary-foreground shadow-xs shadow-primary/25 hover:bg-[color-mix(in_oklch,var(--primary),black_10%)] hover:shadow-sm hover:shadow-primary/30 active:bg-[color-mix(in_oklch,var(--primary),black_20%)] active:shadow-none",
 				outline:
-					"border-border bg-background shadow-2xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+					"border-border/80 bg-background/80 shadow-2xs hover:bg-surface-container/80 hover:text-foreground hover:border-border aria-expanded:bg-surface-container aria-expanded:text-foreground",
 				"outline-ghost":
-					"border-border hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+					"border-border/80 hover:bg-surface-container/80 hover:text-foreground aria-expanded:bg-surface-container aria-expanded:text-foreground",
 				secondary:
-					"bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+					"bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_6%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
 				ghost:
-					"hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+					"hover:bg-surface-container/70 hover:text-foreground aria-expanded:bg-surface-container aria-expanded:text-foreground",
 				destructive:
-					"bg-destructive text-destructive-foreground shadow-2xs hover:bg-[color-mix(in_oklch,var(--destructive),black_12%)] active:bg-[color-mix(in_oklch,var(--destructive),black_22%)] active:shadow-none focus-visible:ring-destructive/50",
+					"bg-destructive text-destructive-foreground shadow-xs shadow-destructive/25 hover:bg-[color-mix(in_oklch,var(--destructive),black_10%)] hover:shadow-sm hover:shadow-destructive/30 active:bg-[color-mix(in_oklch,var(--destructive),black_20%)] active:shadow-none focus-visible:ring-destructive/50",
 				contrast:
 					"bg-foreground text-background shadow-2xs hover:bg-foreground/90 active:bg-foreground/80 active:shadow-none",
 				link: "text-primary underline-offset-4 hover:underline",

@@ -9,7 +9,10 @@ function StatGroup({
 	return (
 		<div
 			data-slot="stat-group"
-			className={cn("@container/stats overflow-hidden border", className)}
+			className={cn(
+				"@container/stats overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs",
+				className,
+			)}
 			{...props}
 		>
 			<div
@@ -86,7 +89,7 @@ function ChartCard({
 	return (
 		<div
 			data-slot="chart-card"
-			className={cn("flex flex-col border", className)}
+			className={cn("flex flex-col rounded-xl border border-border/80 bg-card shadow-2xs", className)}
 			{...props}
 		>
 			{title || description || action ? (
@@ -127,7 +130,7 @@ function KpiCard({
 	return (
 		<div
 			data-slot="kpi-card"
-			className={cn("flex flex-col gap-4 border p-5 md:p-6", className)}
+			className={cn("flex flex-col gap-4 rounded-xl border border-border/80 bg-card p-5 shadow-2xs md:p-6", className)}
 			{...props}
 		>
 			<h3 className="truncate font-medium text-muted-foreground text-sm">

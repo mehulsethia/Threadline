@@ -46,7 +46,7 @@ export function SocialSignIn({ provider }: { provider: MailboxProviderId }) {
 
 	return (
 		<Button
-			className="w-full"
+			className="h-11 w-full justify-center border-border/80 bg-background/80 font-medium shadow-2xs transition-all hover:bg-surface-container/70 active:scale-[0.96]"
 			disabled={pending}
 			onClick={() => {
 				handleClick().catch(() => fail());
@@ -57,9 +57,9 @@ export function SocialSignIn({ provider }: { provider: MailboxProviderId }) {
 			{pending ? (
 				<Spinner data-icon="inline-start" />
 			) : (
-				<Logo data-icon="inline-start" className="size-4" />
+				<Logo data-icon="inline-start" className="size-4.5" />
 			)}
-			{label}
+			<span>{label}</span>
 		</Button>
 	);
 }

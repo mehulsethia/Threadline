@@ -40,8 +40,8 @@ export function AppHeader({ user }: { user: User }) {
 	const label = workspaceLabel(workspace.data?.name);
 
 	return (
-		<header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4 md:h-16 md:px-6 [view-transition-name:app-header]">
-			<div className="flex min-w-0 shrink items-center gap-1">
+		<header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 bg-card/85 px-4 backdrop-blur-md md:h-16 md:px-6 [view-transition-name:app-header]">
+			<div className="flex min-w-0 shrink items-center gap-1.5">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -54,14 +54,20 @@ export function AppHeader({ user }: { user: User }) {
 				<Link
 					href={workspaceUrl()}
 					aria-label="Homepage"
-					className="hidden size-8 items-center justify-center text-foreground md:flex"
+					className="hidden size-8 items-center justify-center rounded-lg border border-border/60 bg-surface-container/60 text-foreground transition-transform hover:scale-105 md:flex"
 				>
 					<Logo className="size-5" />
 				</Link>
 				<Separator orientation="vertical" className="mx-1 h-5 bg-transparent" />
-				<span className="min-w-0 max-w-24 truncate font-medium text-sm sm:max-w-none">
-					{label}
-				</span>
+				<div className="flex items-center gap-2 min-w-0">
+					<span className="min-w-0 max-w-28 truncate font-semibold text-sm sm:max-w-none text-foreground">
+						{label}
+					</span>
+					<span className="hidden items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary sm:inline-flex">
+						<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+						Active
+					</span>
+				</div>
 			</div>
 
 			<div className="ml-auto flex shrink-0 items-center gap-2">

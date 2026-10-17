@@ -87,9 +87,10 @@ function RailLink({
 					variant="ghost"
 					size="icon"
 					className={cn(
-						"text-muted-foreground",
-						active &&
-							"bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+						"rounded-xl text-muted-foreground transition-all duration-150",
+						active
+							? "bg-primary/15 text-primary font-semibold shadow-2xs hover:bg-primary/20 hover:text-primary scale-105"
+							: "hover:bg-surface-container/70 hover:text-foreground",
 					)}
 				>
 					<Link
@@ -233,7 +234,7 @@ export function AppIconRail() {
 		<>
 			<nav
 				aria-label="Primary"
-				className="hidden w-20 shrink-0 flex-col items-center gap-2 border-r bg-sidebar py-4 md:flex [view-transition-name:app-rail]"
+				className="hidden w-20 shrink-0 flex-col items-center gap-2.5 border-r border-border/70 bg-sidebar/85 py-4 backdrop-blur-md md:flex [view-transition-name:app-rail]"
 			>
 				{items.map((item) => (
 					<RailLink
