@@ -24,7 +24,9 @@ function isAudioFile(path: string): boolean {
 	return ext ? AUDIO_EXTENSIONS.has(ext) : false;
 }
 
-function parseCliArgs(): { targetPath: string; me?: string } {
+type CliArgs = { targetPath: string; me?: string };
+
+function parseCliArgs(): CliArgs {
 	const args = process.argv.slice(2);
 	let targetPath = "";
 	let me: string | undefined;

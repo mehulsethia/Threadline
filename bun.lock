@@ -166,6 +166,7 @@
         "@prisma/adapter-pg": "^7.9.1",
         "@prisma/client": "^7.9.1",
         "google-auth-library": "^11.3.0",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@crm/typescript-config": "workspace:*",

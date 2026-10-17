@@ -10,6 +10,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { z } from "zod";
 import { runAdkIntakeTask } from "../apps/agent/adk/intake/agent";
 import { AgentTriggerService } from "../apps/api/src/agent/agent-trigger.service";
 import { IntakeService } from "../apps/api/src/intake/intake.service";
@@ -75,11 +76,27 @@ function matchesGroups(text: string, groups: Groups): boolean {
 	);
 }
 
+/** An evidence item on a fact; intake stores the quote inside `detail`. */
+const evidenceItem = z
+	.object({
+		kind: z.string().optional().catch(undefined),
+		quote: z.string().optional().catch(undefined),
+		detail: z.string().optional().catch(undefined),
+	})
+	.nullable()
+	.catch(null);
+
+const evidenceList = z.array(evidenceItem).catch([]);
+
+const intakeTaskPayload = z
+	.object({ jobId: z.string().optional().catch(undefined) })
+	.nullable()
+	.catch(null);
+
 /** The quote inside an intake evidence item: `"<quote>" (speaker: X)`. */
-function quoteOf(item: Record<string, unknown>): string | null {
-	if (typeof item.quote === "string") return item.quote;
-	if (typeof item.detail !== "string") return null;
-	const match = item.detail.match(/^"([\s\S]*)" \(speaker: [^)]*\)$/);
+function quoteOf(item: { quote?: string; detail?: string }): string | null {
+	if (item.quote !== undefined) return item.quote;
+	const match = item.detail?.match(/^"([\s\S]*)" \(speaker: [^)]*\)$/);
 	return match?.[1] ?? null;
 }
 
@@ -129,10 +146,7 @@ async function ingest(sourceFile: string): Promise<string> {
 			where: { kind: "intake", finishedAt: null },
 			orderBy: { createdAt: "desc" },
 		})
-	).find(
-		(t) =>
-			(t.payload as Record<string, unknown> | null)?.jobId === upload.jobId,
-	);
+	).find((t) => intakeTaskPayload.parse(t.payload)?.jobId === upload.jobId);
 	if (!task) throw new Error(`No intake task queued for ${sourceFile}.`);
 
 	// biome-ignore lint/suspicious/noExplicitAny: the leased-task shape is internal to the agent.
@@ -244,12 +258,10 @@ async function scoreFixture(gold: GoldFixture): Promise<FixtureResult> {
 	const inferences = { total: 0, proposed: 0, appliedFields: [] as string[] };
 
 	for (const fact of facts) {
-		const evidence = Array.isArray(fact.evidence) ? fact.evidence : [];
 		let inferred = false;
-		for (const raw of evidence) {
-			if (!raw || typeof raw !== "object") continue;
-			const item = raw as Record<string, unknown>;
-			if (typeof item.kind === "string" && INFERENCE_KINDS.has(item.kind)) {
+		for (const item of evidenceList.parse(fact.evidence)) {
+			if (!item) continue;
+			if (item.kind && INFERENCE_KINDS.has(item.kind)) {
 				inferred = true;
 			}
 			const quote = quoteOf(item);

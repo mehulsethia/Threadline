@@ -254,6 +254,13 @@ export function stripUnsupportedClaims(
 	return cleaned;
 }
 
+/** Whether a draft greets the contact it is addressed to. */
+export type GreetingCheck = {
+	matches: boolean;
+	greetingLine?: string;
+	reason?: string;
+};
+
 export function assertGreetingMatchesContact(
 	draftText: string,
 	contact: {
@@ -261,7 +268,7 @@ export function assertGreetingMatchesContact(
 		lastName?: string | null;
 		name?: string | null;
 	},
-): { matches: boolean; greetingLine?: string; reason?: string } {
+): GreetingCheck {
 	const first = contact.firstName?.trim();
 	const last = contact.lastName?.trim();
 	const full = contact.name?.trim();

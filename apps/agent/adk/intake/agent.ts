@@ -1,6 +1,7 @@
 import { db, IntakeJobStatus } from "@crm/db";
 import { readReportingCurrency } from "@crm/db/settings";
 import { Gemini, LlmAgent } from "@google/adk";
+import { z } from "zod";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
 import { researchCompany } from "../research/company";
 import {
@@ -20,6 +21,14 @@ import {
 	upsertContact,
 	upsertDeal,
 } from "./tools";
+
+/** What an intake AgentTask carries; anything else is ignored. */
+const intakeTaskPayload = z
+	.object({
+		jobId: z.string().optional().catch(undefined),
+		me: z.string().optional().catch(undefined),
+	})
+	.catch({});
 
 let intakeAgent: LlmAgent | null = null;
 
@@ -481,15 +490,13 @@ export async function runDeterministicIntakePipeline(
 }
 
 export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
-	const payload = (
-		task.payload && typeof task.payload === "object" ? task.payload : {}
-	) as Record<string, unknown>;
-	const jobId = (payload.jobId as string | undefined) || task.contactId;
+	const payload = intakeTaskPayload.parse(task.payload);
+	const jobId = payload.jobId || task.contactId;
 	if (!jobId) {
 		return "Missing jobId for intake task.";
 	}
 
-	const meOverride = payload.me as string | undefined;
+	const meOverride = payload.me;
 
 	await db.intakeJob.update({
 		where: { id: jobId },

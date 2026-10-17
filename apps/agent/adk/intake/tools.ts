@@ -30,7 +30,7 @@ export async function emitIntakeEvent(
 	tool: string,
 	message: string,
 	contactId?: string | null,
-	details?: Record<string, unknown>,
+	details?: Prisma.InputJsonObject,
 ) {
 	try {
 		await db.agentEvent.create({
@@ -325,7 +325,7 @@ export async function upsertContact(input: {
 			where: { id: input.contactId },
 		});
 		if (existing) {
-			const updateData: Record<string, unknown> = {};
+			const updateData: Prisma.ContactUncheckedUpdateInput = {};
 			if (input.phone && !existing.phone) updateData.phone = input.phone;
 			if (input.role && !existing.title) updateData.title = input.role;
 			if (input.companyId && !existing.companyId)
@@ -704,7 +704,7 @@ export async function createTaskAction(input: {
 
 export async function finishJobAction(input: {
 	jobId: string;
-	summary: Record<string, unknown>;
+	summary: Prisma.InputJsonObject;
 	contactIds: string[];
 	dealIds: string[];
 }) {
@@ -712,7 +712,7 @@ export async function finishJobAction(input: {
 		where: { id: input.jobId },
 		data: {
 			status: IntakeJobStatus.DONE,
-			summary: input.summary as Prisma.InputJsonValue,
+			summary: input.summary,
 			createdContactIds: input.contactIds,
 			createdDealIds: input.dealIds,
 		},
@@ -952,9 +952,7 @@ export const finishJobTool = new FunctionTool({
 		"Marks an intake job as completed, storing the summary and created IDs.",
 	parameters: z.object({
 		jobId: z.string().describe("The intake job ID."),
-		summary: z
-			.record(z.string(), z.unknown())
-			.describe("Execution summary JSON."),
+		summary: z.record(z.string(), z.json()).describe("Execution summary JSON."),
 		contactIds: z
 			.array(z.string())
 			.describe("List of created/updated contact IDs."),

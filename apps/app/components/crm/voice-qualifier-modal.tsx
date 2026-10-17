@@ -16,15 +16,32 @@ import {
 	DialogTitle,
 } from "@crm/ui/components/dialog";
 import { Icon } from "@crm/ui/components/icon";
+import { jsonText } from "@crm/validation/json-text";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { warmApi } from "@/lib/warm-api";
 
 // Covers a cold API start plus Gemini Live session setup.
 const CONNECT_TIMEOUT_MS = 45_000;
+
+/** What the call socket sends; unknown fields are ignored. */
+const serverMessage = z.object({
+	type: z.string(),
+	pcm: z.string().optional(),
+	role: z.enum(["assistant", "user"]).optional(),
+	text: z.string().optional(),
+	category: z.string().optional(),
+	fact: z.string().optional(),
+	quote: z.string().optional(),
+	proposedScore: z.number().optional(),
+	proposedStage: z.string().nullable().optional(),
+	reason: z.string().optional(),
+	message: z.string().optional(),
+});
 
 interface VoiceQualifierModalProps {
 	dealId: string;
@@ -192,11 +209,7 @@ export function VoiceQualifierModal({
 	const playAudioChunk = useCallback((base64Pcm: string) => {
 		try {
 			if (!audioCtxRef.current) {
-				const AudioContextClass =
-					window.AudioContext ||
-					(window as unknown as { webkitAudioContext: typeof AudioContext })
-						.webkitAudioContext;
-				audioCtxRef.current = new AudioContextClass({ sampleRate: 24000 });
+				audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
 			}
 			const ctx = audioCtxRef.current;
 			if (ctx.state === "suspended") {
@@ -280,11 +293,7 @@ export function VoiceQualifierModal({
 				setStatus("in_call");
 				toast.success("Voice qualification call active.");
 
-				const AudioContextClass =
-					window.AudioContext ||
-					(window as unknown as { webkitAudioContext: typeof AudioContext })
-						.webkitAudioContext;
-				const inputCtx = new AudioContextClass({ sampleRate: 16000 });
+				const inputCtx = new AudioContext({ sampleRate: 16000 });
 				const sourceNode = inputCtx.createMediaStreamSource(stream);
 				const processor = inputCtx.createScriptProcessor(4096, 1, 1);
 				scriptProcessorRef.current = processor;
@@ -314,19 +323,11 @@ export function VoiceQualifierModal({
 
 			ws.onmessage = (event) => {
 				try {
-					const msg = JSON.parse(event.data) as {
-						type: string;
-						pcm?: string;
-						role?: "assistant" | "user";
-						text?: string;
-						category?: string;
-						fact?: string;
-						quote?: string;
-						proposedScore?: number;
-						proposedStage?: string | null;
-						reason?: string;
-						message?: string;
-					};
+					const parsed = jsonText
+						.pipe(serverMessage)
+						.safeParse(String(event.data));
+					if (!parsed.success) return;
+					const msg = parsed.data;
 
 					if (msg.type === "ready") {
 						startStreaming();
@@ -357,7 +358,7 @@ export function VoiceQualifierModal({
 								proposedStage: msg.proposedStage,
 							},
 						]);
-						if (typeof msg.proposedScore === "number") {
+						if (msg.proposedScore !== undefined) {
 							setProposedScore(msg.proposedScore);
 						}
 						if (msg.proposedStage) {

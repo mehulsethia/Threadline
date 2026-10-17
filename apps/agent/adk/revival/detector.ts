@@ -1,20 +1,22 @@
 import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
 import { DEFAULT_STAGE_SLAS, readRevivalSlas } from "@crm/db/settings";
 
-const FX_RATES_TO_USD: Record<string, number> = {
-	USD: 1.0,
-	EUR: 1.08,
-	GBP: 1.28,
-	INR: 0.012,
-	CAD: 0.73,
-	AUD: 0.65,
-	JPY: 0.0066,
-	CHF: 1.12,
-	AED: 0.27,
-	SGD: 0.74,
-};
+const FX_RATES_TO_USD = new Map<string, number>(
+	Object.entries({
+		USD: 1.0,
+		EUR: 1.08,
+		GBP: 1.28,
+		INR: 0.012,
+		CAD: 0.73,
+		AUD: 0.65,
+		JPY: 0.0066,
+		CHF: 1.12,
+		AED: 0.27,
+		SGD: 0.74,
+	}),
+);
 
-const STAGE_WEIGHTS: Record<DealStage, number> = {
+const STAGE_WEIGHTS = {
 	[DealStage.UNQUALIFIED_TO_BUY]: 1.0,
 	[DealStage.QUALIFIED_TO_BUY]: 1.5,
 	[DealStage.DEMO_BOOKED]: 2.0,
@@ -22,7 +24,7 @@ const STAGE_WEIGHTS: Record<DealStage, number> = {
 	[DealStage.DECISION_MAKER_BOUGHT_IN]: 3.0,
 	[DealStage.CLOSED_WON]: 0.0,
 	[DealStage.CLOSED_LOST]: 0.0,
-};
+} satisfies Record<DealStage, number>;
 
 const OPT_OUT_PATTERNS = [
 	/\bnot interested\b/i,
@@ -261,11 +263,11 @@ export async function detectStalledDeals(): Promise<StalledDealInfo[]> {
 		}
 
 		const currencyCode = deal.currency?.toUpperCase() || "USD";
-		const fxRate = FX_RATES_TO_USD[currencyCode] ?? 1.0;
+		const fxRate = FX_RATES_TO_USD.get(currencyCode) ?? 1.0;
 		const rawValue = deal.amount !== null ? Number(deal.amount) : 10000;
 		const normalisedValueUsd = (rawValue / 100) * fxRate;
 
-		const stageWeight = STAGE_WEIGHTS[deal.stage] ?? 1.0;
+		const stageWeight = STAGE_WEIGHTS[deal.stage];
 		const stalenessFactor = Math.max(1.0, daysSinceInbound / slaDays);
 		const priorityScore = Math.round(
 			normalisedValueUsd * stageWeight * stalenessFactor,

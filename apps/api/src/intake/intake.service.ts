@@ -1,3 +1,13 @@
+import { z } from "zod";
+
+/** The step name and message an intake agent event carries. */
+const intakeEventData = z
+	.looseObject({
+		tool: z.string().optional().catch(undefined),
+		message: z.string().optional().catch(undefined),
+	})
+	.catch({});
+
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -127,10 +137,7 @@ export class IntakeService {
 		if (options?.autoStart !== false) {
 			await this.agentTrigger.queueIntake(
 				job.id,
-				{
-					jobId: job.id,
-					...(options?.me ? { me: options.me } : {}),
-				},
+				{ jobId: job.id, me: options?.me ?? null },
 				true,
 			);
 			this.agentTrigger.poke();
@@ -212,10 +219,7 @@ export class IntakeService {
 
 		await this.agentTrigger.queueIntake(
 			input.jobId,
-			{
-				jobId: input.jobId,
-				...(input.me ? { me: input.me } : {}),
-			},
+			{ jobId: input.jobId, me: input.me ?? null },
 			true,
 		);
 		this.agentTrigger.poke();
@@ -241,14 +245,11 @@ export class IntakeService {
 		});
 
 		const timeline = events.map((event) => {
-			const data =
-				event.data && typeof event.data === "object"
-					? (event.data as Record<string, unknown>)
-					: {};
+			const data = intakeEventData.parse(event.data);
 			return {
 				id: event.id,
-				tool: (data.tool as string) || event.type,
-				message: (data.message as string) || "",
+				tool: data.tool || event.type,
+				message: data.message || "",
 				timestamp: event.emittedAt,
 				data,
 			};

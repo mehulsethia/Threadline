@@ -407,26 +407,28 @@ export function resolveRelativeTimeline(
 	if (!text) return null;
 	const norm = normalize(text);
 
-	const numberMap: Record<string, number> = {
-		one: 1,
-		two: 2,
-		three: 3,
-		four: 4,
-		five: 5,
-		six: 6,
-		seven: 7,
-		eight: 8,
-		nine: 9,
-		ten: 10,
-		ein: 1,
-		zwei: 2,
-		drei: 3,
-		vier: 4,
-		uno: 1,
-		dos: 2,
-		tres: 3,
-		cuatro: 4,
-	};
+	const numberMap = new Map<string, number>(
+		Object.entries({
+			one: 1,
+			two: 2,
+			three: 3,
+			four: 4,
+			five: 5,
+			six: 6,
+			seven: 7,
+			eight: 8,
+			nine: 9,
+			ten: 10,
+			ein: 1,
+			zwei: 2,
+			drei: 3,
+			vier: 4,
+			uno: 1,
+			dos: 2,
+			tres: 3,
+			cuatro: 4,
+		}),
+	);
 
 	if (
 		norm.includes("kal") ||
@@ -468,7 +470,7 @@ export function resolveRelativeTimeline(
 	);
 	if (relMatch?.[1] && relMatch[2]) {
 		const rawNum = relMatch[1];
-		const num = numberMap[rawNum] ?? parseInt(rawNum, 10);
+		const num = numberMap.get(rawNum) ?? parseInt(rawNum, 10);
 		const rawUnit = relMatch[2];
 
 		const target = new Date(refDate.getTime());
@@ -576,31 +578,33 @@ export function resolveDueAt(
 	if (!text) return null;
 	const norm = normalize(text);
 
-	const numberMap: Record<string, number> = {
-		ek: 1,
-		do: 2,
-		teen: 3,
-		char: 4,
-		one: 1,
-		two: 2,
-		three: 3,
-		four: 4,
-		ein: 1,
-		zwei: 2,
-		drei: 3,
-		vier: 4,
-		uno: 1,
-		dos: 2,
-		tres: 3,
-		cuatro: 4,
-	};
+	const numberMap = new Map<string, number>(
+		Object.entries({
+			ek: 1,
+			do: 2,
+			teen: 3,
+			char: 4,
+			one: 1,
+			two: 2,
+			three: 3,
+			four: 4,
+			ein: 1,
+			zwei: 2,
+			drei: 3,
+			vier: 4,
+			uno: 1,
+			dos: 2,
+			tres: 3,
+			cuatro: 4,
+		}),
+	);
 
 	const hourMatch = norm.match(
 		/(\d+|ek|do|teen|char|one|two|three|four|ein|zwei|drei|vier|uno|dos|tres|cuatro)\s*(?:hour|ghante|ghanta|hr|stunde|stunden|hora|horas)s?\s*(?:me|mein|within|in)?/,
 	);
 	if (hourMatch?.[1]) {
 		const raw = hourMatch[1];
-		const hours = numberMap[raw] ?? parseInt(raw, 10);
+		const hours = numberMap.get(raw) ?? parseInt(raw, 10);
 		const target = new Date(refDate.getTime() + hours * 3600 * 1000);
 		return target.toISOString();
 	}

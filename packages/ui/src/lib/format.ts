@@ -70,8 +70,7 @@ export function formatDate(
 	timeZone = "UTC",
 ): string {
 	if (!date) return "—";
-	const d =
-		typeof date === "object" && date instanceof Date ? date : new Date(date);
+	const d = date instanceof Date ? date : new Date(date);
 	if (Number.isNaN(d.getTime())) return "—";
 	return new Intl.DateTimeFormat(locale, {
 		month: "short",

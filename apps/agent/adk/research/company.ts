@@ -1,4 +1,29 @@
+import { jsonText } from "@crm/validation/json-text";
+import { z } from "zod";
 import { getFastClient } from "../extraction";
+
+const trimmed = z
+	.string()
+	.transform((value) => value.trim() || undefined)
+	.optional()
+	.catch(undefined);
+
+/** The model's entity check; any field it gets wrong falls back to empty. */
+const verification = z.object({
+	entityMatched: trimmed,
+	matchConfidence: z
+		.number()
+		.transform((value) => Math.max(0, Math.min(1, value)))
+		.catch(0),
+	matchReasons: z
+		.array(z.string().catch(""))
+		.catch([])
+		.transform((reasons) => reasons.filter((reason) => reason.trim())),
+	overview: trimmed,
+	sizeSignals: trimmed,
+	location: trimmed,
+	recentNews: trimmed,
+});
 
 export type ResearchCompanyInput = {
 	companyName: string;
@@ -101,11 +126,7 @@ export async function researchCompany(
 		const chunks = candidate?.groundingMetadata?.groundingChunks || [];
 		for (const chunk of chunks) {
 			const uri = chunk.web?.uri;
-			if (
-				typeof uri === "string" &&
-				uri.startsWith("http") &&
-				!sourceUrls.includes(uri)
-			) {
+			if (uri?.startsWith("http") && !sourceUrls.includes(uri)) {
 				sourceUrls.push(uri);
 			}
 		}
@@ -120,64 +141,40 @@ export async function researchCompany(
 	const latencyMs = Date.now() - start;
 	const estimatedCostUsd = 0.035 + (tokenCount / 1000) * 0.005;
 
-	let entityMatched: string | null = null;
+	const cleaned = rawText
+		.replace(/^```json\s*/i, "")
+		.replace(/^```\s*/i, "")
+		.replace(/\s*```$/i, "")
+		.trim();
+	const parsed = jsonText.pipe(verification).safeParse(cleaned);
+
 	let matchConfidence = 0.0;
-	let matchReasons: string[] = [];
+	const matchReasons: string[] = [];
+	let entityMatched: string | null = null;
 	let overview: string | undefined;
 	let sizeSignals: string | undefined;
 	let location: string | undefined;
 	let recentNews: string | undefined;
 
-	try {
-		const cleaned = rawText
-			.replace(/^```json\s*/i, "")
-			.replace(/^```\s*/i, "")
-			.replace(/\s*```$/i, "")
-			.trim();
-		const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+	if (parsed.success) {
+		const answer = parsed.data;
+		entityMatched = answer.entityMatched ?? null;
+		matchConfidence = answer.matchConfidence;
+		matchReasons.push(...answer.matchReasons);
 
-		if (
-			typeof parsed.entityMatched === "string" &&
-			parsed.entityMatched.trim()
-		) {
-			entityMatched = parsed.entityMatched.trim();
-		}
-		if (typeof parsed.matchConfidence === "number") {
-			matchConfidence = Math.max(0, Math.min(1, parsed.matchConfidence));
-		}
-		if (Array.isArray(parsed.matchReasons)) {
-			matchReasons = parsed.matchReasons.filter(
-				(r): r is string => typeof r === "string" && Boolean(r.trim()),
-			);
-		}
-
+		// Below the threshold nothing about the company is kept.
 		if (matchConfidence >= 0.7) {
-			if (typeof parsed.overview === "string" && parsed.overview.trim()) {
-				overview = parsed.overview.trim();
-			}
-			if (typeof parsed.sizeSignals === "string" && parsed.sizeSignals.trim()) {
-				sizeSignals = parsed.sizeSignals.trim();
-			}
-			if (typeof parsed.location === "string" && parsed.location.trim()) {
-				location = parsed.location.trim();
-			}
-			if (typeof parsed.recentNews === "string" && parsed.recentNews.trim()) {
-				recentNews = parsed.recentNews.trim();
-			}
-		} else {
-			if (matchReasons.length === 0) {
-				matchReasons.push(
-					"Entity did not match target business with sufficient confidence.",
-				);
-			}
-		}
-	} catch {
-		if (rawText.trim()) {
-			matchConfidence = 0.3;
+			({ overview, sizeSignals, location, recentNews } = answer);
+		} else if (matchReasons.length === 0) {
 			matchReasons.push(
-				"Could not parse structured entity verification response.",
+				"Entity did not match target business with sufficient confidence.",
 			);
 		}
+	} else if (rawText.trim()) {
+		matchConfidence = 0.3;
+		matchReasons.push(
+			"Could not parse structured entity verification response.",
+		);
 	}
 
 	console.log(

@@ -43,7 +43,7 @@ async function getStorageClient(): Promise<Storage> {
 		}
 
 		const client = await googleAuth.getClient();
-		if ("client_email" in client && typeof client.client_email === "string") {
+		if ("client_email" in client && client.client_email) {
 			return new Storage({ projectId, authClient: client });
 		}
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Db } from "./client";
 import {
 	DEFAULT_REPORTING_CURRENCY,
@@ -171,21 +172,18 @@ export const DEFAULT_STAGE_SLAS = {
 
 export type StageSlas = Record<string, number>;
 
+// Days per stage as saved from the revival settings dialog.
+const storedSlas = z.record(z.string(), z.number());
+
 export async function readRevivalSlas(db: Db): Promise<StageSlas> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },
 		select: { revivalSlas: true },
 	});
 
-	if (
-		row?.revivalSlas &&
-		typeof row.revivalSlas === "object" &&
-		!Array.isArray(row.revivalSlas)
-	) {
-		return {
-			...DEFAULT_STAGE_SLAS,
-			...(row.revivalSlas as Record<string, number>),
-		};
+	const stored = storedSlas.safeParse(row?.revivalSlas);
+	if (stored.success) {
+		return { ...DEFAULT_STAGE_SLAS, ...stored.data };
 	}
 
 	return { ...DEFAULT_STAGE_SLAS };

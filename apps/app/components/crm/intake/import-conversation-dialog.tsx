@@ -31,23 +31,25 @@ import { useTRPC } from "@/lib/trpc/client";
 
 type Step = "upload" | "preview" | "processing" | "result";
 
-const TOOL_TITLES: Record<string, string> = {
-	intake_agent: "Starting intake agent",
-	load_intake_job: "Loading conversation file",
-	parse_whatsapp_export: "Parsing WhatsApp messages",
-	transcribe_audio: "Transcribing audio recording",
-	extract_lead_facts: "Extracting lead facts & quotes",
-	find_matching_contact: "Checking existing contacts",
-	upsert_company: "Resolving company",
-	upsert_contact: "Creating or updating contact",
-	upsert_deal: "Setting up deal & budget",
-	record_fact: "Recording fact to evidence ledger",
-	store_messages: "Storing conversation history",
-	log_activity: "Logging timeline activity",
-	create_task: "Scheduling follow-up task",
-	finish_job: "Finalizing intake",
-	agent_thinking: "Agent reasoning",
-};
+const TOOL_TITLES = new Map<string, string>(
+	Object.entries({
+		intake_agent: "Starting intake agent",
+		load_intake_job: "Loading conversation file",
+		parse_whatsapp_export: "Parsing WhatsApp messages",
+		transcribe_audio: "Transcribing audio recording",
+		extract_lead_facts: "Extracting lead facts & quotes",
+		find_matching_contact: "Checking existing contacts",
+		upsert_company: "Resolving company",
+		upsert_contact: "Creating or updating contact",
+		upsert_deal: "Setting up deal & budget",
+		record_fact: "Recording fact to evidence ledger",
+		store_messages: "Storing conversation history",
+		log_activity: "Logging timeline activity",
+		create_task: "Scheduling follow-up task",
+		finish_job: "Finalizing intake",
+		agent_thinking: "Agent reasoning",
+	}),
+);
 
 export function ImportConversationDialog() {
 	const [open, setOpen] = useState(false);
@@ -205,16 +207,10 @@ export function ImportConversationDialog() {
 
 	const timelineEvents = statusData?.timeline ?? [];
 	const factsApplied = timelineEvents.filter(
-		(ev) =>
-			ev.tool === "record_fact" &&
-			(ev.message.includes("as APPLIED") ||
-				(ev.data as Record<string, unknown>)?.status === "APPLIED"),
+		(ev) => ev.tool === "record_fact" && ev.message.includes("as APPLIED"),
 	).length;
 	const factsSuggested = timelineEvents.filter(
-		(ev) =>
-			ev.tool === "record_fact" &&
-			(ev.message.includes("as PROPOSED") ||
-				(ev.data as Record<string, unknown>)?.status === "PROPOSED"),
+		(ev) => ev.tool === "record_fact" && ev.message.includes("as PROPOSED"),
 	).length;
 	const tasksCreated = timelineEvents.filter(
 		(ev) => ev.tool === "create_task",
@@ -484,7 +480,7 @@ export function ImportConversationDialog() {
 										</div>
 										<div className="min-w-0 flex-1">
 											<p className="font-medium text-foreground">
-												{TOOL_TITLES[ev.tool] || ev.tool}
+												{TOOL_TITLES.get(ev.tool) || ev.tool}
 											</p>
 											<p className="text-muted-foreground text-[11px] break-words">
 												{ev.message}
@@ -632,7 +628,7 @@ export function ImportConversationDialog() {
 										</div>
 										<div className="min-w-0 flex-1">
 											<p className="font-medium text-foreground">
-												{TOOL_TITLES[ev.tool] || ev.tool}
+												{TOOL_TITLES.get(ev.tool) || ev.tool}
 											</p>
 											<p className="text-muted-foreground text-[11px] break-words">
 												{ev.message}

@@ -216,7 +216,7 @@ function parseTextLines(
 	return {
 		participants: Array.from(participantSet),
 		messages,
-		...(attachments ? { attachments } : {}),
+		attachments,
 	};
 }
 
@@ -236,12 +236,12 @@ function isZipBuffer(bytes: Uint8Array): boolean {
 export function parseWhatsAppExport(
 	input: string | Uint8Array | Buffer,
 ): ParsedWhatsAppExport {
-	if (typeof input === "string") {
+	if (!(input instanceof Uint8Array)) {
 		return parseTextLines(input);
 	}
 
-	const uint8 =
-		input instanceof Uint8Array ? input : new Uint8Array(input as Buffer);
+	// A Buffer is a Uint8Array, so both arrive here as bytes.
+	const uint8 = input;
 
 	if (isZipBuffer(uint8)) {
 		return parseZipExport(uint8);
@@ -386,11 +386,19 @@ function normalizeParticipantText(text: string): string {
 		.trim();
 }
 
+/** Who in a chat is the seller ("me") and who is the lead, and how sure. */
+export type ParticipantDetection = {
+	me: string;
+	lead: string;
+	confidence: number;
+	autoDetected: boolean;
+};
+
 export function detectParticipants(
 	participants: string[],
 	messages: WhatsAppMessageItem[],
 	meFlag?: string,
-): { me: string; lead: string; confidence: number; autoDetected: boolean } {
+): ParticipantDetection {
 	if (participants.length === 0) {
 		return {
 			me: meFlag ?? "Business",

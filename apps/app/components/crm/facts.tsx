@@ -35,10 +35,10 @@ export type GenericFact = {
 	observedAt: string;
 };
 
-export function parseEvidenceDetail(detail: string): {
-	quote: string;
-	speaker: "lead" | "us";
-} {
+/** A ledger quote and who said it. */
+export type EvidenceDetail = { quote: string; speaker: "lead" | "us" };
+
+export function parseEvidenceDetail(detail: string): EvidenceDetail {
 	const quoteMatch = detail.match(/^"([^"]+)"\s*\(speaker:\s*(lead|us)\)/i);
 	if (quoteMatch) {
 		return {
@@ -224,28 +224,30 @@ export function DealFactSuggestion({
 	);
 }
 
-const FIELD_LABELS: Record<string, string> = {
-	need: "Requirement",
-	leadBudget: "Lead budget",
-	quotedValue: "Quoted value",
-	timeline: "Timeline",
-	stage: "Stage suggestion",
-	language: "Language preference",
-	sentiment: "Sentiment",
-	objections: "Objection",
-	objection: "Objection",
-	nextStep: "Next step",
-	possibleDuplicate: "Possible duplicate",
-	competitors: "Competitors",
-	decisionMakers: "Decision makers",
-	companyProfile: "Company profile",
-	companySize: "Company scale",
-	companyNews: "Company news",
-};
+const FIELD_LABELS = new Map<string, string>(
+	Object.entries({
+		need: "Requirement",
+		leadBudget: "Lead budget",
+		quotedValue: "Quoted value",
+		timeline: "Timeline",
+		stage: "Stage suggestion",
+		language: "Language preference",
+		sentiment: "Sentiment",
+		objections: "Objection",
+		objection: "Objection",
+		nextStep: "Next step",
+		possibleDuplicate: "Possible duplicate",
+		competitors: "Competitors",
+		decisionMakers: "Decision makers",
+		companyProfile: "Company profile",
+		companySize: "Company scale",
+		companyNews: "Company news",
+	}),
+);
 
 export function humanFieldLabel(field: string): string {
 	return (
-		FIELD_LABELS[field] ||
+		FIELD_LABELS.get(field) ||
 		field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())
 	);
 }
