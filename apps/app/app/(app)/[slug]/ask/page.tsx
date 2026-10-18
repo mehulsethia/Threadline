@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/page-shell";
+import { Suspense } from "react";
+import { PageShell, PageShellLoading } from "@/components/page-shell";
 import { requireSession } from "@/lib/session";
 import { AskChat } from "./ask-chat";
 
 export const metadata: Metadata = { title: "Ask your CRM" };
 
-export default async function AskPage() {
-	await requireSession();
+export default function AskPage() {
 	return (
 		<PageShell className="min-h-0">
-			<AskChat />
+			<Suspense fallback={<PageShellLoading />}>
+				<AskContent />
+			</Suspense>
 		</PageShell>
 	);
+}
+
+async function AskContent() {
+	await requireSession();
+	return <AskChat />;
 }

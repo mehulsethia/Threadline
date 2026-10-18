@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
-import { ConnectionPage } from "../connections/connection-page";
+import {
+	ConnectionPage,
+	ConnectionPageLoading,
+} from "../connections/connection-page";
 import { FormsManager } from "./forms-manager";
 
 export const metadata: Metadata = { title: "Enquiry forms" };
 
-export default async function FormsSettingsPage() {
+export default function FormsSettingsPage() {
+	return (
+		<Suspense fallback={<ConnectionPageLoading />}>
+			<FormsSettingsContent />
+		</Suspense>
+	);
+}
+
+async function FormsSettingsContent() {
 	await requireSession();
 	return (
 		<ConnectionPage className="max-w-(--container-narrow)">

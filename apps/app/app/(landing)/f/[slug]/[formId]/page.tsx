@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { API_URL } from "@/lib/env";
 import { PublicForm } from "./public-form";
@@ -26,9 +27,15 @@ async function loadForm(
 	return body;
 }
 
-export default async function PublicFormPage({
-	params,
-}: PageProps<"/f/[slug]/[formId]">) {
+export default function PublicFormPage(props: PageProps<"/f/[slug]/[formId]">) {
+	return (
+		<Suspense fallback={null}>
+			<PublicFormContent {...props} />
+		</Suspense>
+	);
+}
+
+async function PublicFormContent({ params }: PageProps<"/f/[slug]/[formId]">) {
 	const { slug, formId } = await params;
 	const form = await loadForm(slug, formId);
 	if (!form) notFound();

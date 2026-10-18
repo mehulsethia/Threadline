@@ -32,6 +32,7 @@
 		"./slack-inventory": "./src/slack-inventory.ts",
 		"./tracking": "./src/tracking.ts",
 		"./workspace": "./src/workspace.ts",
+		"./workspace-slug": "./src/workspace-slug.ts",
 		"./workspaces": "./src/workspaces.ts",
 		"./tenancy": "./src/tenancy.ts"
 	},
