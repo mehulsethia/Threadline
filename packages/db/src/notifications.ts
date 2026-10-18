@@ -13,7 +13,10 @@ export type NotificationSource =
 	| "voice"
 	| "upload"
 	| "revival"
-	| "research";
+	| "research"
+	| "form"
+	| "score"
+	| "promise";
 
 export type NotifyInput = {
 	kind: string;

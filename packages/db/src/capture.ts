@@ -14,7 +14,8 @@ export type CaptureInput = {
 	sourceType:
 		| typeof IntakeSourceType.EMAIL_THREAD
 		| typeof IntakeSourceType.SLACK_THREAD
-		| typeof IntakeSourceType.MEETING_TRANSCRIPT;
+		| typeof IntakeSourceType.MEETING_TRANSCRIPT
+		| typeof IntakeSourceType.FORM_SUBMISSION;
 	externalId: string;
 	sourceUri: string;
 	title: string;
@@ -101,4 +102,5 @@ export const TEXT_CAPTURE_SOURCES: readonly IntakeSourceType[] = [
 	IntakeSourceType.EMAIL_THREAD,
 	IntakeSourceType.SLACK_THREAD,
 	IntakeSourceType.MEETING_TRANSCRIPT,
+	IntakeSourceType.FORM_SUBMISSION,
 ];

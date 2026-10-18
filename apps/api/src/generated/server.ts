@@ -16,6 +16,8 @@ const publicProcedure = t.procedure;
 import { timelineInput, timelineOutput, timelineCountsInput, timelineCountsOutput, myTasksInput, myTasksOutput, activityCreateInput, activityCreateOutput, completeInput, completeOutput } from "../activities/activities.contracts";
 import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, agentFilesOutput, agentSaveFileInput, agentSaveFileOutput, agentByIdOutput, agentHistoryInput, agentHistoryOutput, agentActivityOutput, agentUpdateInput, agentUpdateOutput, agentDeployInput, agentDeployOutput, agentPauseOutput, agentResumeOutput, agentArchiveOutput, agentRestoreOutput, agentRemoveOutput, agentRunNowInput, agentRunNowOutput, agentRetryRunInput, agentRetryRunOutput, agentCancelRunInput, agentCancelRunOutput } from "../agent/agents.contracts";
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
+import { askInput, askOutput, draftInput, draftOutput, dealInput, briefOutput, insightsOutput, rescoreAllOutput, forecastOutput, promiseListInput, promiseListOutput, promiseUpdateInput } from "../assist/assist.contracts";
+import { okOutput } from "../forms/../assist/assist.contracts";
 import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
 import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
 import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
@@ -24,6 +26,7 @@ import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dash
 import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreateInput, dealCreateOutput, dealUpdateArgs, dealMutateOutput, setStageInput, dealSetStageOutput, dealContactsInput, dealContactOptionsOutput, dealAttachContactInput, dealContactLinkOutput, dealDetachContactInput, dealContactRoleInput, dealContactRoleOutput, dealBulkOwnerInput, dealBulkResultOutput, dealBulkStageInput, dealBulkInput, dealFactDecisionInput, dealFactDecisionOutput } from "../deals/deals.contracts";
 import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
+import { leadFormListOutput, leadFormCreateInput, leadFormOutput, leadFormUpdateInput, leadFormIdInput } from "../forms/forms.contracts";
 import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { intakePreviewInput, intakePreviewOutput, intakeStartInput, intakeStartOutput, intakeStatusInput, intakeStatusOutput } from "../intake/intake.contracts";
@@ -143,6 +146,42 @@ const appRouter = t.router({
     revoke: publicProcedure
       .input(revokeApiKeyInput)
       .output(revokeApiKeyOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  assist: t.router({
+    ask: publicProcedure
+      .input(askInput)
+      .output(askOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    draft: publicProcedure
+      .input(draftInput)
+      .output(draftOutput.nullable())
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    brief: publicProcedure
+      .input(dealInput)
+      .output(briefOutput.nullable())
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    rescore: publicProcedure
+      .input(dealInput)
+      .output(insightsOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    rescoreAll: publicProcedure
+      .output(rescoreAllOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    insights: publicProcedure
+      .input(dealInput)
+      .output(insightsOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    forecast: publicProcedure
+      .output(forecastOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    promises: publicProcedure
+      .input(promiseListInput)
+      .output(promiseListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    updatePromise: publicProcedure
+      .input(promiseUpdateInput)
+      .output(okOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   companies: t.router({
@@ -535,6 +574,23 @@ const appRouter = t.router({
     backfill: publicProcedure
       .input(fieldIdInput)
       .output(fieldBackfillOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  forms: t.router({
+    list: publicProcedure
+      .output(leadFormListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    create: publicProcedure
+      .input(leadFormCreateInput)
+      .output(leadFormOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    update: publicProcedure
+      .input(leadFormUpdateInput)
+      .output(leadFormOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    remove: publicProcedure
+      .input(leadFormIdInput)
+      .output(okOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   google: t.router({

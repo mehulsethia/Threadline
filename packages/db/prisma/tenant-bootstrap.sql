@@ -73,7 +73,7 @@ CREATE TYPE "DomainScope" AS ENUM ('SITE_AND_SUBDOMAINS', 'EXACT_HOST');
 CREATE TYPE "OutboundDraftStatus" AS ENUM ('PENDING_APPROVAL', 'APPROVED', 'SENT', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "IntakeSourceType" AS ENUM ('WHATSAPP_EXPORT', 'VOICE_NOTE', 'CALL_RECORDING', 'EMAIL_THREAD', 'SLACK_THREAD', 'MEETING_TRANSCRIPT');
+CREATE TYPE "IntakeSourceType" AS ENUM ('WHATSAPP_EXPORT', 'VOICE_NOTE', 'CALL_RECORDING', 'EMAIL_THREAD', 'SLACK_THREAD', 'MEETING_TRANSCRIPT', 'FORM_SUBMISSION');
 
 -- CreateEnum
 CREATE TYPE "IntakeJobStatus" AS ENUM ('QUEUED', 'PROCESSING', 'DONE', 'FAILED');
@@ -627,6 +627,12 @@ CREATE TABLE "deal" (
     "fxRateAt" TIMESTAMP(3),
     "lastActivityAt" TIMESTAMP(3),
     "archivedAt" TIMESTAMP(3),
+    "leadScore" INTEGER,
+    "leadScoreFactors" JSONB,
+    "leadScoredAt" TIMESTAMP(3),
+    "health" TEXT,
+    "healthReason" TEXT,
+    "winProbability" DOUBLE PRECISION,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -1200,6 +1206,39 @@ CREATE TABLE "notification" (
     CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "commitment" (
+    "id" TEXT NOT NULL,
+    "dealId" TEXT,
+    "contactId" TEXT,
+    "owner" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "dueAt" TIMESTAMP(3),
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "sourceKind" TEXT,
+    "quote" TEXT,
+    "jobId" TEXT,
+    "taskId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+
+    CONSTRAINT "commitment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "leadForm" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "thankYou" TEXT,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "submissions" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "leadForm_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
 
@@ -1471,6 +1510,9 @@ CREATE INDEX "deal_stage_idx" ON "deal"("stage");
 CREATE INDEX "deal_expectedCloseDate_idx" ON "deal"("expectedCloseDate");
 
 -- CreateIndex
+CREATE INDEX "deal_leadScore_idx" ON "deal"("leadScore");
+
+-- CreateIndex
 CREATE INDEX "deal_lastActivityAt_idx" ON "deal"("lastActivityAt");
 
 -- CreateIndex
@@ -1703,6 +1745,12 @@ CREATE INDEX "notification_createdAt_idx" ON "notification"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "notification_readAt_createdAt_idx" ON "notification"("readAt", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "commitment_status_dueAt_idx" ON "commitment"("status", "dueAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "commitment_dealId_text_key" ON "commitment"("dealId", "text");
 
 -- AddForeignKey
 ALTER TABLE "slackMemberMatch" ADD CONSTRAINT "slackMemberMatch_crmUserId_fkey" FOREIGN KEY ("crmUserId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1964,4 +2012,7 @@ ALTER TABLE "outboundDraft" ADD CONSTRAINT "outboundDraft_approvedById_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "intakeJob" ADD CONSTRAINT "intakeJob_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "commitment" ADD CONSTRAINT "commitment_dealId_fkey" FOREIGN KEY ("dealId") REFERENCES "deal"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

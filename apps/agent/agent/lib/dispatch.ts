@@ -1,7 +1,10 @@
 import { db, EnrichmentStatus } from "@crm/db";
 import { PRIORITY } from "@crm/db/agent-tasks";
+import { notify } from "@crm/db/notifications";
 import { fieldBackfillPayload } from "@crm/validation/field-backfill";
 import { z } from "zod";
+import { flagOverdueCommitments } from "../../adk/assist/commitments";
+import { scoreOpenDeals } from "../../adk/assist/score";
 import { captureRecorderMeetings } from "../../adk/capture/recorders";
 import { runAdkIntakeTask } from "../../adk/intake";
 import { runLeadRevivalCycle } from "../../adk/revival/service";
@@ -141,6 +144,18 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 		return;
 	}
 
+	if (task.kind === "deal-score") {
+		const scored = await scoreOpenDeals(false);
+		await notify(db, {
+			kind: "score.batch",
+			title: `Rescored ${scored} open deals`,
+			body: "Lead scores, deal health and the forecast are up to date.",
+			source: "score",
+		});
+		await completeTask(task.id, `Rescored ${scored} deals.`);
+		return;
+	}
+
 	if (task.kind === "meeting-sync") {
 		const report = await captureRecorderMeetings(
 			meetingSyncPayload.parse(task.payload).trigger === "manual",
@@ -167,6 +182,11 @@ async function handleDirect(task: LeasedTask): Promise<void> {
 	}
 
 	if (task.kind === "revival") {
+		const overdue = await flagOverdueCommitments().catch(() => 0);
+		const rescored = await scoreOpenDeals(true).catch(() => 0);
+		console.log(
+			`[cycle] ${overdue} overdue promises, ${rescored} deals rescored`,
+		);
 		const report = await runLeadRevivalCycle();
 		await completeTask(
 			task.id,

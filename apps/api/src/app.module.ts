@@ -6,6 +6,7 @@ import { ActivitiesModule } from "./activities/activities.module";
 import { AgentModule } from "./agent/agent.module";
 import { ApiKeysModule } from "./api-keys/api-keys.module";
 import { ArchiveModule } from "./archive/archive.module";
+import { AssistModule } from "./assist/assist.module";
 import { AuthModule } from "./auth/auth.module";
 import { BackfillModule } from "./backfill/backfill.module";
 import { AppCacheModule } from "./cache/cache.module";
@@ -20,6 +21,7 @@ import { DatabaseModule } from "./database/database.module";
 import { DealsModule } from "./deals/deals.module";
 import { EnrichmentModule } from "./enrichment/enrichment.module";
 import { FieldsModule } from "./fields/fields.module";
+import { FormsModule } from "./forms/forms.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
 import { IntakeModule } from "./intake/intake.module";
@@ -69,6 +71,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ActivitiesModule,
 		AgentModule,
 		IntakeModule,
+		AssistModule,
+		FormsModule,
 		NotificationsModule,
 		RecordersModule,
 		RevivalModule,

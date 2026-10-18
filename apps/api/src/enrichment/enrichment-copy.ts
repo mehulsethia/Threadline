@@ -18,6 +18,7 @@ const STEPS = {
 	intake: "Processing conversation intake",
 	revival: "Reviewing stalled deals",
 	"meeting-sync": "Fetching meeting transcripts",
+	"deal-score": "Scoring deals",
 } satisfies Record<TaskKind, string>;
 
 const STEP_BY_KIND = new Map<string, string>(Object.entries(STEPS));

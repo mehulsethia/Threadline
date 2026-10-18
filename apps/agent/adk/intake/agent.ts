@@ -11,6 +11,8 @@ import { readReportingCurrency } from "@crm/db/settings";
 import { parseCapturedTranscript } from "@crm/validation/captured-conversation";
 import { z } from "zod";
 import { completeTask, type LeasedTask } from "../../agent/lib/tasks";
+import { trackCommitments } from "../assist/commitments";
+import { scoreDeal } from "../assist/score";
 import type { EvidenceSourceKind } from "../extraction";
 import { researchCompany } from "../research/company";
 import { runFollowUpAgent } from "./follow-up-agent";
@@ -38,6 +40,8 @@ const intakeTaskPayload = z
 		jobId: z.string().optional().catch(undefined),
 		me: z.string().optional().catch(undefined),
 		contactId: z.string().optional().catch(undefined),
+		leadEmail: z.string().nullable().optional().catch(undefined),
+		leadPhone: z.string().nullable().optional().catch(undefined),
 	})
 	.catch({});
 
@@ -158,6 +162,12 @@ const CAPTURE_PROFILE = {
 		source: "meeting",
 		label: "meeting transcript",
 	},
+	FORM_SUBMISSION: {
+		kind: "form.submission",
+		activity: ActivityType.NOTE,
+		source: "form",
+		label: "website enquiry",
+	},
 	WHATSAPP_EXPORT: {
 		kind: "whatsapp.message",
 		activity: ActivityType.WHATSAPP,
@@ -270,6 +280,7 @@ export async function runDeterministicIntakePipeline(
 	jobId: string,
 	meOverride?: string,
 	contactHint?: string,
+	leadDetails?: { email?: string | null; phone?: string | null },
 ): Promise<{ contactId: string; dealId: string }> {
 	const job = await loadIntakeJob({ jobId });
 	console.log(
@@ -330,6 +341,19 @@ export async function runDeterministicIntakePipeline(
 		companyId,
 	});
 	const contactId = contactResult.contactId;
+	if (leadDetails?.email || leadDetails?.phone) {
+		const current = await db.contact.findUnique({
+			where: { id: contactId },
+			select: { email: true, phone: true },
+		});
+		await db.contact.update({
+			where: { id: contactId },
+			data: {
+				email: current?.email || leadDetails.email || null,
+				phone: current?.phone || leadDetails.phone || null,
+			},
+		});
+	}
 
 	const dealValue =
 		facts.deal.quotedValue.value ?? facts.deal.leadBudget.value ?? undefined;
@@ -537,6 +561,45 @@ export async function runDeterministicIntakePipeline(
 		},
 	});
 
+	const conversation =
+		parsedMessages.length > 0
+			? parsedMessages
+					.map(
+						(m) =>
+							`[${m.timestamp.toISOString().slice(0, 16)}] ${m.sender}: ${m.text}`,
+					)
+					.join("\n")
+			: transcriptText;
+	const promises = await trackCommitments({
+		jobId,
+		dealId,
+		contactId,
+		conversation,
+		sourceKind: profile.kind,
+		usName: facts.participants.me,
+	}).catch((error) => {
+		console.error("[Intake] promise tracking failed", error);
+		return { added: 0, kept: 0 };
+	});
+	await emitIntakeEvent(
+		jobId,
+		"track_promises",
+		`Tracked promises: ${promises.added} new, ${promises.kept} kept`,
+		contactId,
+	);
+	const score = await scoreDeal(dealId).catch((error) => {
+		console.error("[Intake] lead scoring failed", error);
+		return null;
+	});
+	if (score) {
+		await emitIntakeEvent(
+			jobId,
+			"score_lead",
+			`Lead score ${score.leadScore}/100, ${score.health.replace("_", " ")} — ${score.factors.summary}`,
+			contactId,
+		);
+	}
+
 	await emitIntakeEvent(
 		jobId,
 		"follow_up_agent",
@@ -561,6 +624,9 @@ export async function runDeterministicIntakePipeline(
 			},
 			sentiment: facts.sentiment.value,
 			suggestedFacts: proposed,
+			leadScore: score?.leadScore ?? null,
+			health: score?.health ?? null,
+			newPromises: promises.added,
 			alreadyResearched: priorResearch > 0,
 			domainHint: domain ?? null,
 			today: new Date().toISOString(),
@@ -653,6 +719,7 @@ export async function runAdkIntakeTask(task: LeasedTask): Promise<string> {
 		jobId,
 		meOverride,
 		payload.contactId,
+		{ email: payload.leadEmail, phone: payload.leadPhone },
 	);
 	const outcome = `Intake job ${jobId} completed. Contact: ${res.contactId}, Deal: ${res.dealId}`;
 

@@ -26,9 +26,9 @@ import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
+import { DealAssist } from "@/components/crm/deal-assist";
 import { type GenericFact, RecordFactsSection } from "@/components/crm/facts";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
 import {
@@ -170,9 +170,9 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					content: <Timeline anchor={{ dealId: deal.id }} />,
 				},
 				{
-					value: "agent",
-					label: "Agent",
-					content: <AgentPanel record={{ kind: "deal", id: deal.id }} />,
+					value: "assist",
+					label: "AI assist",
+					content: <DealAssist dealId={deal.id} />,
 					keepMounted: true,
 				},
 			]

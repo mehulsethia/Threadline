@@ -29,6 +29,7 @@ export type EvidenceSourceKind =
 	| "email.message"
 	| "slack.message"
 	| "meeting.transcript"
+	| "form.submission"
 	| "voice.transcript"
 	| "voice.live-call"
 	| "agent.inference";
@@ -562,6 +563,7 @@ const SOURCE_KINDS = [
 	"email.message",
 	"slack.message",
 	"meeting.transcript",
+	"form.submission",
 	"voice.transcript",
 	"voice.live-call",
 	"agent.inference",

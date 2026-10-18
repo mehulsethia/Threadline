@@ -3,6 +3,7 @@ import { WORKSPACE_ID } from "../src/workspace";
 import {
 	adoptLegacyWorkspace,
 	ensureWorkspaceSchemas,
+	migrateWorkspaceSchemas,
 } from "../src/workspaces";
 
 const adopted = await adoptLegacyWorkspace(WORKSPACE_ID);
@@ -17,4 +18,9 @@ console.log(
 		? `Provisioned schemas for: ${created.join(", ")}`
 		: "Every workspace already has a schema.",
 );
+for (const { workspaceId, applied } of await migrateWorkspaceSchemas()) {
+	if (applied.length > 0) {
+		console.log(`${workspaceId}: applied ${applied.join(", ")}`);
+	}
+}
 await pgPool.end();

@@ -961,7 +961,15 @@ model Deal {
   lastActivityAt DateTime?
   archivedAt     DateTime?
 
+  leadScore        Int?
+  leadScoreFactors Json?
+  leadScoredAt     DateTime?
+  health           String?
+  healthReason     String?
+  winProbability   Float?
+
   contacts         DealContact[]
+  commitments      Commitment[]
   activities       Activity[]
   fieldValues      FieldValue[]
   facts            ContactFact[]
@@ -975,6 +983,7 @@ model Deal {
   @@index([ownerId])
   @@index([stage])
   @@index([expectedCloseDate])
+  @@index([leadScore])
   @@index([lastActivityAt])
   @@index([baseAmount])
   @@index([currency])
@@ -1707,6 +1716,7 @@ enum IntakeSourceType {
   EMAIL_THREAD
   SLACK_THREAD
   MEETING_TRANSCRIPT
+  FORM_SUBMISSION
 }
 
 enum IntakeJobStatus {
@@ -1754,4 +1764,38 @@ model Notification {
   @@index([createdAt])
   @@index([readAt, createdAt])
   @@map("notification")
+}
+
+model Commitment {
+  id         String    @id @default(cuid())
+  dealId     String?
+  deal       Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId  String?
+  owner      String
+  text       String
+  dueAt      DateTime?
+  status     String    @default("open")
+  sourceKind String?
+  quote      String?
+  jobId      String?
+  taskId     String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@unique([dealId, text])
+  @@index([status, dueAt])
+  @@map("commitment")
+}
+
+model LeadForm {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  thankYou    String?
+  active      Boolean  @default(true)
+  submissions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("leadForm")
 }

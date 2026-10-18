@@ -18,6 +18,7 @@ const ITEMS: SettingsNavItem[] = [
 	{ title: "General", href: ROOT },
 	{ title: "Tracking & Analytics", href: `${ROOT}/tracking` },
 	{ title: "Connections", href: `${ROOT}/connections` },
+	{ title: "Enquiry forms", href: `${ROOT}/forms` },
 	{ title: "Currencies", href: `${ROOT}/currencies` },
 	{ title: "Members", href: `${ROOT}/members` },
 	{ title: "API Keys", href: `${ROOT}/api-keys` },

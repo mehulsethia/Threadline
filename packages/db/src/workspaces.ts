@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { findWorkspaceRoot } from "@crm/env";
 import { pgPool, rootDb } from "./client";
@@ -10,13 +10,120 @@ import {
 	schemaForWorkspace,
 } from "./tenancy";
 
-function bootstrapSql(): string {
+function prismaDir(): string {
 	const root = findWorkspaceRoot(process.cwd());
 	if (!root) throw new Error("Cannot find the repository root.");
-	return readFileSync(
-		join(root, "packages", "db", "prisma", "tenant-bootstrap.sql"),
-		"utf8",
+	return join(root, "packages", "db", "prisma");
+}
+
+function bootstrapSql(): string {
+	return readFileSync(join(prismaDir(), "tenant-bootstrap.sql"), "utf8");
+}
+
+function migrationNames(): string[] {
+	return readdirSync(join(prismaDir(), "migrations"), { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+		.sort();
+}
+
+const GLOBAL_TABLE_PATTERN = new RegExp(`"(${GLOBAL_TABLES.join("|")})"`);
+
+export function workspaceStatements(sql: string): string[] {
+	return sql
+		.split(/;\s*(?:\n|$)/)
+		.map((statement) =>
+			statement
+				.split("\n")
+				.filter((line) => !line.trim().startsWith("--"))
+				.join("\n")
+				.trim(),
+		)
+		.filter(Boolean)
+		.filter((statement) => !GLOBAL_TABLE_PATTERN.test(statement));
+}
+
+const LEDGER = "_workspace_migrations";
+
+async function markMigrations(
+	client: { query: (sql: string, values?: unknown[]) => Promise<unknown> },
+	schema: string,
+	names: string[],
+): Promise<void> {
+	await client.query(
+		`CREATE TABLE IF NOT EXISTS ${ident(schema)}.${ident(LEDGER)} ("name" TEXT PRIMARY KEY, "appliedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 	);
+	for (const name of names) {
+		await client.query(
+			`INSERT INTO ${ident(schema)}.${ident(LEDGER)} ("name") VALUES ($1) ON CONFLICT DO NOTHING`,
+			[name],
+		);
+	}
+}
+
+export async function migrateWorkspaceSchema(
+	workspaceId: string,
+): Promise<string[]> {
+	const schema = schemaForWorkspace(workspaceId);
+	const client = await pgPool.connect();
+	try {
+		await markMigrations(client, schema, []);
+		const done = await client.query<{ name: string }>(
+			`SELECT "name" FROM ${ident(schema)}.${ident(LEDGER)}`,
+		);
+		const applied = new Set(done.rows.map((row) => row.name));
+		const pending = migrationNames().filter((name) => !applied.has(name));
+		for (const name of pending) {
+			const sql = readFileSync(
+				join(prismaDir(), "migrations", name, "migration.sql"),
+				"utf8",
+			);
+			await client.query("BEGIN");
+			try {
+				await client.query(`SET LOCAL search_path TO ${ident(schema)}`);
+				for (const statement of workspaceStatements(sql)) {
+					await client.query(statement);
+				}
+				await markMigrations(client, schema, [name]);
+				await client.query("COMMIT");
+			} catch (error) {
+				await client.query("ROLLBACK");
+				throw new Error(
+					`Migration ${name} failed in ${schema}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
+		await client.query("BEGIN");
+		for (const statement of viewSql(schema, workspaceId, false)) {
+			await client.query(statement);
+		}
+		await client.query("COMMIT");
+		return pending;
+	} finally {
+		client.release();
+	}
+}
+
+export async function migrateWorkspaceSchemas(): Promise<
+	{ workspaceId: string; applied: string[] }[]
+> {
+	const results: { workspaceId: string; applied: string[] }[] = [];
+	for (const workspaceId of await listWorkspaceIds()) {
+		results.push({
+			workspaceId,
+			applied: await migrateWorkspaceSchema(workspaceId),
+		});
+	}
+	return results;
+}
+
+async function createPublicShadow(client: {
+	query: (sql: string) => Promise<unknown>;
+}): Promise<void> {
+	await client.query("SET LOCAL search_path TO public");
+	for (const statement of workspaceStatements(bootstrapSql())) {
+		await client.query(statement);
+	}
 }
 
 const LEGACY_MARKER_TABLE = "contact";
@@ -29,7 +136,11 @@ function ident(value: string): string {
 	return `"${value.replace(/"/g, '""')}"`;
 }
 
-function viewSql(schema: string, workspaceId: string): string[] {
+function viewSql(
+	schema: string,
+	workspaceId: string,
+	dropTables = true,
+): string[] {
 	const org = literal(workspaceId);
 	const members = `SELECT "userId" FROM public."member" WHERE "organizationId" = ${org}`;
 	const filter = {
@@ -45,7 +156,9 @@ function viewSql(schema: string, workspaceId: string): string[] {
 		apikey: `WHERE "referenceId" IN (${members})`,
 	} satisfies Record<(typeof GLOBAL_TABLES)[number], string>;
 	return GLOBAL_TABLES.flatMap((table) => [
-		`DROP TABLE IF EXISTS ${ident(schema)}.${ident(table)} CASCADE`,
+		...(dropTables
+			? [`DROP TABLE IF EXISTS ${ident(schema)}.${ident(table)} CASCADE`]
+			: []),
 		`DROP VIEW IF EXISTS ${ident(schema)}.${ident(table)}`,
 		`CREATE VIEW ${ident(schema)}.${ident(table)} AS SELECT * FROM public.${ident(table)} ${filter[table]}`,
 	]);
@@ -83,6 +196,7 @@ export async function provisionWorkspaceSchema(
 		for (const statement of viewSql(schema, workspaceId)) {
 			await client.query(statement);
 		}
+		await markMigrations(client, schema, migrationNames());
 		await client.query("COMMIT");
 		return true;
 	} catch (error) {
@@ -97,12 +211,8 @@ export async function adoptLegacyWorkspace(
 	workspaceId: string,
 ): Promise<boolean> {
 	const schema = schemaForWorkspace(workspaceId);
+	if (await schemaExists(schema)) return false;
 	if (!(await publicHasTenantTables())) return false;
-	if (await schemaExists(schema)) {
-		throw new Error(
-			`public still holds workspace tables but ${schema} already exists. Resolve by hand.`,
-		);
-	}
 
 	const globals = new Set<string>(GLOBAL_TABLES);
 	const client = await pgPool.connect();
@@ -129,6 +239,8 @@ export async function adoptLegacyWorkspace(
 		for (const statement of viewSql(schema, workspaceId)) {
 			await client.query(statement);
 		}
+		await markMigrations(client, schema, migrationNames());
+		await createPublicShadow(client);
 		await client.query("COMMIT");
 		return true;
 	} catch (error) {

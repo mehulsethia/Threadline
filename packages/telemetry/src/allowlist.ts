@@ -170,6 +170,7 @@ export const EVIDENCE_KINDS = [
 	"email.message",
 	"slack.message",
 	"meeting.transcript",
+	"form.submission",
 	"voice.transcript",
 	"voice.live-call",
 	"agent.inference",

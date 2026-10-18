@@ -14,6 +14,7 @@ export const TASK_KINDS = [
 	"intake",
 	"revival",
 	"meeting-sync",
+	"deal-score",
 ] as const;
 
 export type TaskKind = (typeof TASK_KINDS)[number];
@@ -27,6 +28,7 @@ export const DIRECT_KINDS = [
 	"intake",
 	"revival",
 	"meeting-sync",
+	"deal-score",
 ] as const;
 
 export type DirectKind = (typeof DIRECT_KINDS)[number];
@@ -68,4 +70,5 @@ export const PRIORITY = {
 	intake: 920,
 	revival: 850,
 	meetingSync: 880,
+	dealScore: 600,
 } as const;

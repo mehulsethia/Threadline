@@ -1,6 +1,7 @@
 "use client";
 
 import Building from "@carbon/icons-react/es/Building";
+import ChartLine from "@carbon/icons-react/es/ChartLine";
 import Close from "@carbon/icons-react/es/Close";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Partnership from "@carbon/icons-react/es/Partnership";
@@ -43,13 +44,13 @@ type RailItem = {
 const ITEMS: RailItem[] = [
 	{ title: "Overview", href: "/", icon: Dashboard, match: "exact" },
 	{
-		title: "Chat",
-		href: "/chat",
+		title: "Ask your CRM",
+		href: "/ask",
 		icon: Bot,
 		iconClassName: "size-5",
 		match: "prefix",
-		related: ["/agents"],
 	},
+	{ title: "Forecast", href: "/insights", icon: ChartLine, match: "prefix" },
 	{ title: "Companies", href: "/companies", icon: Building, match: "prefix" },
 	{
 		title: "Contacts",

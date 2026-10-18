@@ -11,6 +11,7 @@ export const DEMO_DAILY_LIMITS = {
 	intake: 40,
 	voice: 25,
 	revival: 20,
+	assist: 80,
 } as const;
 
 export type DemoQuotaKind = keyof typeof DEMO_DAILY_LIMITS;

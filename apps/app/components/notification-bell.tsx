@@ -30,6 +30,9 @@ const SOURCE_LABEL = new Map<string, string>(
 		upload: "Upload",
 		revival: "Revival",
 		research: "Research",
+		form: "Enquiry form",
+		score: "Lead score",
+		promise: "Promise",
 	}),
 );
 

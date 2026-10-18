@@ -2,7 +2,6 @@ import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { URL } from "node:url";
 import { auth, env, workspaceId } from "@crm/auth";
-import type { Db } from "@crm/db";
 import { runInWorkspace } from "@crm/db";
 import { workspaceIdsForUser } from "@crm/db/workspaces";
 import { jsonText } from "@crm/validation/json-text";
@@ -15,7 +14,6 @@ import { HttpAdapterHost } from "@nestjs/core";
 import { fromNodeHeaders } from "better-auth/node";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
-import { InjectDatabase } from "../database/database.constants";
 import {
 	type LiveSessionBridge,
 	VoiceQualifierService,

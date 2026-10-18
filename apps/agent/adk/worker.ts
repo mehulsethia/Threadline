@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { forEachWorkspace } from "@crm/db/workspaces";
 import { runVisibleLane } from "../agent/lib/dispatch";
 import { reconcileStaleTasks } from "../agent/lib/stale-tasks";
+import { handleAssist } from "./assist/routes";
 
 const port = Number(process.env.PORT ?? process.env.AGENT_PORT ?? 2000);
 let draining: Promise<void> | null = null;
@@ -55,7 +56,7 @@ function drain(): void {
 Bun.serve({
 	port,
 	hostname: process.env.AGENT_HOST ?? "0.0.0.0",
-	idleTimeout: 30,
+	idleTimeout: 120,
 	fetch(request) {
 		const { pathname } = new URL(request.url);
 
@@ -69,6 +70,24 @@ Bun.serve({
 			}
 			drain();
 			return new Response(null, { status: 202 });
+		}
+
+		if (
+			pathname.startsWith("/internal/crm/assist/") &&
+			request.method === "POST"
+		) {
+			if (!authorised(request)) {
+				return new Response("Unauthorized", { status: 401 });
+			}
+			return request
+				.text()
+				.then((body) =>
+					handleAssist(
+						pathname.slice("/internal/crm/assist/".length),
+						request.headers.get("x-crm-workspace"),
+						body,
+					),
+				);
 		}
 
 		if (pathname.startsWith("/internal/crm/")) {

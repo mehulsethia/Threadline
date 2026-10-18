@@ -16,6 +16,7 @@ export type EvidenceKind =
 	| "email.message"
 	| "slack.message"
 	| "meeting.transcript"
+	| "form.submission"
 	| "voice.transcript"
 	| "voice.live-call"
 	| "agent.inference"
@@ -47,6 +48,11 @@ export const WEIGHTS = {
 		weight: 0.85,
 		primary: true,
 		label: "the lead said it in a recorded meeting",
+	},
+	"form.submission": {
+		weight: 0.85,
+		primary: true,
+		label: "the lead wrote it in an enquiry form",
 	},
 	"voice.transcript": {
 		weight: 0.85,

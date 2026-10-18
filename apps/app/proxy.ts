@@ -20,7 +20,7 @@ const UNGATED = [
 	"/onboarding/connect",
 ];
 
-const ANONYMOUS = ["/t", "/privacy", "/terms"];
+const ANONYMOUS = ["/t", "/privacy", "/terms", "/f"];
 
 const SECTIONS = ["/companies", "/contacts", "/deals", "/settings"];
 

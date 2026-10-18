@@ -19,6 +19,9 @@ export type FollowUpContext = {
 	};
 	sentiment: string | null;
 	suggestedFacts: number;
+	leadScore: number | null;
+	health: string | null;
+	newPromises: number;
 	alreadyResearched: boolean;
 	domainHint: string | null;
 	today: string;

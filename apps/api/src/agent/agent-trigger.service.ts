@@ -589,6 +589,18 @@ export class AgentTriggerService {
 		);
 	}
 
+	async queueDealScoring(): Promise<boolean> {
+		const queued = await this.enqueue({
+			kind: "deal-score",
+			reason: "Rescore every open deal",
+			priority: PRIORITY.dealScore,
+			budget: 1,
+			payload: { scope: "all" },
+		});
+		if (queued) this.poke();
+		return queued;
+	}
+
 	async queueMeetingSync(
 		trigger: "cron" | "manual" = "cron",
 	): Promise<boolean> {
