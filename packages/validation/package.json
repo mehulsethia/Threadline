@@ -8,6 +8,7 @@
 		"./activity-meta": "./src/activity-meta.ts",
 		"./agent-events": "./src/agent-events.ts",
 		"./agent-manifest": "./src/agent-manifest.ts",
+		"./ask-stream": "./src/ask-stream.ts",
 		"./builder-question": "./src/builder-question.ts",
 		"./captured-conversation": "./src/captured-conversation.ts",
 		"./cited-evidence": "./src/cited-evidence.ts",

@@ -1,7 +1,7 @@
 import { rootDb, runInWorkspace } from "@crm/db";
 import { jsonText } from "@crm/validation/json-text";
 import { z } from "zod";
-import { askCrm } from "./ask";
+import { type AskEvent, askCrm, runAsk } from "./ask";
 import { scoreDeal, scoreOpenDeals } from "./score";
 import { DRAFT_CHANNELS, draftMessage, meetingBrief } from "./writer";
 
@@ -63,6 +63,7 @@ export async function handleAssist(
 	if (!workspace) {
 		return Response.json({ error: "Unknown workspace." }, { status: 404 });
 	}
+	if (operation === "ask-stream") return streamAsk(workspaceId, raw);
 	try {
 		const result = await runInWorkspace(workspaceId, () => run(operation, raw));
 		return Response.json({ result });
@@ -77,4 +78,43 @@ export async function handleAssist(
 		console.error(`[assist] ${operation} failed:`, message);
 		return Response.json({ error: message }, { status });
 	}
+}
+
+const STREAM_PING_MS = 5_000;
+
+function streamAsk(workspaceId: string, raw: string): Response {
+	const parsed = jsonText.pipe(askBody).safeParse(raw);
+	if (!parsed.success) {
+		return Response.json({ error: "Invalid question." }, { status: 400 });
+	}
+	const encoder = new TextEncoder();
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			let open = true;
+			const write = (text: string) => {
+				if (open) controller.enqueue(encoder.encode(text));
+			};
+			const send = (event: AskEvent) =>
+				write(`data: ${JSON.stringify(event)}\n\n`);
+			const ping = setInterval(() => write(": ping\n\n"), STREAM_PING_MS);
+			runInWorkspace(workspaceId, () => runAsk(parsed.data.history, send))
+				.catch((error) => {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					console.error("[assist] ask-stream failed:", message);
+					send({ type: "error", message });
+				})
+				.finally(() => {
+					clearInterval(ping);
+					open = false;
+					controller.close();
+				});
+		},
+	});
+	return new Response(stream, {
+		headers: {
+			"content-type": "text/event-stream",
+			"cache-control": "no-cache, no-transform",
+		},
+	});
 }

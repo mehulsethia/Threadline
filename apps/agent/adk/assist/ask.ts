@@ -1,6 +1,14 @@
 import { ActivityType, DealStage, db } from "@crm/db";
 import { pipelineForecast } from "@crm/db/forecast";
-import { FunctionTool, Gemini, InMemoryRunner, LlmAgent } from "@google/adk";
+import type { AskStreamEvent } from "@crm/validation/ask-stream";
+import {
+	createRunConfig,
+	FunctionTool,
+	Gemini,
+	InMemoryRunner,
+	LlmAgent,
+	StreamingMode,
+} from "@google/adk";
 import { z } from "zod";
 import { searchCrm } from "../../agent/lib/lookup";
 import { ASSIST } from "./assist-config";
@@ -9,6 +17,8 @@ import { loadDealContext } from "./deal-context";
 export type AskTurn = { role: "user" | "assistant"; text: string };
 
 export type AskResult = { answer: string; tools: string[] };
+
+export type AskEvent = AskStreamEvent;
 
 const INSTRUCTION = `You are Threadline's CRM analyst. Answer the user's question about their sales pipeline using only the tools. Never guess numbers, names or dates.
 - Call tools until you have what you need; prefer one precise call over many.
@@ -26,17 +36,18 @@ let model: Gemini | null = null;
 
 function gemini(): Gemini {
 	model ??= new Gemini({
-		model: process.env.GEMINI_SMART_MODEL || "gemini-4-argon",
+		model: process.env.GEMINI_ASK_MODEL || ASSIST.ask.model,
 		vertexai: true,
 		project: process.env.GOOGLE_CLOUD_PROJECT,
-		location: process.env.GEMINI_SMART_LOCATION || "global",
+		location: process.env.GEMINI_ASK_LOCATION || ASSIST.ask.location,
 	});
 	return model;
 }
 
-function tools(called: string[]) {
+function tools(called: string[], onTool?: (name: string) => void) {
 	const track = (name: string) => {
 		called.push(name);
+		onTool?.(name);
 		if (called.length > ASSIST.ask.maxToolCalls) {
 			throw new Error("Too many tool calls for one question.");
 		}
@@ -252,13 +263,20 @@ function tools(called: string[]) {
 	];
 }
 
-export async function askCrm(history: AskTurn[]): Promise<AskResult> {
+export function askCrm(history: AskTurn[]): Promise<AskResult> {
+	return runAsk(history);
+}
+
+export async function runAsk(
+	history: AskTurn[],
+	emit?: (event: AskEvent) => void,
+): Promise<AskResult> {
 	const called: string[] = [];
 	const agent = new LlmAgent({
 		name: "threadline_crm_analyst",
 		model: gemini(),
 		instruction: `${INSTRUCTION}\nToday is ${new Date().toISOString().slice(0, 10)}.`,
-		tools: tools(called),
+		tools: tools(called, (name) => emit?.({ type: "tool", name })),
 	});
 	const runner = new InMemoryRunner({ agent });
 	const turns = history.slice(-ASSIST.ask.maxTurns);
@@ -281,9 +299,21 @@ export async function askCrm(history: AskTurn[]): Promise<AskResult> {
 					},
 				],
 			},
+			runConfig: emit
+				? createRunConfig({ streamingMode: StreamingMode.SSE })
+				: undefined,
 		})) {
 			for (const partItem of event.content?.parts ?? []) {
-				if ("text" in partItem && partItem.text && event.author !== "user") {
+				if (
+					!("text" in partItem) ||
+					!partItem.text ||
+					event.author === "user"
+				) {
+					continue;
+				}
+				if (event.partial) {
+					emit?.({ type: "text", delta: partItem.text });
+				} else {
 					answer = partItem.text.trim();
 				}
 			}
@@ -299,8 +329,10 @@ export async function askCrm(history: AskTurn[]): Promise<AskResult> {
 			),
 		),
 	]);
-	return {
+	const result = {
 		answer: answer || "I could not find an answer in your CRM data.",
 		tools: called,
 	};
+	emit?.({ type: "done", ...result });
+	return result;
 }

@@ -17,6 +17,13 @@ export const ASSIST = {
 		staleAfterMs: 24 * HOUR_MS,
 		concurrency: 4,
 	},
-	ask: { maxTurns: 12, maxToolCalls: 16, timeoutMs: 90_000, listLimit: 25 },
+	ask: {
+		model: "gemini-2.5-flash",
+		location: "us-central1",
+		maxTurns: 12,
+		maxToolCalls: 16,
+		timeoutMs: 120_000,
+		listLimit: 25,
+	},
 	commitments: { overdueGraceMs: 2 * HOUR_MS },
 } as const;

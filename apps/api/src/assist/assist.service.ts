@@ -89,6 +89,31 @@ export class AssistService {
 		return this.call("ask", { history }, askOutput);
 	}
 
+	async streamAsk(
+		userId: string,
+		history: z.infer<typeof askInput>["history"],
+	): Promise<Response> {
+		await this.quota(userId);
+		const agent = bridge();
+		if (!agent) {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: "The agent is not configured for this deployment.",
+			});
+		}
+		return fetch(agent.url("/internal/crm/assist/ask-stream"), {
+			method: "POST",
+			headers: {
+				...(await cloudRunAuthHeaders()),
+				authorization: `Bearer ${agent.secret}`,
+				"content-type": "application/json",
+				"x-crm-workspace": requireWorkspaceId(),
+			},
+			body: JSON.stringify({ history }),
+			signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
+		});
+	}
+
 	async draft(userId: string, input: z.infer<typeof draftInput>) {
 		await this.quota(userId);
 		return this.call("draft", input, draftOutput.nullable());
