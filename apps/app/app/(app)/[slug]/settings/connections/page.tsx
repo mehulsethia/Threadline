@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { AddConnectionDialog } from "./add-connection-dialog";
+import { SyncEverythingButton } from "./sync-everything-button";
 
 export const metadata: Metadata = { title: "Connections" };
 
@@ -134,11 +135,14 @@ async function ConnectionsSettingsPageContent({
 								send on your behalf.
 							</p>
 						</div>
-						<Button asChild variant="outline">
-							<Link href={`/${slug}/settings/connections?add=1`}>
-								Add connection
-							</Link>
-						</Button>
+						<div className="flex flex-wrap gap-2">
+							<SyncEverythingButton />
+							<Button asChild variant="outline">
+								<Link href={`/${slug}/settings/connections?add=1`}>
+									Add connection
+								</Link>
+							</Button>
+						</div>
 					</header>
 					<div className="flex flex-col gap-3">
 						{rows.map((row) => (

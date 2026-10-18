@@ -2,7 +2,7 @@
 # Deploys Threadline to Cloud Run from images already pushed by
 # deploy/cloudbuild.yaml. Idempotent; re-run after every build.
 #
-#   TAG=$(git rev-parse --short HEAD) deploy/deploy.sh [migrate|services|scheduler|all]
+#   TAG=$(git rev-parse --short HEAD) deploy/deploy.sh [migrate|services|scheduler|purge|all]
 #
 # Topology: the browser only talks to the app's origin. The app proxies /api/*
 # to the API (so Better Auth cookies and OAuth callbacks live on one origin);
@@ -123,10 +123,31 @@ scheduler() {
 	upsert threadline-demo-reset-nightly "0 3 * * *" "$APP_URL/api/demo/reset" "$reset"
 }
 
+purge() {
+	local who="${PURGE:?set PURGE to --email <address> or --workspace <slug>}"
+	local confirm=""
+	[ "${CONFIRM:-}" = "1" ] && confirm=" --confirm"
+	gcloud run jobs deploy threadline-purge \
+		--project "$PROJECT" --region "$REGION" \
+		--image "$REG/api:$TAG" \
+		--service-account "$(SA api)" \
+		--set-cloudsql-instances "$SQL" \
+		--set-env-vars "NODE_ENV=production" \
+		--set-secrets "$(secret DATABASE_URL database-url)" \
+		--command sh \
+		--args "-c,cd /repo && bun packages/db/scripts/delete-workspace.ts $who$confirm" \
+		--max-retries 0 --task-timeout 300 --quiet
+	gcloud run jobs execute threadline-purge --project "$PROJECT" --region "$REGION" --wait || true
+	sleep 5
+	gcloud logging read "resource.type=cloud_run_job AND resource.labels.job_name=threadline-purge" \
+		--project "$PROJECT" --freshness=10m --limit 20 --order=asc --format='value(textPayload)'
+}
+
 case "$STEP" in
 	migrate) migrate ;;
 	services) services ;;
 	scheduler) scheduler ;;
+	purge) purge ;;
 	all) migrate; services; scheduler ;;
 	*) echo "unknown step: $STEP" >&2; exit 1 ;;
 esac
