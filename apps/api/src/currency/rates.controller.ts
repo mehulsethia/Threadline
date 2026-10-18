@@ -1,3 +1,4 @@
+import { forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -72,13 +73,16 @@ export class RatesController {
 			throw new ForbiddenException();
 		}
 
-		const refresh = await this.rates.refresh();
-
-		if (!refresh.ok) return refresh;
-
-		const filled = await this.conversion.fillMissing();
-
-		return { ...refresh, converted: filled.converted, missing: filled.missing };
+		return forEachWorkspace(async () => {
+			const refresh = await this.rates.refresh();
+			if (!refresh.ok) return refresh;
+			const filled = await this.conversion.fillMissing();
+			return {
+				...refresh,
+				converted: filled.converted,
+				missing: filled.missing,
+			};
+		});
 	}
 }
 

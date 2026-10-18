@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -39,6 +40,6 @@ export class RevivalCronController {
 		if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
 			throw new ForbiddenException();
 		}
-		return this.revival.runNow();
+		return forEachWorkspace(() => this.revival.runNow());
 	}
 }

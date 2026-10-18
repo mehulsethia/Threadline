@@ -1,6 +1,6 @@
 import { apiKey } from "@better-auth/api-key";
 import { sso } from "@better-auth/sso";
-import { db } from "@crm/db";
+import { rootDb } from "@crm/db";
 import { schemas } from "@crm/validation";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -13,21 +13,16 @@ import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
 import {
 	GOOGLE_PROVIDER_ID,
+	IDENTITY_SCOPES,
 	MICROSOFT_PROVIDER_ID,
 	MICROSOFT_SYNC_SCOPES,
 	SLACK_PROVIDER_ID,
-	SYNC_SCOPES,
 } from "./scopes";
 import { notifySignedIn } from "./signed-in";
 import { slackConnectGuard } from "./slack-connect";
 import { rememberSlackInstall, replaceSlackConnection } from "./slack-grant";
 import { SLACK_REQUESTED_SCOPES, SLACK_USER_SCOPES } from "./slack-scopes";
 import { queueSlackInventorySync } from "./slack-sync";
-import {
-	hasSignInAllowList,
-	isWorkspaceEmail,
-	primaryWorkspaceDomain,
-} from "./workspace";
 
 const ENABLE_MICROSOFT_AUTH = true;
 const ENABLE_SLACK = false;
@@ -43,13 +38,10 @@ if (env.google) {
 	const google: NonNullable<typeof socialProviders.google> = {
 		...env.google,
 
-		scope: [...SYNC_SCOPES],
+		scope: [...IDENTITY_SCOPES],
 
 		accessType: "offline",
 	};
-
-	const hostedDomain = primaryWorkspaceDomain();
-	if (hostedDomain) google.hd = hostedDomain;
 
 	socialProviders.google = google;
 }
@@ -76,7 +68,7 @@ export const auth = betterAuth({
 	appName: "CRM",
 	baseURL: env.apiUrl,
 
-	database: prismaAdapter(db, {
+	database: prismaAdapter(rootDb, {
 		provider: "postgresql",
 	}),
 
@@ -267,22 +259,6 @@ export const auth = betterAuth({
 		user: {
 			create: {
 				before: async (user) => {
-					if (!hasSignInAllowList()) {
-						throw new APIError("FORBIDDEN", {
-							message:
-								'No one can sign in yet: set ALLOWED_SIGN_IN in .env to your email domain (for example ALLOWED_SIGN_IN="acme.com") and restart.',
-						});
-					}
-
-					if (!isWorkspaceEmail(user.email)) {
-						const domain = primaryWorkspaceDomain();
-						throw new APIError("FORBIDDEN", {
-							message: domain
-								? `This CRM is private. Sign in with your @${domain} account.`
-								: "This CRM is private. That address is not on the allow-list.",
-						});
-					}
-
 					return { data: user };
 				},
 			},
@@ -299,7 +275,7 @@ export const auth = betterAuth({
 				},
 
 				after: async (session) => {
-					const user = await db.user.findUnique({
+					const user = await rootDb.user.findUnique({
 						where: { id: session.userId },
 						select: { id: true, email: true },
 					});

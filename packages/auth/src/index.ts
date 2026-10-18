@@ -20,6 +20,7 @@ export {
 	canManageCurrency,
 	canManageTracking,
 	canRenameWorkspace,
+	createWorkspace,
 	DEFAULT_WORKSPACE_NAME,
 	ensureWorkspaceMembership,
 	isWorkspaceAdmin,
@@ -28,6 +29,7 @@ export {
 	WORKSPACE_ID,
 	WORKSPACE_ROLES,
 	type WorkspaceRole,
+	workspaceId,
 	workspaceRoleOf,
 } from "./organization";
 export {

@@ -44,7 +44,7 @@ migrate() {
 		--set-env-vars "NODE_ENV=production" \
 		--set-secrets "$(secret DATABASE_URL database-url)" \
 		--command sh \
-		--args "-c,cd /repo/packages/db && bunx prisma migrate deploy && cd /repo && bun packages/db/prisma/seed-demo.ts" \
+		--args "-c,cd /repo/packages/db && bunx prisma migrate deploy && bun scripts/workspaces.ts && cd /repo && bun packages/db/prisma/seed-demo.ts" \
 		--max-retries 0 --task-timeout 900 --quiet
 	gcloud run jobs execute threadline-migrate --project "$PROJECT" --region "$REGION" --wait
 }

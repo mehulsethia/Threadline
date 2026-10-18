@@ -1,5 +1,6 @@
 import type { Db } from "@crm/db";
 import { readArchiveRetentionDays } from "@crm/db/settings";
+import { forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -80,27 +81,29 @@ export class ArchiveRetentionController {
 			throw new ForbiddenException();
 		}
 
-		const retentionDays = await readArchiveRetentionDays(this.db);
-		const before = new Date(Date.now() - retentionDays * DAY_MS);
+		return forEachWorkspace(async () => {
+			const retentionDays = await readArchiveRetentionDays(this.db);
+			const before = new Date(Date.now() - retentionDays * DAY_MS);
 
-		const [companies, contacts, deals] = await Promise.all([
-			this.companies.purgeExpired(before),
-			this.contacts.purgeExpired(before),
-			this.deals.purgeExpired(before),
-		]);
+			const [companies, contacts, deals] = await Promise.all([
+				this.companies.purgeExpired(before),
+				this.contacts.purgeExpired(before),
+				this.deals.purgeExpired(before),
+			]);
 
-		this.logger.log({
-			message: "Archive retention swept",
-			retentionDays,
-			companies: companies.succeeded,
-			companiesSkipped: companies.skipped,
-			contacts: contacts.succeeded,
-			contactsSkipped: contacts.skipped,
-			deals: deals.succeeded,
-			dealsSkipped: deals.skipped,
+			this.logger.log({
+				message: "Archive retention swept",
+				retentionDays,
+				companies: companies.succeeded,
+				companiesSkipped: companies.skipped,
+				contacts: contacts.succeeded,
+				contactsSkipped: contacts.skipped,
+				deals: deals.succeeded,
+				dealsSkipped: deals.skipped,
+			});
+
+			return { retentionDays, companies, contacts, deals };
 		});
-
-		return { retentionDays, companies, contacts, deals };
 	}
 }
 

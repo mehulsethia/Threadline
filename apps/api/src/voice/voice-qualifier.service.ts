@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { type Db, DealStage, FactBand, FactStatus } from "@crm/db";
+import {
+	type Db,
+	DealStage,
+	FactBand,
+	FactStatus,
+	requireWorkspaceId,
+	runInWorkspace,
+} from "@crm/db";
 import { consumeDemoQuota } from "@crm/db/demo";
 import { jsonText } from "@crm/validation/json-text";
 import {
@@ -325,6 +332,7 @@ export class VoiceQualifierService {
 			},
 		];
 
+		const workspace = requireWorkspaceId();
 		const session: Session = await ai.live.connect({
 			model,
 			config: {
@@ -340,72 +348,73 @@ export class VoiceQualifierService {
 						`Live session established for deal ${params.context.dealId}`,
 					);
 				},
-				onmessage: async (msg: LiveServerMessage) => {
-					const serverContent = msg.serverContent;
+				onmessage: (msg: LiveServerMessage) =>
+					runInWorkspace(workspace, async () => {
+						const serverContent = msg.serverContent;
 
-					if (serverContent) {
-						const parts = serverContent.modelTurn?.parts || [];
-						for (const part of parts) {
-							if (part.inlineData?.data) {
-								params.onAudioChunk(part.inlineData.data);
-							}
-							if (part.text) {
-								params.onTranscript({ role: "assistant", text: part.text });
-							}
-						}
-
-						if (serverContent.inputTranscription?.text) {
-							params.onTranscript({
-								role: "user",
-								text: serverContent.inputTranscription.text,
-							});
-						}
-
-						if (serverContent.outputTranscription?.text) {
-							params.onTranscript({
-								role: "assistant",
-								text: serverContent.outputTranscription.text,
-							});
-						}
-					}
-
-					for (const call of msg.toolCall?.functionCalls ?? []) {
-						if (call.name === "record_answer") {
-							// The model's arguments are untrusted until they parse.
-							const parsedArgs = recordAnswerArgs.safeParse(call.args);
-							if (parsedArgs.success) {
-								const args = parsedArgs.data;
-
-								const recorded = await this.recordLiveAnswer(
-									params.context.dealId,
-									args,
-								);
-
-								try {
-									session.sendToolResponse({
-										functionResponses: [
-											{
-												id: call.id,
-												name: call.name,
-												response: { success: true, recorded: true },
-											},
-										],
-									});
-								} catch (err) {
-									this.logger.error("Failed to send tool response", err);
+						if (serverContent) {
+							const parts = serverContent.modelTurn?.parts || [];
+							for (const part of parts) {
+								if (part.inlineData?.data) {
+									params.onAudioChunk(part.inlineData.data);
 								}
+								if (part.text) {
+									params.onTranscript({ role: "assistant", text: part.text });
+								}
+							}
 
-								params.onFactProposed({
-									category: args.category,
-									fact: args.fact,
-									quote: args.quote,
-									proposedScore: recorded.proposedScore,
-									proposedStage: recorded.proposedStage,
+							if (serverContent.inputTranscription?.text) {
+								params.onTranscript({
+									role: "user",
+									text: serverContent.inputTranscription.text,
+								});
+							}
+
+							if (serverContent.outputTranscription?.text) {
+								params.onTranscript({
+									role: "assistant",
+									text: serverContent.outputTranscription.text,
 								});
 							}
 						}
-					}
-				},
+
+						for (const call of msg.toolCall?.functionCalls ?? []) {
+							if (call.name === "record_answer") {
+								// The model's arguments are untrusted until they parse.
+								const parsedArgs = recordAnswerArgs.safeParse(call.args);
+								if (parsedArgs.success) {
+									const args = parsedArgs.data;
+
+									const recorded = await this.recordLiveAnswer(
+										params.context.dealId,
+										args,
+									);
+
+									try {
+										session.sendToolResponse({
+											functionResponses: [
+												{
+													id: call.id,
+													name: call.name,
+													response: { success: true, recorded: true },
+												},
+											],
+										});
+									} catch (err) {
+										this.logger.error("Failed to send tool response", err);
+									}
+
+									params.onFactProposed({
+										category: args.category,
+										fact: args.fact,
+										quote: args.quote,
+										proposedScore: recorded.proposedScore,
+										proposedStage: recorded.proposedStage,
+									});
+								}
+							}
+						}
+					}),
 				onerror: (event: ErrorEvent) => {
 					this.logger.error("Live session error", event.message);
 					params.onClose(event.message);

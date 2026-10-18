@@ -1,4 +1,4 @@
-import { WORKSPACE_ID } from "@crm/auth";
+import { workspaceId } from "@crm/auth";
 import { type Db, formatDealStage } from "@crm/db";
 import { citedEvidenceList } from "@crm/validation/cited-evidence";
 import { Injectable, Logger } from "@nestjs/common";
@@ -13,7 +13,7 @@ export class SlackRevivalService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async getInstallationForOrg(orgId?: string) {
-		const targetOrgId = orgId || WORKSPACE_ID;
+		const targetOrgId = orgId || workspaceId();
 		const install = await this.db.slackInstallation.findFirst({
 			where: {
 				OR: [{ organizationId: targetOrgId }, { organizationId: null }],

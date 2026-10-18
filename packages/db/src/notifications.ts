@@ -1,6 +1,6 @@
 import { createDecipheriv, createHash } from "node:crypto";
 import type { Db } from "./client";
-import { WORKSPACE_ID } from "./workspace";
+import { workspaceId } from "./workspace";
 
 export type NotificationEntity = "contact" | "deal" | "company";
 
@@ -78,7 +78,9 @@ export async function slackInstallation(
 	db: Db,
 ): Promise<{ token: string; channel: string | null; teamId: string } | null> {
 	const install = await db.slackInstallation.findFirst({
-		where: { OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }] },
+		where: {
+			OR: [{ organizationId: workspaceId() }, { organizationId: null }],
+		},
 		orderBy: { createdAt: "desc" },
 	});
 	const token = install?.botToken

@@ -47,7 +47,7 @@ const clear = async () => {
 
 	if (strangers > 0) {
 		throw new Error(
-			`${strangers} member row(s) this spec did not create are in the workspace, and it needs an empty one to test the owner backfill. It will not delete them: that is somebody's access. Point TEST_DATABASE_URL at a database of your own, or find the spec that leaked them.`,
+			`${strangers} member row(s) this spec did not create are in the workspace, and it needs an empty one to test membership. It will not delete them: that is somebody's access. Point TEST_DATABASE_URL at a database of your own, or find the spec that leaked them.`,
 		);
 	}
 };
@@ -61,27 +61,43 @@ beforeEach(async () => {
 
 afterAll(clear);
 
-describe("ensureWorkspaceMembership", () => {
-	it("creates the one workspace and enrols everyone who already had an account", async () => {
-		const workspaceId = await ensureWorkspaceMembership(secondId);
+const enrol = async (userId: string, role: string) => {
+	await db.organization.upsert({
+		where: { id: WORKSPACE_ID },
+		create: {
+			id: WORKSPACE_ID,
+			name: "CRM",
+			slug: "crm",
+			createdAt: new Date(),
+		},
+		update: {},
+	});
+	await db.member.create({
+		data: {
+			id: `${suffix}-${userId}-member`,
+			organizationId: WORKSPACE_ID,
+			userId,
+			role,
+			createdAt: new Date(),
+		},
+	});
+};
 
-		expect(workspaceId).toBe(WORKSPACE_ID);
-		expect(await roleOf(firstId)).toBe("owner");
-		expect(await roleOf(secondId)).toBe("member");
+describe("ensureWorkspaceMembership", () => {
+	it("does not put a new sign-up into somebody else's workspace", async () => {
+		expect(await ensureWorkspaceMembership(secondId)).toBeUndefined();
+		expect(await roleOf(secondId)).toBeNull();
 	});
 
-	it("is idempotent, so signing in again neither duplicates nor re-roles", async () => {
-		await ensureWorkspaceMembership(secondId);
+	it("returns the workspace a member already belongs to", async () => {
+		await enrol(firstId, "owner");
 
-		await db.member.update({
-			where: {
-				organizationId_userId: {
-					organizationId: WORKSPACE_ID,
-					userId: secondId,
-				},
-			},
-			data: { role: "admin" },
-		});
+		expect(await ensureWorkspaceMembership(firstId)).toBe(WORKSPACE_ID);
+		expect(await roleOf(firstId)).toBe("owner");
+	});
+
+	it("leaves roles alone when a member signs in again", async () => {
+		await enrol(secondId, "admin");
 
 		await ensureWorkspaceMembership(secondId);
 		await ensureWorkspaceMembership(secondId);
@@ -92,31 +108,5 @@ describe("ensureWorkspaceMembership", () => {
 
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.role).toBe("admin");
-	});
-
-	it("joins someone who signs up later as a member", async () => {
-		await ensureWorkspaceMembership(secondId);
-
-		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
-
-		await ensureWorkspaceMembership(laterId);
-
-		expect(await roleOf(laterId)).toBe("member");
-	});
-
-	it("leaves the owner alone when a later arrival signs in", async () => {
-		await ensureWorkspaceMembership(secondId);
-
-		const laterId = await seedUser("later", new Date("2026-01-01T00:00:00Z"));
-
-		await ensureWorkspaceMembership(laterId);
-
-		expect(await roleOf(firstId)).toBe("owner");
-
-		const owners = await db.member.count({
-			where: { organizationId: WORKSPACE_ID, role: "owner" },
-		});
-
-		expect(owners).toBe(1);
 	});
 });

@@ -1,5 +1,13 @@
+import { rootDb } from "@crm/db";
 import { Inject } from "@nestjs/common";
-import { Ctx, Query, Router, UseMiddlewares } from "nestjs-trpc";
+import {
+	Ctx,
+	Input,
+	Mutation,
+	Query,
+	Router,
+	UseMiddlewares,
+} from "nestjs-trpc";
 import { z } from "zod";
 import { AuthService } from "../auth/auth.service";
 import type { AuthedTrpcContext } from "../trpc/context.types";
@@ -16,6 +24,12 @@ const usersListOutput = z.array(
 	}),
 );
 
+const updateProfileInput = z.object({
+	name: z.string().trim().min(1).max(120),
+});
+
+const updateProfileOutput = z.object({ name: z.string() });
+
 @Router({ alias: "users" })
 @UseMiddlewares(AuthMiddleware)
 export class UsersRouter {
@@ -27,6 +41,23 @@ export class UsersRouter {
 	@Query()
 	async me(@Ctx() ctx: AuthedTrpcContext) {
 		return this.auth.getProfile(ctx.user.id);
+	}
+
+	@Mutation({
+		input: updateProfileInput,
+		output: updateProfileOutput,
+		meta: restMeta("PATCH", "/users/me", ["Users"]),
+	})
+	async updateProfile(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof updateProfileInput>,
+	) {
+		const user = await rootDb.user.update({
+			where: { id: ctx.user.id },
+			data: { name: input.name },
+			select: { name: true },
+		});
+		return user;
 	}
 
 	@Query({

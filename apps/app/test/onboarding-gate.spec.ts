@@ -254,11 +254,11 @@ describe("proxy", () => {
 		const first = await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
 
 		expect([...first.cookies.getAll()]).toHaveLength(0);
-		expect(calls).toEqual({ workspace: 1, research: 1 });
+		expect(calls.workspace).toBe(1);
 
 		await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
 
-		expect(calls).toEqual({ workspace: 2, research: 2 });
+		expect(calls.workspace).toBe(2);
 	});
 
 	it("notices when the answer changes underneath it", async () => {
@@ -372,28 +372,28 @@ describe("the slug the app is served under", () => {
 	});
 });
 
-describe("the research key gate", () => {
-	it("sends an onboarded rep with no key to the key form", async () => {
+describe("onboarding steps after the workspace exists", () => {
+	it("does not force a research key on an onboarded rep", async () => {
 		setup({ configured: false });
 
 		expect(
 			redirectedTo(
 				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
 			),
-		).toBe("/onboarding/research");
-	});
-
-	it("lets that form render rather than looping onto itself", async () => {
-		setup({ configured: false });
-
-		expect(
-			redirectedTo(
-				await proxy(request("/onboarding/research", [SESSION_COOKIE])),
-			),
 		).toBeNull();
 	});
 
-	it("asks the first question first when both are outstanding", async () => {
+	it("lets the profile and connect steps render", async () => {
+		setup();
+
+		for (const path of ["/onboarding/profile", "/onboarding/connect"]) {
+			expect(
+				redirectedTo(await proxy(request(path, [SESSION_COOKIE]))),
+			).toBeNull();
+		}
+	});
+
+	it("asks for the workspace first", async () => {
 		setup({ onboarded: false, configured: false });
 
 		expect(
@@ -402,12 +402,5 @@ describe("the research key gate", () => {
 			),
 		).toBe("/onboarding");
 	});
-
-	it("sends them on to the key once the workspace is named", async () => {
-		setup({ onboarded: true, configured: false });
-
-		expect(
-			redirectedTo(await proxy(request("/onboarding", [SESSION_COOKIE]))),
-		).toBe("/onboarding/research");
-	});
 });
+

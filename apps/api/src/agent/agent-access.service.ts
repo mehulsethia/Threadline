@@ -1,8 +1,8 @@
 import {
 	isWorkspaceAdmin,
 	toWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
+	workspaceId,
 	workspaceRoleOf,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
@@ -36,7 +36,7 @@ export class AgentAccessService {
 		const [member] = await tx.$queryRaw<Array<{ role: string }>>`
 			SELECT role
 			FROM "member"
-			WHERE "organizationId" = ${WORKSPACE_ID}
+			WHERE "organizationId" = ${workspaceId()}
 				AND "userId" = ${userId}
 			FOR SHARE
 		`;

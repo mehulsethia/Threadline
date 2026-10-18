@@ -812,6 +812,12 @@ const appRouter = t.router({
   users: t.router({
     me: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["me"]>>),
+    updateProfile: publicProcedure
+      .input(z.object({
+	name: z.string().trim().min(1).max(120),
+}))
+      .output(z.object({ name: z.string() }))
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     list: publicProcedure
       .output(z.array(
 	z.object({

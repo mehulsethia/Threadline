@@ -17,6 +17,7 @@ import { AppModule } from "./app.module";
 import { ContextLogger } from "./logging/context-logger";
 import { REST_BRIDGE_PATH } from "./trpc/openapi";
 import { createBaseTrpcContext } from "./trpc/trpc.context";
+import { workspaceContextMiddleware } from "./workspace/workspace-context";
 
 export async function createApp(): Promise<NestExpressApplication> {
 	const app = await NestFactory.create<NestExpressApplication>(
@@ -62,6 +63,10 @@ export async function createApp(): Promise<NestExpressApplication> {
 			req.on("error", next);
 		});
 	}
+
+	app.use((req: Request, res: Response, next: NextFunction) => {
+		workspaceContextMiddleware(req, res, next).catch(next);
+	});
 
 	let restBridge: ((req: Request, res: Response) => Promise<void>) | undefined;
 	app.use(

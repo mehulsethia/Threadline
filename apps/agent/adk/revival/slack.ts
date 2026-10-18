@@ -1,6 +1,6 @@
 import { createDecipheriv, createHash } from "node:crypto";
 import { db, formatDealStage } from "@crm/db";
-import { WORKSPACE_ID } from "@crm/db/workspace";
+import { workspaceId } from "@crm/db/workspace";
 import { citedEvidenceList } from "@crm/validation/cited-evidence";
 
 function decryptBotToken(encryptedPayload: string): string {
@@ -42,7 +42,7 @@ export async function postDraftToSlack(draftId: string): Promise<{
 
 	const install = await db.slackInstallation.findFirst({
 		where: {
-			OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+			OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 		},
 		orderBy: { createdAt: "desc" },
 	});

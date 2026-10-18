@@ -1,3 +1,4 @@
+import { forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -68,7 +69,7 @@ export class TelemetryController {
 			throw new ForbiddenException();
 		}
 
-		return this.rollup.run();
+		return forEachWorkspace(() => this.rollup.run());
 	}
 }
 

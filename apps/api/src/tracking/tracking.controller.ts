@@ -1,10 +1,12 @@
 import type { IncomingMessage } from "node:http";
 import type { Db } from "@crm/db";
+import { runInWorkspace } from "@crm/db";
 import {
 	EVENT_RETENTION_DAYS,
 	isSiteId,
 	MAX_BODY_BYTES,
 } from "@crm/db/tracking";
+import { findWorkspace, forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -81,7 +83,13 @@ export class TrackingController {
 	async publicConfig(@Param("siteId") siteId: string) {
 		if (!isSiteId(siteId)) return { config: null };
 
-		const compiled = await this.config.forSite(siteId);
+		const workspace = await findWorkspace(async () =>
+			Boolean(await this.config.forSite(siteId)),
+		);
+		if (!workspace) return { config: null };
+		const compiled = await runInWorkspace(workspace, () =>
+			this.config.forSite(siteId),
+		);
 
 		return compiled
 			? { config: compiled.config, hash: compiled.hash }
@@ -119,10 +127,16 @@ export class TrackingController {
 		if (!isSiteId(batch?.siteId) || !Array.isArray(batch?.events)) return;
 
 		try {
-			await this.ingest.accept(batch, {
-				origin: origin ?? null,
-				userAgent: userAgent ?? null,
-			});
+			const workspace = await findWorkspace(async () =>
+				Boolean(await this.config.forSite(batch.siteId)),
+			);
+			if (!workspace) return;
+			await runInWorkspace(workspace, () =>
+				this.ingest.accept(batch, {
+					origin: origin ?? null,
+					userAgent: userAgent ?? null,
+				}),
+			);
 		} catch (error) {
 			this.logger.error(
 				{ message: "Tracking event was not stored" },
@@ -183,35 +197,37 @@ export class TrackingRetentionController {
 			throw new ForbiddenException();
 		}
 
-		const before = startOfDay(
-			new Date(Date.now() - EVENT_RETENTION_DAYS * 24 * 60 * 60_000),
-		);
+		return forEachWorkspace(async () => {
+			const before = startOfDay(
+				new Date(Date.now() - EVENT_RETENTION_DAYS * 24 * 60 * 60_000),
+			);
 
-		const rolled = await this.rollups.run(before);
-		const { removed, complete } = await this.sweepEvents(before);
-		const visitors = await this.sweepVisitors(before);
-		const counters = await this.counters.sweep();
+			const rolled = await this.rollups.run(before);
+			const { removed, complete } = await this.sweepEvents(before);
+			const visitors = await this.sweepVisitors(before);
+			const counters = await this.counters.sweep();
 
-		if (!complete) {
-			this.logger.warn({
-				message:
-					"Tracking retention hit its pass limit — events older than the window remain",
+			if (!complete) {
+				this.logger.warn({
+					message:
+						"Tracking retention hit its pass limit — events older than the window remain",
+					removed,
+					retentionDays: EVENT_RETENTION_DAYS,
+				});
+			}
+
+			this.logger.log({
+				message: "Tracking retention swept",
+				rolled,
 				removed,
+				complete,
+				visitors,
+				counters,
 				retentionDays: EVENT_RETENTION_DAYS,
 			});
-		}
 
-		this.logger.log({
-			message: "Tracking retention swept",
-			rolled,
-			removed,
-			complete,
-			visitors,
-			counters,
-			retentionDays: EVENT_RETENTION_DAYS,
+			return { rolled, removed, complete, visitors, counters };
 		});
-
-		return { rolled, removed, complete, visitors, counters };
 	}
 
 	private async sweepEvents(

@@ -1,7 +1,12 @@
-import { type Db, db } from "@crm/db";
-import { WORKSPACE_ID, workspaceSlug } from "@crm/db/workspace";
+import { randomUUID } from "node:crypto";
+import { type Db, db, rootDb } from "@crm/db";
+import { WORKSPACE_ID, workspaceId, workspaceSlug } from "@crm/db/workspace";
+import {
+	provisionWorkspaceSchema,
+	workspaceIdsForUser,
+} from "@crm/db/workspaces";
 
-export { WORKSPACE_ID };
+export { WORKSPACE_ID, workspaceId };
 
 export const DEFAULT_WORKSPACE_NAME = "CRM";
 
@@ -40,74 +45,44 @@ export function canManageTracking(role: WorkspaceRole | null): boolean {
 export async function ensureWorkspaceMembership(
 	userId: string,
 ): Promise<string | undefined> {
-	try {
-		return await db.$transaction(async (tx) => {
-			const workspace = await tx.organization.upsert({
-				where: { id: WORKSPACE_ID },
-				create: {
-					id: WORKSPACE_ID,
-					name: DEFAULT_WORKSPACE_NAME,
-					slug: workspaceSlug(DEFAULT_WORKSPACE_NAME),
-					createdAt: new Date(),
-				},
-				update: {},
-				select: { id: true, name: true, slug: true },
-			});
+	const [first] = await workspaceIdsForUser(userId);
+	return first;
+}
 
-			const slug = workspaceSlug(workspace.name);
-
-			if (workspace.slug !== slug) {
-				await tx.organization.update({
-					where: { id: workspace.id },
-					data: { slug },
-				});
-			}
-
-			const enrolled = await tx.member.count({
-				where: { organizationId: workspace.id },
-			});
-
-			if (enrolled === 0) {
-				const existing = await tx.user.findMany({
-					select: { id: true },
-					orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-				});
-
-				await tx.member.createMany({
-					data: existing.map((user, index) => ({
-						id: crypto.randomUUID(),
-						organizationId: workspace.id,
-						userId: user.id,
-						role: index === 0 ? "owner" : "member",
-						createdAt: new Date(),
-					})),
-					skipDuplicates: true,
-				});
-			}
-
-			await tx.member.upsert({
-				where: {
-					organizationId_userId: { organizationId: workspace.id, userId },
-				},
-				create: {
-					id: crypto.randomUUID(),
-					organizationId: workspace.id,
-					userId,
-					role: "member",
-					createdAt: new Date(),
-				},
-				update: {},
-			});
-
-			return workspace.id;
-		});
-	} catch (error) {
-		console.error(
-			`[auth] could not enrol user ${userId} in workspace ${WORKSPACE_ID}; the next sign-in will retry`,
-			error,
-		);
-		return undefined;
-	}
+export async function createWorkspace(input: {
+	userId: string;
+	name: string;
+	website?: string | null;
+}): Promise<{ id: string; slug: string }> {
+	const id = `w${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+	const base = workspaceSlug(input.name);
+	const taken = await rootDb.organization.findUnique({
+		where: { slug: base },
+		select: { id: true },
+	});
+	const slug = taken ? `${base}-${id.slice(1, 7)}` : base;
+	await rootDb.$transaction([
+		rootDb.organization.create({
+			data: {
+				id,
+				name: input.name,
+				slug,
+				website: input.website ?? null,
+				createdAt: new Date(),
+			},
+		}),
+		rootDb.member.create({
+			data: {
+				id: randomUUID(),
+				organizationId: id,
+				userId: input.userId,
+				role: "owner",
+				createdAt: new Date(),
+			},
+		}),
+	]);
+	await provisionWorkspaceSchema(id);
+	return { id, slug };
 }
 
 export function toWorkspaceRole(value: string): WorkspaceRole {
@@ -121,7 +96,9 @@ export async function workspaceRoleOf(
 	client: WorkspaceMemberReader = db,
 ): Promise<WorkspaceRole | null> {
 	const member = await client.member.findUnique({
-		where: { organizationId_userId: { organizationId: WORKSPACE_ID, userId } },
+		where: {
+			organizationId_userId: { organizationId: workspaceId(), userId },
+		},
 		select: { role: true },
 	});
 

@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { SESSION_COOKIE_NAME } from "@crm/auth";
-import { db } from "@crm/db";
+import { rootDb as db } from "@crm/db";
 import { DEMO_ORG_ID, DEMO_ORG_SLUG, DEMO_USER_ID } from "@crm/db/demo-reset";
 import { seedDemoOrg } from "@crm/db/demo-seed";
 import { cookies } from "next/headers";

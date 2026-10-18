@@ -5,7 +5,6 @@ import { isMarketing } from "@/lib/env";
 import {
 	ONBOARDING_PATH,
 	RESEARCH_PATH,
-	readResearchGate,
 	readWorkspaceGate,
 } from "@/lib/onboarding";
 import { workspaceUrl } from "@/lib/workspace-url";
@@ -14,7 +13,12 @@ const LANDING_PATH = "/";
 
 const SIGN_IN_PATH = "/sign-in";
 
-const UNGATED = ["/grant-access", "/eve"];
+const UNGATED = [
+	"/grant-access",
+	"/eve",
+	"/onboarding/profile",
+	"/onboarding/connect",
+];
 
 const ANONYMOUS = ["/t", "/privacy", "/terms"];
 
@@ -39,15 +43,11 @@ export async function proxy(request: NextRequest) {
 
 	// Both answers, every time, and concurrently — so the gate costs one round
 	// trip rather than two, and neither answer can be stale.
-	const [workspace, research] = await Promise.all([
-		readWorkspaceGate(request),
-		readResearchGate(request),
-	]);
+	const workspace = await readWorkspaceGate(request);
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
-	if (research === "required") return sendTo(RESEARCH_PATH, request);
 
-	const settled = workspace.gate === "settled" && research === "settled";
+	const settled = workspace.gate === "settled";
 
 	if (!settled || !workspace.slug) return NextResponse.next();
 

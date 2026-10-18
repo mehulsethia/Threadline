@@ -1,7 +1,13 @@
 import "@crm/env/load";
 
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { type Prisma, PrismaClient } from "./generated/prisma/client";
+import {
+	currentWorkspaceId,
+	isSingleSchema,
+	schemaForWorkspace,
+} from "./tenancy";
 
 const connectionString =
 	process.env.NODE_ENV === "test" ? testDatabase() : liveDatabase();
@@ -98,9 +104,45 @@ const logDefinitions: Prisma.LogDefinition[] = [
 		: []),
 ];
 
-const createPrismaClient = () => {
+const POOL = {
+	rootMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
+	workspaceMax: Number(process.env.DATABASE_WORKSPACE_POOL_MAX ?? 3),
+	idleMs: 10_000,
+} as const;
+
+declare global {
+	var crmPool: Pool | undefined;
+	var crmClients: Map<string, PrismaClient> | undefined;
+}
+
+const pool =
+	globalThis.crmPool ??
+	new Pool({
+		connectionString,
+		max: POOL.rootMax,
+		idleTimeoutMillis: POOL.idleMs,
+	});
+const clients = globalThis.crmClients ?? new Map<string, PrismaClient>();
+
+if (process.env.NODE_ENV !== "production") {
+	globalThis.crmPool = pool;
+	globalThis.crmClients = clients;
+}
+
+function workspacePool(schema: string): Pool {
+	return new Pool({
+		connectionString,
+		max: POOL.workspaceMax,
+		idleTimeoutMillis: POOL.idleMs,
+		options: `-c search_path="${schema}",public`,
+	});
+}
+
+const createPrismaClient = (schema?: string) => {
 	const client = new PrismaClient({
-		adapter: new PrismaPg({ connectionString }),
+		adapter: schema
+			? new PrismaPg(workspacePool(schema), { schema })
+			: new PrismaPg(pool),
 		log: logDefinitions,
 	});
 
@@ -120,14 +162,36 @@ const createPrismaClient = () => {
 	return client;
 };
 
-declare global {
-	var prisma: ReturnType<typeof createPrismaClient> | undefined;
+function clientFor(key: string, schema?: string): PrismaClient {
+	let client = clients.get(key);
+	if (!client) {
+		client = createPrismaClient(schema);
+		clients.set(key, client);
+	}
+	return client;
 }
 
-export const db = globalThis.prisma ?? createPrismaClient();
+export const rootDb = clientFor("public");
 
-if (process.env.NODE_ENV !== "production") {
-	globalThis.prisma = db;
+export const pgPool = pool;
+
+export function workspaceDb(workspaceId: string): PrismaClient {
+	const schema = schemaForWorkspace(workspaceId);
+	return clientFor(schema, schema);
 }
 
-export type Db = typeof db;
+function activeClient(): PrismaClient {
+	const workspaceId = currentWorkspaceId();
+	if (workspaceId && !isSingleSchema()) return workspaceDb(workspaceId);
+	return rootDb;
+}
+
+export const db: PrismaClient = new Proxy(rootDb, {
+	get(_target, property) {
+		const client = activeClient();
+		const value = Reflect.get(client, property, client);
+		return value instanceof Function ? value.bind(client) : value;
+	},
+});
+
+export type Db = PrismaClient;

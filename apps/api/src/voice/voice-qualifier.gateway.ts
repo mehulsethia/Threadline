@@ -1,8 +1,10 @@
 import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { URL } from "node:url";
-import { auth, env, WORKSPACE_ID } from "@crm/auth";
+import { auth, env, workspaceId } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { runInWorkspace } from "@crm/db";
+import { workspaceIdsForUser } from "@crm/db/workspaces";
 import { jsonText } from "@crm/validation/json-text";
 import {
 	Injectable,
@@ -113,19 +115,9 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 
 		try {
 			const userId = await this.authenticate(req, url, dealId);
-			const member = userId
-				? await this.db.member.findUnique({
-						where: {
-							organizationId_userId: {
-								organizationId: WORKSPACE_ID,
-								userId,
-							},
-						},
-						select: { organizationId: true },
-					})
-				: null;
+			const [workspace] = userId ? await workspaceIdsForUser(userId) : [];
 
-			if (!member) {
+			if (!workspace) {
 				ws.send(
 					JSON.stringify({
 						type: "error",
@@ -136,6 +128,17 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 				return;
 			}
 
+			await runInWorkspace(workspace, () => this.startCall(ws, dealId));
+		} catch (err: unknown) {
+			this.logger.error("Connection handler failed", err);
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.close(1011, "Internal error");
+			}
+		}
+	}
+
+	private async startCall(ws: WebSocket, dealId: string) {
+		try {
 			const context = await this.voiceService.getDealContext(dealId);
 
 			ws.send(

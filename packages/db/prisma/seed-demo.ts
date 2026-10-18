@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "../src/client";
+import { db, rootDb } from "../src/client";
 import { Prisma } from "../src/generated/prisma/client";
 import {
 	ActivityType,
@@ -11,6 +11,8 @@ import {
 } from "../src/generated/prisma/enums";
 import { SETTINGS_ID, writePlaybook, writeRevivalSlas } from "../src/settings";
 import { formatDealStage } from "../src/stage";
+import { isSingleSchema, runInWorkspace } from "../src/tenancy";
+import { provisionWorkspaceSchema } from "../src/workspaces";
 import {
 	DEMO_ORG_ID,
 	DEMO_ORG_NAME,
@@ -33,7 +35,7 @@ function daysAgo(days: number): Date {
 const SIGNATURE = `${DEMO_REP_NAME}\n${DEMO_ORG_NAME}`;
 
 async function upsertDemoUser(id: string, name: string, email: string) {
-	const user = await db.user.upsert({
+	const user = await rootDb.user.upsert({
 		where: { id },
 		create: {
 			id,
@@ -45,7 +47,7 @@ async function upsertDemoUser(id: string, name: string, email: string) {
 		},
 		update: { name, email },
 	});
-	await db.member.upsert({
+	await rootDb.member.upsert({
 		where: {
 			organizationId_userId: { organizationId: DEMO_ORG_ID, userId: id },
 		},
@@ -62,6 +64,13 @@ async function upsertDemoUser(id: string, name: string, email: string) {
 }
 
 export async function seedDemoOrg(): Promise<void> {
+	if (!isSingleSchema()) await provisionWorkspaceSchema(DEMO_ORG_ID);
+	await runInWorkspace(DEMO_ORG_ID, async () => {
+		await seedDemoWorkspace();
+	});
+}
+
+async function seedDemoWorkspace(): Promise<void> {
 	await resetDemoOrg();
 
 	console.log(
@@ -69,7 +78,7 @@ export async function seedDemoOrg(): Promise<void> {
 	);
 
 	const onboarded = JSON.stringify({ onboardedAt: daysAgo(30).toISOString() });
-	await db.organization.upsert({
+	await rootDb.organization.upsert({
 		where: { id: DEMO_ORG_ID },
 		create: {
 			id: DEMO_ORG_ID,

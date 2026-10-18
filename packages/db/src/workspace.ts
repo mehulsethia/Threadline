@@ -6,8 +6,15 @@ import {
 	jsonText,
 	type WorkspaceProfileSections,
 } from "./json";
+import { DEMO_WORKSPACE_ID, requireWorkspaceId } from "./tenancy";
 
-export const WORKSPACE_ID = "workspace";
+export const WORKSPACE_ID = DEMO_WORKSPACE_ID;
+
+export const PROFILE_ROW_ID = "workspace";
+
+export function workspaceId(): string {
+	return requireWorkspaceId();
+}
 
 export const DEFAULT_WORKSPACE_SLUG = "workspace";
 
@@ -91,7 +98,7 @@ export async function readWorkspaceProfile(
 	db: Db,
 ): Promise<WorkspaceProfile | null> {
 	const row = await db.workspaceProfile.findUnique({
-		where: { id: WORKSPACE_ID },
+		where: { id: PROFILE_ROW_ID },
 		select: {
 			website: true,
 			narrative: true,
@@ -141,7 +148,7 @@ export async function readWorkspaceIdentity(
 ): Promise<WorkspaceIdentity | null> {
 	const [workspace, profile] = await Promise.all([
 		db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceId() },
 			select: { name: true, website: true },
 		}),
 		readWorkspaceProfile(db),
@@ -176,8 +183,8 @@ export async function writeWorkspaceProfile(
 	};
 
 	const row = await db.workspaceProfile.upsert({
-		where: { id: WORKSPACE_ID },
-		create: { id: WORKSPACE_ID, ...fields },
+		where: { id: PROFILE_ROW_ID },
+		create: { id: PROFILE_ROW_ID, ...fields },
 		update: fields,
 		select: {
 			website: true,

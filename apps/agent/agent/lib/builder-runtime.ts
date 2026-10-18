@@ -6,7 +6,7 @@ import {
 	type CrmEventType,
 } from "@crm/db/crm-events";
 import { readAgentModel } from "@crm/db/settings";
-import { WORKSPACE_ID } from "@crm/db/workspace";
+import { workspaceId } from "@crm/db/workspace";
 import { AGENT_ACTION_TYPES } from "@crm/validation/agent-manifest";
 import { z } from "zod";
 import { actionDependency } from "./agent-actions";
@@ -634,7 +634,7 @@ async function connectionStatus(userId: string) {
 			select: { id: true },
 		}),
 		db.member.findMany({
-			where: { organizationId: WORKSPACE_ID },
+			where: { organizationId: workspaceId() },
 			orderBy: { user: { name: "asc" } },
 			select: {
 				user: {

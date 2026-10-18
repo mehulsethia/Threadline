@@ -1,3 +1,4 @@
+import { forEachWorkspace } from "@crm/db/workspaces";
 import {
 	Controller,
 	ForbiddenException,
@@ -88,12 +89,15 @@ export class SyncController {
 			throw new ForbiddenException();
 		}
 
-		const [mailboxes, meetings] = await Promise.all([
-			this.sync.runDue(),
-			this.agent.queueMeetingSync(),
-		]);
+		const workspaces = await forEachWorkspace(async () => {
+			const [mailboxes, meetings] = await Promise.all([
+				this.sync.runDue(),
+				this.agent.queueMeetingSync(),
+			]);
+			return { ...mailboxes, meetingSyncQueued: meetings };
+		});
 		this.agent.poke();
-		return { ...mailboxes, meetingSyncQueued: meetings };
+		return { workspaces };
 	}
 }
 

@@ -1,10 +1,22 @@
 import {
+	currentWorkspaceId,
+	isSingleSchema,
+	rootDb,
+	runInWorkspace,
+} from "@crm/db";
+
+function hasWorkspaceContext(): boolean {
+	return Boolean(currentWorkspaceId()) || isSingleSchema();
+}
+
+import {
 	canChangeRole,
 	canRenameWorkspace,
+	createWorkspace,
 	ensureWorkspaceMembership,
 	isWorkspaceRole,
-	WORKSPACE_ID,
 	type WorkspaceRole,
+	workspaceId,
 	workspaceRoleOf,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
@@ -66,6 +78,20 @@ export class WorkspaceService {
 	) {}
 
 	async get(userId: string): Promise<Workspace> {
+		if (!hasWorkspaceContext()) {
+			return {
+				id: "",
+				slug: "",
+				name: "",
+				website: null,
+				onboarded: false,
+				viewerRole: null,
+				canRename: true,
+				canChangeRoles: false,
+				hasWorkspace: false,
+			};
+		}
+
 		let row = await this.readWorkspace();
 
 		if (!row) {
@@ -90,6 +116,7 @@ export class WorkspaceService {
 			viewerRole: role,
 			canRename: canRenameWorkspace(role),
 			canChangeRoles: canChangeRole(role),
+			hasWorkspace: true,
 		};
 	}
 
@@ -97,6 +124,20 @@ export class WorkspaceService {
 		userId: string,
 		input: UpdateWorkspaceInput,
 	): Promise<Workspace> {
+		if (!hasWorkspaceContext()) {
+			const created = await createWorkspace({
+				userId,
+				name: input.name,
+				website: normalizeDomain(input.website),
+			});
+			this.logger.log({
+				message: "Workspace created",
+				userId,
+				workspace: created.id,
+			});
+			return runInWorkspace(created.id, () => this.update(userId, input));
+		}
+
 		const role = await workspaceRoleOf(userId);
 
 		if (!canRenameWorkspace(role)) {
@@ -106,7 +147,7 @@ export class WorkspaceService {
 		}
 
 		const before = await this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceId() },
 			select: { website: true, metadata: true },
 		});
 
@@ -118,11 +159,16 @@ export class WorkspaceService {
 			);
 		}
 
+		const wanted = workspaceSlug(input.slug ?? input.name);
+		const clash = await rootDb.organization.findFirst({
+			where: { slug: wanted, id: { not: workspaceId() } },
+			select: { id: true },
+		});
 		await this.db.organization.update({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceId() },
 			data: {
 				name: input.name,
-				slug: workspaceSlug(input.slug ?? input.name),
+				slug: clash ? `${wanted}-${workspaceId().slice(1, 7)}` : wanted,
 				website,
 				metadata: markOnboarded(before?.metadata ?? null, new Date()),
 			},
@@ -186,7 +232,7 @@ export class WorkspaceService {
 
 		const updated = await this.db.$transaction(async (tx) => {
 			const target = await tx.member.findFirst({
-				where: { id: input.memberId, organizationId: WORKSPACE_ID },
+				where: { id: input.memberId, organizationId: workspaceId() },
 				select: { id: true, role: true },
 			});
 
@@ -197,7 +243,7 @@ export class WorkspaceService {
 			if (target.role === "owner" && input.role !== "owner") {
 				const owners = await tx.$queryRaw<{ id: string }[]>`
 					SELECT id FROM "member"
-					WHERE "organizationId" = ${WORKSPACE_ID} AND role = 'owner'
+					WHERE "organizationId" = ${workspaceId()} AND role = 'owner'
 					FOR UPDATE
 				`;
 
@@ -240,7 +286,7 @@ export class WorkspaceService {
 
 	private searchWhere(q: string): Prisma.MemberWhereInput {
 		const term = q.trim();
-		const where: Prisma.MemberWhereInput = { organizationId: WORKSPACE_ID };
+		const where: Prisma.MemberWhereInput = { organizationId: workspaceId() };
 
 		if (term) {
 			where.user = {
@@ -266,7 +312,7 @@ export class WorkspaceService {
 
 	private async readWorkspace() {
 		return this.db.organization.findUnique({
-			where: { id: WORKSPACE_ID },
+			where: { id: workspaceId() },
 			select: {
 				id: true,
 				slug: true,

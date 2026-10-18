@@ -1,7 +1,7 @@
 import {
 	canManageConnections,
 	isSlackConfigured,
-	WORKSPACE_ID,
+	workspaceId,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
 import { schemas } from "@crm/validation";
@@ -55,7 +55,7 @@ export class SlackConnectionService {
 				}),
 				this.db.slackInstallation.findFirst({
 					where: {
-						OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+						OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 					},
 					orderBy: { createdAt: "desc" },
 				}),
@@ -77,11 +77,11 @@ export class SlackConnectionService {
 				}),
 				this.db.slackMemberMatch.findMany({
 					where: {
-						crmUser: { members: { some: { organizationId: WORKSPACE_ID } } },
+						crmUser: { members: { some: { organizationId: workspaceId() } } },
 					},
 					select: { slackUserId: true, updatedAt: true },
 				}),
-				this.db.member.count({ where: { organizationId: WORKSPACE_ID } }),
+				this.db.member.count({ where: { organizationId: workspaceId() } }),
 				this.db.slackWorkspaceGrant.findFirst({
 					select: { id: true, teamName: true },
 				}),
@@ -132,7 +132,7 @@ export class SlackConnectionService {
 		await this.access.assertMember(userId);
 		const [members, syncing] = await Promise.all([
 			this.db.member.findMany({
-				where: { organizationId: WORKSPACE_ID },
+				where: { organizationId: workspaceId() },
 				orderBy: { user: { name: "asc" } },
 				select: {
 					user: {
@@ -259,7 +259,7 @@ export class SlackConnectionService {
 		let botToken = process.env.SLACK_BOT_TOKEN;
 		const install = await this.db.slackInstallation.findFirst({
 			where: {
-				OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+				OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 			},
 			orderBy: { createdAt: "desc" },
 		});
@@ -302,7 +302,7 @@ export class SlackConnectionService {
 
 		const install = await this.db.slackInstallation.findFirst({
 			where: {
-				OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+				OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 			},
 			orderBy: { createdAt: "desc" },
 		});
@@ -349,12 +349,12 @@ export class SlackConnectionService {
 			} catch {}
 		}
 
-		const installerId = install?.installerId || `dev_${WORKSPACE_ID}`;
+		const installerId = install?.installerId || `dev_${workspaceId()}`;
 		await this.db.slackInstallation.upsert({
 			where: { installerId },
 			create: {
 				installerId,
-				organizationId: WORKSPACE_ID,
+				organizationId: workspaceId(),
 				teamId: install?.teamId || "T_LOCAL",
 				teamName: install?.teamName || "Workspace",
 				alertsChannelId: input.channelId,
@@ -420,7 +420,7 @@ export class SlackConnectionService {
 			});
 			const installs = await tx.slackInstallation.deleteMany({
 				where: {
-					OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+					OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 				},
 			});
 			await tx.slackChannel.deleteMany({});
@@ -437,7 +437,7 @@ export class SlackConnectionService {
 		let botToken = process.env.SLACK_BOT_TOKEN;
 		const install = await this.db.slackInstallation.findFirst({
 			where: {
-				OR: [{ organizationId: WORKSPACE_ID }, { organizationId: null }],
+				OR: [{ organizationId: workspaceId() }, { organizationId: null }],
 			},
 			orderBy: { createdAt: "desc" },
 		});

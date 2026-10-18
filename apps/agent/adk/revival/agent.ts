@@ -9,7 +9,7 @@ import {
 } from "@crm/db";
 import { notify } from "@crm/db/notifications";
 import { readPlaybook } from "@crm/db/settings";
-import { WORKSPACE_ID } from "@crm/db/workspace";
+import { workspaceId } from "@crm/db/workspace";
 import { z } from "zod";
 import { getSmartClient } from "../extraction";
 import {
@@ -389,7 +389,7 @@ export async function generateRevivalDraft(
 			}),
 			readPlaybook(db),
 			db.organization.findUnique({
-				where: { id: WORKSPACE_ID },
+				where: { id: workspaceId() },
 				select: { name: true },
 			}),
 		]);

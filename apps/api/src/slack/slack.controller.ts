@@ -1,5 +1,7 @@
-import { auth, WORKSPACE_ID } from "@crm/auth";
+import { auth, workspaceId } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { runInWorkspace } from "@crm/db";
+import { findWorkspace } from "@crm/db/workspaces";
 import { jsonText } from "@crm/validation/json-text";
 import {
 	BadRequestException,
@@ -122,7 +124,7 @@ export class SlackController {
 		const member = await this.db.member.findUnique({
 			where: {
 				organizationId_userId: {
-					organizationId: WORKSPACE_ID,
+					organizationId: workspaceId(),
 					userId: session.user.id,
 				},
 			},
@@ -220,32 +222,34 @@ export class SlackController {
 		const userScopes = tokenData.authed_user?.scope ?? "";
 		const installerId = tokenData.authed_user?.id || `inst_${state.orgId}`;
 
-		await this.db.slackInstallation.upsert({
-			where: { installerId },
-			create: {
-				installerId,
-				organizationId: state.orgId,
-				teamId,
-				teamName,
-				botUserId,
-				botToken: encryptedBotToken,
-				userToken,
-				userScopes,
-				installedBy: state.userId,
-				installedAt: new Date(),
-			},
-			update: {
-				organizationId: state.orgId,
-				teamId,
-				teamName,
-				botUserId,
-				botToken: encryptedBotToken,
-				userToken,
-				userScopes,
-				installedBy: state.userId,
-				installedAt: new Date(),
-			},
-		});
+		await runInWorkspace(state.orgId, () =>
+			this.db.slackInstallation.upsert({
+				where: { installerId },
+				create: {
+					installerId,
+					organizationId: state.orgId,
+					teamId,
+					teamName,
+					botUserId,
+					botToken: encryptedBotToken,
+					userToken,
+					userScopes,
+					installedBy: state.userId,
+					installedAt: new Date(),
+				},
+				update: {
+					organizationId: state.orgId,
+					teamId,
+					teamName,
+					botUserId,
+					botToken: encryptedBotToken,
+					userToken,
+					userScopes,
+					installedBy: state.userId,
+					installedAt: new Date(),
+				},
+			}),
+		);
 
 		return res.redirect(
 			`${appUrl}/${state.slug || "default"}/settings/connections/slack?installed=true`,
@@ -254,6 +258,17 @@ export class SlackController {
 
 	// Slack calls this, not a signed-in browser; the signed state / request
 	// signature is the authentication.
+	private workspaceForTeam(teamId: string): Promise<string | null> {
+		return findWorkspace(async () =>
+			Boolean(
+				await this.db.slackInstallation.findFirst({
+					where: { teamId },
+					select: { installerId: true },
+				}),
+			),
+		);
+	}
+
 	@AllowAnonymous()
 	@Post("events")
 	@HttpCode(HttpStatus.OK)
@@ -274,8 +289,14 @@ export class SlackController {
 			return { challenge: body.data.challenge };
 		}
 		const message = slackMessageEvent.safeParse(body.data.event);
-		if (body.data.type === "event_callback" && message.success) {
-			this.capture.receive(body.data.team_id, message.data);
+		const teamId = body.data.team_id;
+		if (body.data.type === "event_callback" && message.success && teamId) {
+			const workspace = await this.workspaceForTeam(teamId);
+			if (workspace) {
+				runInWorkspace(workspace, () =>
+					this.capture.receive(teamId, message.data),
+				);
+			}
 		}
 
 		return { ok: true };
@@ -301,7 +322,12 @@ export class SlackController {
 		const action = jsonText.pipe(slackBlockActionPayload).safeParse(payloadStr);
 		if (!action.success) return { ok: true };
 		try {
-			await this.revival.handleBlockAction(action.data);
+			const workspace = await this.workspaceForTeam(action.data.team.id);
+			if (workspace) {
+				await runInWorkspace(workspace, () =>
+					this.revival.handleBlockAction(action.data),
+				);
+			}
 		} catch (err) {
 			this.logger.error("Error handling Slack interactivity", err);
 		}

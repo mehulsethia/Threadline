@@ -30,7 +30,9 @@
 		"./settings": "./src/settings.ts",
 		"./slack-inventory": "./src/slack-inventory.ts",
 		"./tracking": "./src/tracking.ts",
-		"./workspace": "./src/workspace.ts"
+		"./workspace": "./src/workspace.ts",
+		"./workspaces": "./src/workspaces.ts",
+		"./tenancy": "./src/tenancy.ts"
 	},
 	"scripts": {
 		"build": "prisma generate",
@@ -43,6 +45,7 @@
 		"db:seed": "bun scripts/require-local-db.ts db:seed && prisma db seed",
 		"db:studio": "prisma studio",
 		"db:test": "bun scripts/test-db.ts",
+		"db:workspaces": "bun scripts/workspaces.ts",
 		"test": "bun test",
 		"dev:prepare": "bun scripts/prepare-dev.ts",
 		"lint": "biome check .",
@@ -60,6 +63,7 @@
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
 		"@types/node": "^24.10.1",
+		"@types/pg": "8.20.0",
 		"pg": "^8.22.0",
 		"prisma": "^7.9.1",
 		"typescript": "5.9.2"

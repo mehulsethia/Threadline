@@ -3,16 +3,21 @@ import { Injectable } from "@nestjs/common";
 import { fromNodeHeaders } from "better-auth/node";
 import type { Request } from "express";
 import type { ContextOptions, TRPCContext } from "nestjs-trpc";
+import type { WorkspaceRequest } from "../workspace/workspace-context";
 import type { BaseTrpcContext } from "./context.types";
 
 export async function createBaseTrpcContext(
 	req: Request | undefined,
 ): Promise<BaseTrpcContext> {
-	const session = req
-		? await auth.api
-				.getSession({ headers: fromNodeHeaders(req.headers) })
-				.catch(() => null)
-		: null;
+	const cached = (req as WorkspaceRequest | undefined)?.crmSession;
+	const session =
+		cached !== undefined
+			? cached
+			: req
+				? await auth.api
+						.getSession({ headers: fromNodeHeaders(req.headers) })
+						.catch(() => null)
+				: null;
 	return { req, session };
 }
 
