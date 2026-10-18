@@ -435,14 +435,9 @@ export async function upsertDeal(input: {
 			where: { id: input.dealId },
 			data: {
 				stage: stageEnum,
-				amount:
-					value !== undefined
-						? new Prisma.Decimal(value)
-						: undefined,
+				amount: value !== undefined ? new Prisma.Decimal(value) : undefined,
 				currency,
-				expectedCloseDate: targetDate
-					? new Date(targetDate)
-					: undefined,
+				expectedCloseDate: targetDate ? new Date(targetDate) : undefined,
 			},
 		});
 		await emitIntakeEvent(
@@ -505,8 +500,7 @@ export async function upsertDeal(input: {
 		data: {
 			name: input.name,
 			stage: stageEnum,
-			amount:
-				value !== undefined ? new Prisma.Decimal(value) : null,
+			amount: value !== undefined ? new Prisma.Decimal(value) : null,
 			currency,
 			expectedCloseDate: targetDate ? new Date(targetDate) : null,
 			companyId: finalCompanyId,
