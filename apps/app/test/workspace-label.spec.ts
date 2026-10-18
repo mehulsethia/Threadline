@@ -3,27 +3,23 @@ import { DEFAULT_WORKSPACE_NAME } from "@crm/auth";
 import { workspaceLabel } from "../lib/workspace-label";
 
 describe("what the header calls this install", () => {
-	it("does not say CRM twice before anybody has named the workspace", () => {
-		expect(workspaceLabel(DEFAULT_WORKSPACE_NAME)).toBe("CRM");
+	it("shows the product name before anybody has named the workspace", () => {
+		expect(workspaceLabel(DEFAULT_WORKSPACE_NAME)).toBe("Threadline");
 	});
 
-	it("falls back to CRM while the workspace is still loading", () => {
-		expect(workspaceLabel(undefined)).toBe("CRM");
-		expect(workspaceLabel("")).toBe("CRM");
-		expect(workspaceLabel("   ")).toBe("CRM");
+	it("shows the product name while the workspace is still loading", () => {
+		expect(workspaceLabel(undefined)).toBe("Threadline");
+		expect(workspaceLabel("")).toBe("Threadline");
+		expect(workspaceLabel("   ")).toBe("Threadline");
 	});
 
 	it("names the company once it has one", () => {
-		expect(workspaceLabel("Acme")).toBe("Acme CRM");
-		expect(workspaceLabel("  Acme  ")).toBe("Acme CRM");
+		expect(workspaceLabel("Acme")).toBe("Acme");
+		expect(workspaceLabel("  Acme  ")).toBe("Acme");
 	});
 
-	it("does not repeat a company that already ends in CRM", () => {
+	it("keeps a company name that happens to contain CRM", () => {
 		expect(workspaceLabel("Acme CRM")).toBe("Acme CRM");
-		expect(workspaceLabel("Acme crm")).toBe("Acme crm");
-	});
-
-	it("still appends to a name that merely contains the letters", () => {
-		expect(workspaceLabel("CRMSoft")).toBe("CRMSoft CRM");
+		expect(workspaceLabel("CRMSoft")).toBe("CRMSoft");
 	});
 });

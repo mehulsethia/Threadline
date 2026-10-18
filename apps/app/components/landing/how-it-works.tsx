@@ -26,10 +26,10 @@ export function HowItWorks() {
 				title="From a raw chat to an approved follow-up"
 				lede="Four steps, no data entry. You stay in control of everything a customer sees."
 			/>
-			<ol className="relative grid gap-10 md:grid-cols-4 md:gap-8">
+			<ol className="relative grid gap-10 sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-4">
 				<span
 					aria-hidden="true"
-					className="absolute top-[11px] right-0 left-3 hidden h-px bg-thread md:block"
+					className="absolute top-[11px] right-0 left-3 hidden h-px bg-thread lg:block"
 				/>
 				{STEPS.map((step, index) => (
 					<li key={step.title} className="relative flex flex-col gap-3">

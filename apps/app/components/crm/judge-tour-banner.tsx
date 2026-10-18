@@ -67,7 +67,7 @@ export function JudgeTourBanner() {
 				</Button>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-1">
+			<div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 				<div className="flex flex-col justify-between rounded-lg border border-border/80 bg-background/80 p-3 shadow-2xs">
 					<div className="space-y-1">
 						<div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">

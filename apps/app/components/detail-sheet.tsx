@@ -99,8 +99,8 @@ export function DetailSheetHeader({
 	onClose: () => void;
 }) {
 	return (
-		<SheetHeader className={cn("gap-0 border-b py-3", GUTTER)}>
-			<div className="flex items-start gap-3">
+		<SheetHeader className={cn("@container gap-0 border-b py-3", GUTTER)}>
+			<div className="flex flex-wrap items-start gap-x-3 gap-y-3">
 				{onBack ? (
 					<Tooltip>
 						<TooltipTrigger asChild>
@@ -131,16 +131,24 @@ export function DetailSheetHeader({
 					) : null}
 				</div>
 
-				<div className="flex shrink-0 items-center gap-1">
-					{actions}
-					{actions ? (
-						<Separator orientation="vertical" className="mx-1 h-5" />
-					) : null}
-					<Button variant="ghost" size="icon-sm" onClick={onClose}>
-						<Icon icon={Close} />
-						<span className="sr-only">Close</span>
-					</Button>
-				</div>
+				{actions ? (
+					<div className="order-last flex w-full flex-wrap items-center gap-1.5 @2xl:order-0 @2xl:w-auto @2xl:shrink-0">
+						{actions}
+						<Separator
+							orientation="vertical"
+							className="mx-1 hidden h-5 @2xl:block"
+						/>
+					</div>
+				) : null}
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					className="shrink-0"
+					onClick={onClose}
+				>
+					<Icon icon={Close} />
+					<span className="sr-only">Close</span>
+				</Button>
 			</div>
 		</SheetHeader>
 	);

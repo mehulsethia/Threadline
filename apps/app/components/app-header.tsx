@@ -60,12 +60,8 @@ export function AppHeader({ user }: { user: User }) {
 				</Link>
 				<Separator orientation="vertical" className="mx-1 h-5 bg-transparent" />
 				<div className="flex items-center gap-2 min-w-0">
-					<span className="min-w-0 max-w-28 truncate font-semibold text-sm sm:max-w-none text-foreground">
+					<span className="min-w-0 max-w-40 truncate font-medium text-sm text-foreground sm:max-w-none">
 						{label}
-					</span>
-					<span className="hidden items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary sm:inline-flex">
-						<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-						Active
 					</span>
 				</div>
 			</div>

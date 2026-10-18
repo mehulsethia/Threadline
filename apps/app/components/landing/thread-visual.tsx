@@ -298,7 +298,7 @@ function RecordPanel() {
 
 function MobileThread() {
 	return (
-		<div className="flex flex-col gap-4 md:hidden">
+		<div className="flex flex-col gap-4 lg:hidden">
 			<div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
 				<p className="font-medium text-sm">Klaus Weber on WhatsApp</p>
 				<p className="rounded-lg bg-muted px-3 py-2 text-sm/6">
@@ -340,7 +340,7 @@ export function ThreadVisual() {
 				viewBox="0 0 1120 480"
 				role="img"
 				aria-label="A German WhatsApp conversation on the left. Threads connect the quantity, budget, timeline and email the lead wrote to the matching fields of a deal record on the right. Language is marked as a suggestion."
-				className="hidden h-auto w-full md:block"
+				className="hidden h-auto w-full lg:block"
 			>
 				<ChatPanel />
 				<RecordPanel />
