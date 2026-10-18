@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Threadline process flow</title>
+		<link rel="stylesheet" href="diagram.css" />
+	</head>
+	<body>
+		<div id="stage"></div>
+		<script src="diagram.js"></script>
+		<script>
+			renderDiagram({
+				width: 1920,
+				height: 900,
+				groups: [
+					{ label: "Customer and sources", x: 10, y: 10, w: 1900, h: 220, kind: "vertical" },
+					{ label: "Threadline on Google Cloud", x: 10, y: 245, w: 1900, h: 340, kind: "gcp vertical" },
+					{ label: "Sales rep", x: 10, y: 600, w: 1900, h: 290, kind: "human vertical" },
+				],
+				boxes: [
+					{
+						id: "S1", x: 190, y: 55, w: 470, h: 150, kind: "ext",
+						title: "Lead conversations, in any language",
+						items: [
+							"WhatsApp exports, Gmail, Outlook, Slack",
+							"Call recordings, voice notes, Meet, Fireflies, Fathom",
+							"Website enquiry forms",
+						],
+					},
+					{ id: "S3", x: 1330, y: 55, w: 250, h: 150, kind: "ext", title: "Lead gets the follow-up", sub: "On WhatsApp or email, in their own language" },
+					{ id: "S4", x: 1690, y: 55, w: 210, h: 150, kind: "ext", title: "Lead on a live call", sub: "Speaks naturally, in any language" },
+
+					{ id: "B1", x: 190, y: 320, w: 190, h: 225, kind: "gc", tag: "Every 15 min + on upload", title: "Capture queue", sub: "Lease queue in Cloud SQL. Re-imports create no duplicates." },
+					{ id: "B2", x: 410, y: 320, w: 200, h: 225, kind: "ai", tag: "Gemini on Vertex AI", title: "Multimodal extraction", sub: "Contact, need, budget, currency, timeline, objections and promises, each with a verbatim quote" },
+					{ id: "B3", x: 640, y: 320, w: 200, h: 225, kind: "ledger", title: "Evidence ledger", sub: "Scores every fact by its source. Strong evidence writes. Weak evidence becomes a suggestion." },
+					{ id: "B4", x: 870, y: 320, w: 190, h: 225, kind: "gc", title: "CRM record", sub: "Contact, company, deal and tasks. Every field links to its quote." },
+					{ id: "B5", x: 1090, y: 320, w: 210, h: 225, kind: "ai", tag: "Google ADK", title: "Follow-up and scoring agents", sub: "Grounded company research, lead score 0–100, deal health, promise tracker" },
+					{ id: "B6", x: 1330, y: 320, w: 250, h: 225, kind: "ai", tag: "Google ADK, hourly", title: "Revival agent", sub: "Finds stalled deals and drafts one message in the lead's language. A claim guard removes unsupported claims." },
+					{ id: "B8", x: 1690, y: 320, w: 210, h: 225, kind: "ai", tag: "Gemini Live API", title: "Voice qualifier", sub: "Asks the missing BANT questions in real time. Answers become cited facts." },
+
+					{ id: "R0", x: 190, y: 665, w: 190, h: 180, kind: "human", title: "Imports or connects", sub: "Uploads a file, pastes a transcript, or connects Gmail and Slack" },
+					{ id: "R1", x: 640, y: 665, w: 200, h: 180, kind: "human", tag: "Human in the loop", title: "Accepts or dismisses", sub: "Weak evidence never writes to the record on its own" },
+					{ id: "R2", x: 1090, y: 665, w: 210, h: 180, kind: "human", title: "Acts on alerts", sub: "Hot leads, overdue promises, Ask your CRM, meeting prep" },
+					{ id: "R3", x: 1330, y: 665, w: 250, h: 180, kind: "human", tag: "One tap", title: "Approves the draft", sub: "In the app or on a Slack card. Can edit or skip." },
+					{ id: "R4", x: 1690, y: 665, w: 210, h: 180, kind: "human", title: "Starts a qualifying call", sub: "Accepts or rejects the proposed stage and score" },
+				],
+				edges: [
+					{ from: "S1", fromSide: "bottom", ft: 95 / 470, to: "B1", toSide: "top", label: "automatic capture", tone: "blue" },
+					{ from: "R0", fromSide: "top", to: "B1", toSide: "bottom", label: "upload" },
+					{ from: "B1", to: "B2" },
+					{ from: "B2", to: "B3" },
+					{ from: "B3", to: "B4" },
+					{ from: "B3", fromSide: "bottom", to: "R1", toSide: "top", label: "suggests", tone: "amber" },
+					{ from: "R1", fromSide: "right", to: "B4", toSide: "bottom", label: "accepted", tone: "amber" },
+					{ from: "B4", to: "B5" },
+					{ from: "B5", to: "B6" },
+					{ from: "B5", fromSide: "bottom", to: "R2", toSide: "top", label: "alerts and tasks" },
+					{ from: "B6", fromSide: "bottom", to: "R3", toSide: "top", label: "draft for approval" },
+					{ path: "M1580 720 H1625 V130 H1584", label: "approved message sent", labelAt: [1625, 262], tone: "amber" },
+					{ path: "M1455 55 V32 H425 V51", label: "the lead replies, and it is captured again", labelAt: [940, 32], dashed: true },
+					{ from: "R4", fromSide: "top", to: "B8", toSide: "bottom", label: "starts call", tone: "amber" },
+					{ from: "B8", fromSide: "top", ft: 0.62, to: "S4", toSide: "bottom", tt: 0.62, label: "talks in the lead's language", tone: "blue", both: true },
+					{ path: "M1742 320 V292 H740 V316", label: "answers become cited facts", labelAt: [1200, 292], tone: "blue" },
+				],
+			});
+			const legend = document.createElement("div");
+			legend.className = "legend";
+			Object.assign(legend.style, { left: "700px", top: "120px", width: "600px", flexWrap: "wrap", rowGap: "10px" });
+			legend.innerHTML = `
+				<span><i style="background:#e8f0fe;border-color:#1a73e8"></i>Google Cloud AI</span>
+				<span><i style="background:#fff;border-color:#8ab4f8"></i>Google Cloud service</span>
+				<span><i style="background:#fef7e0;border-color:#f9ab00"></i>Human decision</span>
+				<span><i style="background:#f8f9fa;border-color:#9aa0a6;border-style:dashed"></i>Outside Threadline</span>`;
+			document.getElementById("stage").appendChild(legend);
+		</script>
+	</body>
+</html>

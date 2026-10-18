@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Threadline wireframes</title>
+		<link rel="stylesheet" href="diagram.css" />
+		<style>
+			#stage {
+				width: 1920px;
+				height: 900px;
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: 26px;
+				padding: 18px 22px;
+			}
+			.col {
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				min-width: 0;
+			}
+			.heading {
+				font-size: 21px;
+				font-weight: 700;
+			}
+			#stage {
+				align-content: center;
+			}
+			.frame > *,
+			.frame .panel {
+				position: relative;
+			}
+			.frame {
+				position: relative;
+				border: 2px solid #9aa0a6;
+				border-radius: 14px;
+				background: #fff;
+				padding: 16px;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				font-size: 15px;
+				color: #3c4043;
+			}
+			.bar {
+				height: 9px;
+				border-radius: 5px;
+				background: #e3e5e8;
+			}
+			.row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.between {
+				justify-content: space-between;
+			}
+			.panel {
+				border: 1.5px solid #dadce0;
+				border-radius: 10px;
+				padding: 10px 12px;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.dash {
+				border-style: dashed;
+			}
+			.muted {
+				color: #80868b;
+				font-size: 12.5px;
+			}
+			.strong {
+				font-weight: 700;
+				color: #202124;
+			}
+			.pill {
+				border: 1.5px solid #9aa0a6;
+				border-radius: 99px;
+				padding: 3px 11px;
+				font-size: 12.5px;
+				white-space: nowrap;
+			}
+			.pill.dark {
+				background: #3c4043;
+				border-color: #3c4043;
+				color: #fff;
+			}
+			.pill.amber {
+				background: #fef7e0;
+				border-color: #f9ab00;
+				color: #8a4b00;
+			}
+			.quote {
+				border-left: 3px solid #9aa0a6;
+				padding-left: 8px;
+				font-size: 13px;
+				color: #5f6368;
+			}
+			.check::before {
+				content: "✓";
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 18px;
+				height: 18px;
+				margin-right: 8px;
+				border-radius: 50%;
+				background: #3c4043;
+				color: #fff;
+				font-size: 11px;
+			}
+			.open::before {
+				content: "";
+				display: inline-block;
+				width: 14px;
+				height: 14px;
+				margin: 0 10px 0 2px;
+				border-radius: 50%;
+				border: 2px dashed #9aa0a6;
+				vertical-align: -2px;
+			}
+			.meter {
+				height: 8px;
+				border-radius: 4px;
+				background: #e3e5e8;
+				overflow: hidden;
+			}
+			.meter span {
+				display: block;
+				height: 100%;
+				background: #5f6368;
+			}
+			.bubble {
+				border-radius: 10px;
+				padding: 7px 10px;
+				font-size: 13px;
+				max-width: 85%;
+				background: #f1f3f4;
+			}
+			.bubble.me {
+				margin-left: auto;
+				background: #3c4043;
+				color: #fff;
+			}
+			.slack {
+				border: 1.5px solid #dadce0;
+				border-left: 4px solid #9aa0a6;
+				border-radius: 8px;
+				padding: 9px 11px;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			del {
+				text-decoration-color: #d93025;
+				color: #80868b;
+			}
+			.n {
+				position: absolute;
+				left: -33px;
+				top: 50%;
+				transform: translateY(-50%);
+				z-index: 5;
+				width: 30px;
+				height: 30px;
+				border-radius: 50%;
+				background: #1a73e8;
+				color: #fff;
+				font-size: 15px;
+				font-weight: 700;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				box-shadow: 0 0 0 3px #fff;
+			}
+			.n.deep {
+				left: -47px;
+			}
+			.notes {
+				list-style: none;
+				display: flex;
+				flex-direction: column;
+				gap: 7px;
+				font-size: 16px;
+				line-height: 1.4;
+				color: #3c4043;
+			}
+			.notes li {
+				display: flex;
+				gap: 9px;
+			}
+			.notes b {
+				flex-shrink: 0;
+				width: 22px;
+				height: 22px;
+				border-radius: 50%;
+				background: #1a73e8;
+				color: #fff;
+				font-size: 12.5px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="stage">
+			<section class="col">
+				<p class="heading">1. Import a conversation</p>
+				<div class="frame">
+					<div class="row between"><span class="strong">Import conversation</span><span class="muted">✕</span></div>
+					<div class="panel dash" style="align-items:center;padding:18px"><span class="n">1</span>
+						<span class="strong">Drop a WhatsApp export, audio or transcript</span>
+						<span class="muted">.txt .zip .mp3 .m4a .pdf .docx, or paste text</span>
+					</div>
+					<div class="panel">
+						<span class="strong">Which participant is you?</span><span class="n">2</span>
+						<span class="row">◉ Anna Schmidt <span class="pill">92% match</span></span>
+						<span class="row">○ Klaus Weber</span>
+						<span class="row">○ Someone else</span>
+					</div>
+					<div class="panel">
+						<span class="strong">Agent steps</span><span class="n">3</span>
+						<span class="check">Read 48 messages, German</span>
+						<span class="check">Gemini extracted 9 facts with quotes</span>
+						<span class="check">Matched company Weber Maschinenbau</span>
+						<span class="check">Created deal and next-step task</span>
+						<span class="open">Researching the company</span>
+					</div>
+					<div class="row" style="gap:6px;flex-wrap:wrap"><span class="n">4</span>
+						<span class="pill">1 contact</span><span class="pill">1 deal</span><span class="pill">1 task</span>
+						<span class="pill dark">5 facts written</span><span class="pill amber">4 suggested</span>
+					</div>
+				</div>
+				<ul class="notes">
+					<li><b>1</b>Any export or recording, in any language</li>
+					<li><b>2</b>Threadline guesses which side is the rep</li>
+					<li><b>3</b>The agent's steps are shown live</li>
+					<li><b>4</b>Strong facts are written; weak ones wait for review</li>
+				</ul>
+			</section>
+
+			<section class="col">
+				<p class="heading">2. Deal record with evidence</p>
+				<div class="frame">
+					<div class="row between"><span class="strong">Flow sensors, 3 lines</span><span class="pill">Qualified</span></div>
+					<div class="row" style="gap:6px"><span class="n">1</span><span class="pill">☎ Start qualification call</span><span class="pill">Overview</span><span class="pill dark">AI assist</span></div>
+					<div class="row between panel" style="flex-direction:row"><span>€72,000</span><span>End of Q1</span><span class="strong">Score 82</span></div>
+					<div class="panel">
+						<span class="row between"><span>Budget <b>€72,000</b></span><span class="pill dark">Verified</span></span><span class="n">2</span>
+						<span class="quote">"Budget ca. 72.000 €" WhatsApp, line 3</span>
+					</div>
+					<div class="panel">
+						<span class="row between"><span>Decision maker <b>Head of purchasing</b></span><span class="pill dark">Verified</span></span>
+						<span class="quote">"Ich leite den Einkauf" WhatsApp, line 1</span>
+					</div>
+					<div class="panel" style="border-color:#f9ab00;background:#fffbf0">
+						<span class="row between"><span>Company size <b>200–500</b></span><span class="pill amber">Suggested</span></span><span class="n">3</span>
+						<span class="muted">Grounded search, 3 sources, match 0.82</span>
+						<span class="row"><span class="pill dark">Accept</span><span class="pill">Dismiss</span></span>
+					</div>
+					<div class="panel">
+						<span class="strong">Why 82</span><span class="n">4</span>
+						<span class="row">Fit<div class="meter" style="flex:1"><span style="width:85%"></span></div></span>
+						<span class="row">Intent<div class="meter" style="flex:1"><span style="width:90%"></span></div></span>
+						<span class="row">Risk<div class="meter" style="flex:1"><span style="width:25%"></span></div></span>
+					</div>
+				</div>
+				<ul class="notes">
+					<li><b>1</b>One click starts a live voice qualifying call</li>
+					<li><b>2</b>Every field shows the quote it came from</li>
+					<li><b>3</b>A guess waits for Accept or Dismiss</li>
+					<li><b>4</b>The score comes with its reasons</li>
+				</ul>
+			</section>
+
+			<section class="col">
+				<p class="heading">3. Approve a revival draft</p>
+				<div class="frame">
+					<div class="row between"><span class="strong">Lead Revival</span><span class="pill dark">Run revival now</span></div>
+					<div class="row" style="gap:6px"><span class="pill dark">Pending 5</span><span class="pill">Sent</span><span class="pill">Skipped</span></div>
+					<div class="panel">
+						<span class="row between"><span class="strong">Weber Precision Valves</span><span class="pill">Proposal</span></span>
+						<span class="muted">Why it stalled: asked about volume pricing, no reply for 8 days</span><span class="n" style="top:22px">1</span>
+						<span class="row" style="gap:6px"><span class="pill">Answer the open question</span><span class="pill">WhatsApp, German</span></span>
+						<div class="panel" style="background:#f8f9fa"><span class="n deep" style="top:32%">2</span>
+							<span style="font-size:13px;line-height:1.45">Guten Tag Herr Weber, vielen Dank für Ihre Frage zu den Staffelpreisen … <del>Lieferung in zwei Wochen garantiert.</del></span>
+							<span class="muted" style="color:#c5221f;position:relative">Claim removed: no source in the conversation<span class="n" style="left:-61px">3</span></span>
+						</div>
+						<span class="row"><span class="pill dark">Approve and send</span><span class="pill">Edit</span><span class="pill">Skip</span></span>
+					</div>
+					<div class="slack"><span class="n">4</span>
+						<span class="strong">Slack: draft ready for Weber Precision Valves</span>
+						<div class="bar" style="width:90%"></div>
+						<div class="bar" style="width:70%"></div>
+						<span class="row"><span class="pill dark">Approve</span><span class="pill">Edit in Threadline</span></span>
+					</div>
+				</div>
+				<ul class="notes">
+					<li><b>1</b>Says why the deal stalled and which strategy it chose</li>
+					<li><b>2</b>The draft is in the lead's own language and channel</li>
+					<li><b>3</b>Unsupported claims are removed before the rep sees them</li>
+					<li><b>4</b>Approve from Slack without opening the app</li>
+				</ul>
+			</section>
+
+			<section class="col">
+				<p class="heading">4. Live voice qualifier</p>
+				<div class="frame">
+					<div class="row between"><span class="strong">Call with Lena Bergström</span><span class="pill">● 01:42</span></div>
+					<div class="panel" style="gap:8px">
+						<span class="bubble">Wer entscheidet noch über diesen Kauf?</span>
+						<span class="bubble me">Unsere CFO. Sie hat 120.000 $ freigegeben.</span>
+						<span class="bubble">Danke. Bis wann soll es laufen?</span>
+						<span class="muted">Speaking in German, the lead's language</span><span class="n">1</span>
+					</div>
+					<div class="panel">
+						<span class="strong">Qualification</span><span class="n">2</span>
+						<span class="check">Budget: $120,000, approved by CFO</span>
+						<span class="check">Authority: CFO signs off</span>
+						<span class="check">Need: sales workflow upgrade</span>
+						<span class="open">Timeline: asking now</span>
+					</div>
+					<div class="panel" style="border-color:#f9ab00;background:#fffbf0">
+						<span class="strong">Proposed: Qualified, score 74</span><span class="n">3</span>
+						<span class="muted">Each answer is saved as a cited fact</span>
+						<span class="row"><span class="pill dark">Accept stage</span><span class="pill">Keep current</span></span>
+					</div>
+				</div>
+				<ul class="notes">
+					<li><b>1</b>Gemini Live talks in real time, in the lead's language</li>
+					<li><b>2</b>The BANT checklist fills in as the lead answers</li>
+					<li><b>3</b>The stage only moves when the rep accepts it</li>
+				</ul>
+			</section>
+		</div>
+	</body>
+</html>

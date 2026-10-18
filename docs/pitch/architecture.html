@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Threadline architecture</title>
+		<link rel="stylesheet" href="diagram.css" />
+	</head>
+	<body>
+		<div id="stage"></div>
+		<script src="diagram.js"></script>
+		<script>
+			renderDiagram({
+				width: 1920,
+				height: 900,
+				groups: [
+					{ label: "Google Cloud project (us-central1)", x: 10, y: 196, w: 1900, h: 694, kind: "gcp label-bottom" },
+					{ label: "Vertex AI", x: 1460, y: 260, w: 430, h: 486, kind: "gcp" },
+				],
+				boxes: [
+					{ id: "P2", x: 30, y: 20, w: 220, h: 150, kind: "ext", title: "Judge or new user", sub: "One-click demo workspace, or Google sign-in with onboarding" },
+					{ id: "P1", x: 270, y: 20, w: 240, h: 150, kind: "ext", title: "Sales rep", sub: "Browser on desktop, tablet or phone" },
+					{ id: "P3", x: 560, y: 20, w: 260, h: 150, kind: "ext", title: "Lead", sub: "Receives approved messages on WhatsApp (wa.me) or email" },
+					{ id: "E1", x: 1000, y: 20, w: 290, h: 150, kind: "ext", title: "Google Workspace APIs", sub: "Gmail, Calendar, Meet transcripts, Google OAuth" },
+					{ id: "E2", x: 1310, y: 20, w: 270, h: 150, kind: "ext", title: "Slack", sub: "Signed events, approval cards and alerts" },
+					{ id: "E3", x: 1600, y: 20, w: 300, h: 150, kind: "ext", title: "Fireflies and Fathom", sub: "Meeting transcripts with per-workspace keys" },
+
+					{
+						id: "W", x: 40, y: 260, w: 340, h: 200, kind: "gc", tag: "Cloud Run", title: "Web app",
+						items: ["Next.js App Router", "Landing page, sign-in, CRM UI", "Same-origin /api proxy to the API"],
+					},
+					{
+						id: "A", x: 420, y: 260, w: 480, h: 200, kind: "gc", tag: "Cloud Run", title: "API",
+						items: [
+							"NestJS with tRPC; Better Auth and workspaces",
+							"Uploads, mailbox sync, Slack webhooks, cron routes",
+							"Gemini Live voice gateway (WebSocket)",
+							"Writes an AgentTask and wakes the agent",
+						],
+					},
+					{
+						id: "G", x: 940, y: 260, w: 480, h: 200, kind: "gc", tag: "Cloud Run, IAM-only", title: "Agent worker",
+						items: [
+							"Google ADK agents: intake, follow-up, scoring, revival, Ask your CRM",
+							"Evidence ledger and claim guard",
+							"Leases work from the queue; scales to zero",
+						],
+					},
+
+					{ id: "C1", x: 1480, y: 300, w: 390, h: 98, kind: "ai chip", title: "Gemini 2.5 Flash", sub: "Multimodal extraction from chat, PDF and audio; scoring" },
+					{ id: "C2", x: 1480, y: 410, w: 390, h: 98, kind: "ai chip", title: "Gemini reasoning model", sub: "Revival drafts, follow-up decisions, Ask your CRM" },
+					{ id: "C3", x: 1480, y: 520, w: 390, h: 98, kind: "ai chip", title: "Gemini Live API (native audio)", sub: "Real-time qualifying calls in the lead's language" },
+					{ id: "C4", x: 1480, y: 630, w: 390, h: 98, kind: "ai chip", title: "Google Search grounding", sub: "Company research with cited sources" },
+
+					{ id: "D1", x: 40, y: 584, w: 420, h: 170, kind: "gc", tag: "Cloud SQL", title: "PostgreSQL", items: ["One schema per workspace", "CRM records and evidence ledger", "AgentTask lease queue"] },
+					{ id: "D2", x: 480, y: 584, w: 220, h: 170, kind: "gc", tag: "Cloud Storage", title: "Files", sub: "Uploads, recordings, transcripts" },
+					{ id: "D3", x: 720, y: 584, w: 210, h: 170, kind: "gc", tag: "Secret Manager", title: "Secrets", sub: "DB, auth, OAuth and Slack secrets" },
+					{ id: "D4", x: 950, y: 584, w: 230, h: 170, kind: "gc", tag: "Cloud Scheduler", title: "Recurring jobs", sub: "Hourly revival, 15-minute capture, daily FX rates, nightly demo reset" },
+					{ id: "D5", x: 1200, y: 584, w: 220, h: 170, kind: "gc", tag: "Cloud Build", title: "Delivery", sub: "Builds three images into Artifact Registry" },
+				],
+				edges: [
+					{ from: "P2", fromSide: "bottom", to: "W", toSide: "top", tt: 100 / 340, label: "one-click demo" },
+					{ from: "P1", fromSide: "bottom", ft: 72 / 240, to: "W", toSide: "top", tt: 302 / 340, label: "HTTPS" },
+					{ from: "P1", fromSide: "bottom", ft: 192 / 240, to: "A", toSide: "top", tt: 42 / 480, label: "voice WebSocket, 1-min ticket", tone: "blue", dx: 70 },
+					{ from: "P1", to: "P3", tone: "amber", dashed: true },
+					{ from: "W", to: "A" },
+					{ from: "A", to: "G", label: "", tone: "blue" },
+					{ path: "M1145 170 V212 H800 V256", label: "OAuth sync", labelAt: [960, 212] },
+					{ path: "M1445 170 V238 H860 V256", label: "signed webhooks", labelAt: [1290, 238] },
+					{ path: "M1750 170 V224 H1380 V256", label: "transcripts", labelAt: [1590, 224] },
+					{ path: "M1420 330 H1456", tone: "blue" },
+					{ path: "M860 460 V566 H1476", label: "live audio", labelAt: [1180, 566], tone: "blue" },
+					{ path: "M444 460 V580", label: "Prisma", labelAt: [444, 532] },
+					{ path: "M988 460 V510 H250 V580", noArrow: false, label: "records and files", labelAt: [700, 510] },
+					{ path: "M590 510 V580" },
+				],
+			});
+			const note = document.createElement("div");
+			Object.assign(note.style, {
+				position: "absolute", left: "40px", top: "784px", width: "1380px", zIndex: 5,
+				fontSize: "16px", lineHeight: "1.5", color: "#3c4043",
+				display: "flex", gap: "28px",
+			});
+			note.innerHTML = `
+				<span><b>Isolation</b> One Postgres schema per workspace. A query with no workspace fails closed.</span>
+				<span><b>Trust</b> The agent accepts only Google-signed ID tokens. Cron routes need a bearer secret.</span>
+				<span><b>Cost</b> All three services scale to zero between requests.</span>`;
+			document.getElementById("stage").appendChild(note);
+		</script>
+	</body>
+</html>
