@@ -3,9 +3,10 @@ export const CONNECTION_SYNC_COPY = {
 		connected: {
 			title: "Google connected",
 			description:
-				"Threadline is reading your meetings for the next 180 days and Meet transcripts from the last 2 days. New email is captured from now on, every 15 minutes.",
+				"Threadline is reading the last 7 days of email, your meetings for the next 180 days and Meet transcripts from the last 2 days. Threads you replied to become contacts and deals. After that it checks every 15 minutes.",
 		},
-		checking: "Checking Gmail, Calendar and Meet for anything new",
+		checking:
+			"Checking Gmail, Calendar and Meet. The first check reads the last 7 days of email.",
 		checked: {
 			title: "Check finished",
 			description:

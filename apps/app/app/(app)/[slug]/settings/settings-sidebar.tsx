@@ -10,6 +10,7 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 type SettingsNavItem = {
 	title: string;
 	href: string;
+	comingSoon?: boolean;
 };
 
 const ROOT = "/settings";
@@ -21,8 +22,8 @@ const ITEMS: SettingsNavItem[] = [
 	{ title: "Enquiry forms", href: `${ROOT}/forms` },
 	{ title: "Currencies", href: `${ROOT}/currencies` },
 	{ title: "Members", href: `${ROOT}/members` },
-	{ title: "API Keys", href: `${ROOT}/api-keys` },
-	{ title: "SSO", href: `${ROOT}/sso` },
+	{ title: "API Keys", href: `${ROOT}/api-keys`, comingSoon: true },
+	{ title: "SSO", href: `${ROOT}/sso`, comingSoon: true },
 ];
 
 function isActive(href: string, root: string, pathname: string): boolean {
@@ -38,6 +39,24 @@ function NavLink({
 	active: boolean;
 	className: string;
 }) {
+	if (item.comingSoon) {
+		return (
+			<Button
+				variant="ghost"
+				disabled
+				className={cn(
+					"justify-between gap-2 font-normal text-muted-foreground",
+					className,
+				)}
+			>
+				{item.title}
+				<span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">
+					Coming soon
+				</span>
+			</Button>
+		);
+	}
+
 	return (
 		<Button
 			asChild

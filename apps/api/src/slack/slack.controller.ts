@@ -105,6 +105,7 @@ export class SlackController {
 	@Get("install")
 	async install(
 		@Query("slug") slug: string | undefined,
+		@Query("return") returnTo: string | undefined,
 		@Req() req: Request,
 		@Res() res: Response,
 	) {
@@ -139,6 +140,7 @@ export class SlackController {
 			orgId: member.organizationId,
 			userId: session.user.id,
 			slug: slug || "threadline",
+			returnTo: returnTo === "onboarding" ? "onboarding" : "settings",
 			timestamp: Date.now(),
 		});
 
@@ -252,7 +254,9 @@ export class SlackController {
 		);
 
 		return res.redirect(
-			`${appUrl}/${state.slug || "default"}/settings/connections/slack?installed=true`,
+			state.returnTo === "onboarding"
+				? `${appUrl}/onboarding/connect?installed=true`
+				: `${appUrl}/${state.slug || "default"}/settings/connections/slack?installed=true`,
 		);
 	}
 

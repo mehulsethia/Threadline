@@ -4,6 +4,7 @@ import {
 	type MailboxSyncModel as MailboxSync,
 } from "@crm/db";
 import { Injectable, Logger } from "@nestjs/common";
+import { CAPTURE } from "../capture/capture-config";
 import { InjectDatabase } from "../database/database.constants";
 import type { MatchContext } from "../mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
@@ -27,6 +28,8 @@ import {
 
 const MAX_MESSAGES_PER_TICK = 120;
 
+export type GmailSyncOptions = { backfillIfEmpty?: boolean };
+
 export type GmailSyncOutcome = {
 	source: "gmail";
 	userId: string;
@@ -48,7 +51,10 @@ export class GmailSyncService {
 		private readonly threads: ThreadWriterService,
 	) {}
 
-	async sync(row: MailboxSync): Promise<GmailSyncOutcome> {
+	async sync(
+		row: MailboxSync,
+		options: GmailSyncOptions = {},
+	): Promise<GmailSyncOutcome> {
 		const token = await this.tokens.accessTokenFor(row.userId, "gmail");
 
 		if (token.outcome === "not-connected") {
@@ -88,8 +94,17 @@ export class GmailSyncService {
 			};
 		}
 
-		if (!row.cursor) {
-			return this.start(row, profile.data.historyId ?? null);
+		if (
+			!row.cursor ||
+			(options.backfillIfEmpty === true &&
+				!(await this.hasStoredMail(row.userId)))
+		) {
+			return this.start(
+				row,
+				token.accessToken,
+				mailbox,
+				profile.data.historyId ?? null,
+			);
 		}
 
 		return this.incremental(row, token.accessToken, mailbox, row.cursor);
@@ -97,6 +112,8 @@ export class GmailSyncService {
 
 	private async start(
 		row: MailboxSync,
+		accessToken: string,
+		mailbox: string,
 		historyId: string | null,
 	): Promise<GmailSyncOutcome> {
 		if (!historyId) {
@@ -109,17 +126,75 @@ export class GmailSyncService {
 			};
 		}
 
+		const written = await this.backfill(row, accessToken, mailbox);
+
 		await this.state.settle(row.id, {
 			cursor: historyId,
 			status: GoogleSyncStatus.RUNNING,
 		});
 
 		this.logger.log({
-			message: "Gmail sync started — watching for new mail",
+			message:
+				"Gmail sync started — backfilled recent mail, watching for new mail",
 			userId: row.userId,
+			messagesWritten: written,
 		});
 
-		return { source: "gmail", userId: row.userId, status: "synced" };
+		return {
+			source: "gmail",
+			userId: row.userId,
+			status: "synced",
+			messagesWritten: written,
+		};
+	}
+
+	private async backfill(
+		row: MailboxSync,
+		accessToken: string,
+		mailbox: string,
+	): Promise<number> {
+		const before = new Date();
+		const after = new Date(before.getTime() - CAPTURE.email.backfillMs);
+		const limit = CAPTURE.email.backfillMaxMessages;
+		const ids: string[] = [];
+		let pageToken: string | undefined;
+
+		do {
+			const page = await this.gmail.listMessages(accessToken, {
+				after,
+				before,
+				pageToken,
+				maxResults: limit,
+			});
+			if (page.outcome !== "ok") {
+				this.logger.warn({
+					message: "Gmail backfill could not list recent mail",
+					userId: row.userId,
+					reason: page.reason,
+				});
+				break;
+			}
+			for (const message of page.data.messages ?? []) {
+				if (message.id) ids.push(message.id);
+			}
+			pageToken = page.data.nextPageToken;
+		} while (pageToken && ids.length < limit);
+
+		const { written } = await this.ingest(
+			row,
+			accessToken,
+			mailbox,
+			ids.slice(0, limit),
+		);
+		return written;
+	}
+
+	private async hasStoredMail(userId: string): Promise<boolean> {
+		const stored = await this.db.emailMessage.findFirst({
+			where: { syncedByUserId: userId, gmailMessageId: { not: null } },
+			select: { id: true },
+		});
+		return stored !== null;
 	}
 
 	private async incremental(

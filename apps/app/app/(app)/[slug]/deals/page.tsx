@@ -1,3 +1,4 @@
+import { DEMO_ORG_SLUG } from "@crm/db/demo-reset";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { JudgeTourBanner } from "@/components/crm/judge-tour-banner";
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 };
 
 export default function DealsPage({
+	params,
 	searchParams,
 }: PageProps<"/[slug]/deals">) {
 	return (
@@ -40,9 +42,8 @@ export default function DealsPage({
 			</PageShellHeader>
 
 			<PageShellContent className="min-h-0">
-				{/* Reads the workspace from the URL, so it streams in after prerender. */}
 				<Suspense fallback={null}>
-					<JudgeTourBanner />
+					<DemoTour params={params} />
 				</Suspense>
 				<Suspense fallback={<PageShellLoading />}>
 					<Deals searchParams={searchParams} />
@@ -75,4 +76,11 @@ async function Deals({
 			<DealsTable />
 		</HydrateClient>
 	);
+}
+
+async function DemoTour({
+	params,
+}: Pick<PageProps<"/[slug]/deals">, "params">) {
+	const { slug } = await params;
+	return slug === DEMO_ORG_SLUG ? <JudgeTourBanner /> : null;
 }

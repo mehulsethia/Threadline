@@ -4,6 +4,8 @@ const DAY_MS = 24 * HOUR_MS;
 export const CAPTURE = {
 	batchDelayMs: 2 * 60 * 1000,
 	email: {
+		backfillMs: 7 * DAY_MS,
+		backfillMaxMessages: 120,
 		maxAgeMs: 30 * DAY_MS,
 		maxMessages: 60,
 		maxCharactersPerMessage: 6_000,

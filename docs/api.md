@@ -187,7 +187,13 @@ Two rules follow for the serverless build:
   one place that dispatches. One cron, one budget:
   `POST /internal/sync/mailboxes` (`/google` is kept as an alias so an existing
   deployment's cron keeps working).
-- **Gmail is forward-only from a `historyId`, Outlook from a timestamp.** Graph has no
+- **Gmail is forward-only from a `historyId` after a one-time backfill, Outlook from a timestamp.**
+  The first Gmail sync reads the last `CAPTURE.email.backfillMs` (7 days, at most
+  `backfillMaxMessages`) through the same `ingest` path, newest first, then stores the
+  current `historyId`. Check now repeats that first sync only while the mailbox has no
+  stored Gmail message; the cron never backfills, because a backfill that stores nothing
+  would re-fetch the same messages every tick.
+  For Outlook, Graph has no
   mailbox-wide delta, so the Outlook cursor is the last `receivedDateTime` seen,
   re-read with a one-second overlap; `rfcMessageId` is unique, so the overlap costs a
   duplicate fetch and never a duplicate row.

@@ -21,6 +21,7 @@ export type SlackOAuthState = {
 	orgId: string;
 	userId: string;
 	slug?: string;
+	returnTo?: "settings" | "onboarding";
 	timestamp: number;
 };
 
