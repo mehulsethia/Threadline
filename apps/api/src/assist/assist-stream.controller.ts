@@ -13,6 +13,7 @@ import { ApiExcludeController } from "@nestjs/swagger";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { TRPCError } from "@trpc/server";
 import type { Response } from "express";
+import { z } from "zod";
 import { askInput } from "./assist.contracts";
 import { AssistService } from "./assist.service";
 
@@ -20,7 +21,13 @@ type CrmSession = UserSession<typeof auth>;
 
 const MAX_BODY_BYTES = 256_000;
 
+const parsedRequest = z
+	.object({ body: z.record(z.string(), z.json()).optional() })
+	.catch({});
+
 async function readBody(request: IncomingMessage): Promise<string> {
+	const parsed = parsedRequest.parse(request).body;
+	if (parsed && Object.keys(parsed).length > 0) return JSON.stringify(parsed);
 	const chunks: Buffer[] = [];
 	let size = 0;
 	for await (const chunk of request) {
