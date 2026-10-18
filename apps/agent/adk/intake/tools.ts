@@ -408,12 +408,15 @@ export async function upsertDeal(input: {
 	targetDate?: string;
 	companyId?: string;
 	contactId?: string;
+	proposeOnly?: boolean;
 }) {
-	const stageEnum = (
-		Object.values(DealStage).includes(input.stage as DealStage)
-			? input.stage
-			: DealStage.QUALIFIED_TO_BUY
-	) as DealStage;
+	const stageEnum = input.proposeOnly
+		? DealStage.UNQUALIFIED_TO_BUY
+		: ((Object.values(DealStage).includes(input.stage as DealStage)
+				? input.stage
+				: DealStage.QUALIFIED_TO_BUY) as DealStage);
+	const value = input.proposeOnly ? undefined : input.value;
+	const targetDate = input.proposeOnly ? undefined : input.targetDate;
 
 	const finalCompanyId = input.companyId || null;
 
@@ -423,18 +426,22 @@ export async function upsertDeal(input: {
 	const defaultReportingCurrency = await readReportingCurrency(db);
 	const currency = input.currency || defaultReportingCurrency || "USD";
 
+	if (input.dealId && input.proposeOnly) {
+		return { dealId: input.dealId, created: false };
+	}
+
 	if (input.dealId) {
 		const updated = await db.deal.update({
 			where: { id: input.dealId },
 			data: {
 				stage: stageEnum,
 				amount:
-					input.value !== undefined
-						? new Prisma.Decimal(input.value)
+					value !== undefined
+						? new Prisma.Decimal(value)
 						: undefined,
 				currency,
-				expectedCloseDate: input.targetDate
-					? new Date(input.targetDate)
+				expectedCloseDate: targetDate
+					? new Date(targetDate)
 					: undefined,
 			},
 		});
@@ -460,17 +467,27 @@ export async function upsertDeal(input: {
 			include: { deal: true },
 		});
 
+		if (existingDealContact?.deal && input.proposeOnly) {
+			await emitIntakeEvent(
+				input.jobId,
+				"upsert_deal",
+				`Kept existing deal "${existingDealContact.deal.name}" (${existingDealContact.deal.id}) unchanged; form details stay as suggestions`,
+				input.contactId,
+			);
+			return { dealId: existingDealContact.deal.id, created: false };
+		}
+
 		if (existingDealContact?.deal) {
 			const updated = await db.deal.update({
 				where: { id: existingDealContact.deal.id },
 				data: {
 					stage: stageEnum,
 					amount:
-						input.value !== undefined
-							? new Prisma.Decimal(input.value)
+						value !== undefined
+							? new Prisma.Decimal(value)
 							: existingDealContact.deal.amount,
-					expectedCloseDate: input.targetDate
-						? new Date(input.targetDate)
+					expectedCloseDate: targetDate
+						? new Date(targetDate)
 						: existingDealContact.deal.expectedCloseDate,
 				},
 			});
@@ -489,9 +506,9 @@ export async function upsertDeal(input: {
 			name: input.name,
 			stage: stageEnum,
 			amount:
-				input.value !== undefined ? new Prisma.Decimal(input.value) : null,
+				value !== undefined ? new Prisma.Decimal(value) : null,
 			currency,
-			expectedCloseDate: input.targetDate ? new Date(input.targetDate) : null,
+			expectedCloseDate: targetDate ? new Date(targetDate) : null,
 			companyId: finalCompanyId,
 			ownerId,
 		},
@@ -509,7 +526,7 @@ export async function upsertDeal(input: {
 	await emitIntakeEvent(
 		input.jobId,
 		"upsert_deal",
-		`Created deal: "${created.name}" (${created.id}) for ${input.value ?? 0} ${currency} (stage: ${stageEnum})`,
+		`Created deal: "${created.name}" (${created.id}) for ${value ?? 0} ${currency} (stage: ${stageEnum})`,
 		input.contactId,
 	);
 	return { dealId: created.id, created: true };

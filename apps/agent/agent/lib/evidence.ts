@@ -131,6 +131,19 @@ export const WEIGHTS = {
 	},
 } satisfies Record<EvidenceKind, Weighting>;
 
+export const PROPOSE_ONLY_KINDS: readonly EvidenceKind[] = [
+	"agent.inference",
+	"web.grounded",
+	"form.submission",
+];
+
+export function isProposeOnly(evidence: Evidence[]): boolean {
+	return (
+		evidence.length > 0 &&
+		evidence.every((item) => PROPOSE_ONLY_KINDS.includes(item.kind))
+	);
+}
+
 export type Evidence = {
 	kind: EvidenceKind;
 	detail: string;

@@ -6,7 +6,13 @@ import {
 	runInWorkspace,
 } from "@crm/db";
 import { captureConversation } from "@crm/db/capture";
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+	HttpException,
+	HttpStatus,
+	Inject,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import type { z } from "zod";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
@@ -16,6 +22,7 @@ import type {
 	leadFormUpdateInput,
 	publicSubmission,
 } from "./forms.contracts";
+import { FORM_LIMITS } from "./forms-config";
 
 type LeadFormRow = {
 	id: string;
@@ -116,6 +123,20 @@ export class FormsService {
 			});
 			if (!form) throw new NotFoundException("Form not found.");
 			if (input.website) return { ok: true, thankYou: form.thankYou };
+
+			const day = new Date().toISOString().slice(0, 10);
+			const usage = await this.db.telemetryCounter.upsert({
+				where: { name: `form-quota:${day}` },
+				create: { name: `form-quota:${day}`, count: 1 },
+				update: { count: { increment: 1 } },
+				select: { count: true },
+			});
+			if (usage.count > FORM_LIMITS.perWorkspacePerDay) {
+				throw new HttpException(
+					"This form is receiving too many enquiries today. Please email us instead.",
+					HttpStatus.TOO_MANY_REQUESTS,
+				);
+			}
 
 			await this.db.leadForm.update({
 				where: { id: form.id },

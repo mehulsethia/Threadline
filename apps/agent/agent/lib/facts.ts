@@ -1,5 +1,5 @@
 import { db, FactBand, FactStatus, type Prisma } from "@crm/db";
-import { type Evidence, scoreEvidence } from "./evidence";
+import { type Evidence, isProposeOnly, scoreEvidence } from "./evidence";
 import { currentFocus } from "./focus";
 import { isDerivedName, splitName } from "./names";
 
@@ -218,17 +218,8 @@ export async function recordFact(
 		};
 	}
 
-	const isInferenceOnly =
-		input.evidence.length > 0 &&
-		input.evidence.every((item) => item.kind === "agent.inference");
-
-	const isGroundedOnly =
-		input.evidence.length > 0 &&
-		input.evidence.every((item) => item.kind === "web.grounded");
-
 	const applies =
-		!isInferenceOnly &&
-		!isGroundedOnly &&
+		!isProposeOnly(input.evidence) &&
 		(scored.band === FactBand.VERIFIED ||
 			(contact ? fillsBlank({ field, contact, hasAgentFact }) : false));
 

@@ -3,11 +3,12 @@
 <p align="center">
   <strong>Your conversations, turned into closed deals.</strong><br>
   An agentic CRM built on Gemini, Google ADK and Cloud Run for the Google Cloud AI Builder Cup 2026.<br>
+  Forked from <a href="https://github.com/trycompai/crm">Comp AI's open-source CRM</a> (MIT License).
 </p>
 
 <p align="center">
   <a href="#google-cloud-ai"><strong>Google Cloud AI</strong></a> ·
-  <a href="#what-this-includes"><strong>What this includes</strong></a> ·
+  <a href="#what-we-reused-and-what-we-built"><strong>Reused / built</strong></a> ·
   <a href="#the-stack"><strong>Stack</strong></a> ·
   <a href="#quick-start"><strong>Quick start</strong></a> ·
   <a href="#configuration"><strong>Configuration</strong></a> ·
@@ -90,9 +91,10 @@ research agent described [below](#the-research-agent).
   Storage and Cloud Scheduler.
 - The Material Design 3 theme.
 
-## The research agent
+## The research agent (inherited from Comp AI)
 
-The research agent runs beside the ADK agents.
+The original Comp AI research agent still runs beside the ADK agents. It is described
+here as Comp AI wrote it.
 
 [`apps/agent`](./apps/agent) is its own deployment, built on
 [**eve**](https://eve.dev) — Vercel's filesystem-first framework for durable agents.
@@ -167,7 +169,7 @@ A [Turborepo](https://turborepo.dev) monorepo on [Bun](https://bun.com), deploye
 | | |
 | --- | --- |
 | **Models** | [Gemini on Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs) through `@google/genai` — fast, smart and Live models set by environment variable |
-| **Agents** | [Google Agent Development Kit](https://google.github.io/adk-docs/) (`@google/adk`) for intake, revival, Ask your CRM and scoring; the [eve](https://eve.dev) research agent |
+| **Agents** | [Google Agent Development Kit](https://google.github.io/adk-docs/) (`@google/adk`) for intake, revival, Ask your CRM and scoring; the inherited [eve](https://eve.dev) research agent |
 | **Voice** | [Gemini Live API](https://cloud.google.com/vertex-ai/generative-ai/docs/live-api), native audio, proxied by the API so no credential reaches the browser |
 | **Grounding** | Google Search grounding for company research, with cited sources |
 | **Compute** | [Cloud Run](https://cloud.google.com/run) — web app, API and agent worker as three services; [Cloud Scheduler](https://cloud.google.com/scheduler) for recurring work |
@@ -187,7 +189,7 @@ reproduces the view.
 
 | Path | |
 | --- | --- |
-| `apps/agent` | The ADK agents (`adk/`) and the eve research agent (`agent/`) |
+| `apps/agent` | The ADK agents (`adk/`) and the inherited eve research agent (`agent/`) |
 | `apps/app` | Next.js front end · :3000 |
 | `apps/api` | NestJS API — HTTP, auth, tRPC, mailbox sync · :3001 |
 | `packages/db` | Prisma schema, migrations, shared Postgres client |

@@ -16,8 +16,7 @@ import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { z } from "zod";
 import { publicSubmission } from "./forms.contracts";
 import { FormsService } from "./forms.service";
-
-const MAX_BODY_BYTES = 32_000;
+import { FORM_LIMITS } from "./forms-config";
 
 const parsedRequest = z
 	.object({ body: z.record(z.string(), z.json()).optional() })
@@ -31,22 +30,24 @@ async function readBody(request: IncomingMessage): Promise<string> {
 	for await (const chunk of request) {
 		const buffer = Buffer.from(chunk);
 		size += buffer.length;
-		if (size > MAX_BODY_BYTES) throw new BadRequestException("Too large.");
+		if (size > FORM_LIMITS.maxBodyBytes) {
+			throw new BadRequestException("Too large.");
+		}
 		chunks.push(buffer);
 	}
 	return Buffer.concat(chunks).toString("utf8");
 }
 
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 5;
 const hits = new Map<string, number[]>();
 
 function limited(key: string): boolean {
 	const now = Date.now();
-	const recent = (hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
+	const recent = (hits.get(key) ?? []).filter(
+		(at) => now - at < FORM_LIMITS.perIpWindowMs,
+	);
 	recent.push(now);
 	hits.set(key, recent);
-	return recent.length > MAX_PER_WINDOW;
+	return recent.length > FORM_LIMITS.perIpPerWindow;
 }
 
 @Controller("api/forms")

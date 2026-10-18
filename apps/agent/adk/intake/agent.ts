@@ -369,6 +369,7 @@ export async function runDeterministicIntakePipeline(
 		targetDate: facts.deal.timelineResolved || undefined,
 		companyId,
 		contactId,
+		proposeOnly: job.sourceType === "FORM_SUBMISSION",
 	});
 	const dealId = dealResult.dealId;
 
