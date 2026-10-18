@@ -1,5 +1,3 @@
-import { EmptyCellValue } from "@crm/ui/components/empty-cell";
-
 const HEALTH_LABEL = new Map<string, string>(
 	Object.entries({
 		on_track: "On track",
@@ -19,7 +17,16 @@ export function DealScore({
 	health: string | null;
 	reason: string | null;
 }) {
-	if (score === null) return <EmptyCellValue />;
+	if (score === null) {
+		return (
+			<span
+				className="text-muted-foreground text-xs"
+				title="Scored after the next conversation, or use Rescore all deals on the Forecast page."
+			>
+				Not scored
+			</span>
+		);
+	}
 
 	const label = health ? (HEALTH_LABEL.get(health) ?? health) : null;
 
