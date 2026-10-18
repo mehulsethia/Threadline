@@ -250,6 +250,25 @@ describe("recordFact", () => {
 		expect(facts.filter((fact) => fact.status === "PROPOSED")).toHaveLength(0);
 	});
 
+	it("only offers what a public form claims, even into an empty field", async () => {
+		const result = await recordFact({
+			contactId,
+			field: "seniority",
+			value: "C-level",
+			evidence: [seen("form.submission")],
+			method: "adk.intake",
+		});
+
+		expect(result.stored).toBe(true);
+		expect(result.applied).toBe(false);
+
+		const contact = await db.contact.findUnique({
+			where: { id: contactId },
+			select: { seniority: true },
+		});
+		expect(contact?.seniority).toBeNull();
+	});
+
 	it("stores the evidence, so the score can be explained later", async () => {
 		const fact = await db.contactFact.findFirst({
 			where: { contactId, field: "title" },
