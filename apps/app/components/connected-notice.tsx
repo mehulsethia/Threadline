@@ -9,14 +9,11 @@ import {
 	type ConnectedNoticeKey,
 } from "@/lib/connection-sync-copy";
 
-const NOTICES: Record<
-	ConnectedNoticeKey,
-	{ title: string; description: string }
-> = {
+const NOTICES = {
 	google: CONNECTION_SYNC_COPY.google.connected,
 	meet: CONNECTION_SYNC_COPY.meet.connected,
 	slack: CONNECTION_SYNC_COPY.slack.connected,
-};
+} satisfies Record<ConnectedNoticeKey, { title: string; description: string }>;
 
 function noticeFor(params: URLSearchParams): ConnectedNoticeKey | null {
 	if (params.get("installed") === "true") return "slack";
