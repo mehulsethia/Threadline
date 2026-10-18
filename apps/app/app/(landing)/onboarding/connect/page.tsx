@@ -1,6 +1,5 @@
 import Microphone from "@carbon/icons-react/es/Microphone";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
-import MicrosoftLogo from "@crm/ui/components/brand-logos/microsoft";
 import SlackLogo from "@crm/ui/components/brand-logos/slack";
 import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
@@ -37,12 +36,6 @@ export default async function OnboardingConnectPage() {
 			name: "Fireflies or Fathom",
 			description: "Transcripts of your recorded sales calls",
 			href: `${base}/recorders`,
-		},
-		{
-			logo: MicrosoftLogo,
-			name: "Microsoft 365",
-			description: "Outlook email",
-			href: `${base}/microsoft`,
 		},
 	];
 

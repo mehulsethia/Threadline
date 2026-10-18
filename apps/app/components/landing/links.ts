@@ -9,7 +9,6 @@ export const SECTION_LINKS = [
 
 export const PROJECT_LINKS = [
 	{ label: "GitHub", href: REPO_URL },
-	{ label: "License", href: `${REPO_URL}/blob/main/LICENSE` },
 	{ label: "Privacy", href: "/privacy" },
 	{ label: "Terms", href: "/terms" },
 ] as const;

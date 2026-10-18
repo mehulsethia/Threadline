@@ -62,8 +62,7 @@ export function AddConnectionDialog({
 						<CatalogRow
 							logo={MicrosoftLogo}
 							name="Microsoft 365"
-							description="Bring in Outlook email and the people on it"
-							href={`/${slug}/settings/connections/microsoft`}
+							description="Coming soon"
 						/>
 					) : null}
 					<CatalogRow

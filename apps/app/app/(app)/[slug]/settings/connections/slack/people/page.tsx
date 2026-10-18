@@ -7,6 +7,8 @@ import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { ConnectionPage } from "../../connection-page";
 import { SlackPeopleMatches } from "./slack-people-matches";
 
+const SLACK_BACK = { to: "/settings/connections/slack", label: "Slack" };
+
 type SlackPeoplePageProps = {
 	params: Promise<{ slug: string }>;
 };
@@ -15,7 +17,7 @@ export default function SlackPeoplePage(props: SlackPeoplePageProps) {
 	return (
 		<Suspense
 			fallback={
-				<ConnectionPage centered>
+				<ConnectionPage centered back={SLACK_BACK}>
 					<Spinner size="lg" />
 				</ConnectionPage>
 			}
@@ -37,7 +39,7 @@ async function SlackPeoplePageContent({ params }: SlackPeoplePageProps) {
 	);
 
 	return (
-		<ConnectionPage centered>
+		<ConnectionPage centered back={SLACK_BACK}>
 			<header className="flex flex-col gap-3 px-(--spacing-block-inline) text-center">
 				<SlackLogo className="mx-auto size-7" />
 				<h1 className="font-medium text-2xl tracking-tight">

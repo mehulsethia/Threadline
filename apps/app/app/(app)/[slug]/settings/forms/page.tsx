@@ -20,7 +20,7 @@ export default function FormsSettingsPage() {
 async function FormsSettingsContent() {
 	await requireSession();
 	return (
-		<ConnectionPage className="max-w-(--container-narrow)">
+		<ConnectionPage back={null} className="max-w-(--container-narrow)">
 			<header className="flex flex-col gap-2 px-(--spacing-block-inline)">
 				<h1 className="font-medium text-2xl tracking-tight">Enquiry forms</h1>
 				<p className="text-muted-foreground text-sm leading-relaxed">

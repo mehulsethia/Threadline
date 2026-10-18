@@ -1,6 +1,4 @@
-import { Button } from "@crm/ui/components/button";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { requireSession } from "@/lib/session";
 import { ConnectionPage, ConnectionPageLoading } from "../connection-page";
@@ -22,7 +20,7 @@ async function RecordersConnectionPageContent({
 	params,
 }: PageProps<"/[slug]/settings/connections/recorders">) {
 	await requireSession();
-	const { slug } = await params;
+	await params;
 
 	return (
 		<ConnectionPage className="max-w-(--container-narrow)">
@@ -37,13 +35,6 @@ async function RecordersConnectionPageContent({
 				</p>
 			</header>
 			<RecorderKeys />
-			<div className="px-(--spacing-block-inline)">
-				<Button asChild variant="outline">
-					<Link href={`/${slug}/settings/connections`}>
-						Back to connections
-					</Link>
-				</Button>
-			</div>
 		</ConnectionPage>
 	);
 }

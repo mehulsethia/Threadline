@@ -6,6 +6,7 @@ import { Label } from "@crm/ui/components/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { CONNECTION_SYNC_COPY } from "@/lib/connection-sync-copy";
 import { useTRPC } from "@/lib/trpc/client";
 
 type Provider = "fireflies" | "fathom";
@@ -21,6 +22,8 @@ const COPY = {
 	},
 } as const satisfies Record<Provider, { name: string; where: string }>;
 
+const RECORDER_SYNC_TOAST = "recorder-sync";
+
 export function RecorderKeys() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -31,8 +34,20 @@ export function RecorderKeys() {
 		});
 	const sync = useMutation(
 		trpc.recorders.syncNow.mutationOptions({
-			onSuccess: () => toast.success("Checking for new transcripts."),
-			onError: () => toast.error("Could not start a sync."),
+			onMutate: () => {
+				toast.loading(CONNECTION_SYNC_COPY.recorders.checking, {
+					id: RECORDER_SYNC_TOAST,
+				});
+			},
+			onSuccess: () =>
+				toast.success(CONNECTION_SYNC_COPY.recorders.checked.title, {
+					id: RECORDER_SYNC_TOAST,
+					description: CONNECTION_SYNC_COPY.recorders.checked.description,
+				}),
+			onError: () =>
+				toast.error("The sync did not start. Try again.", {
+					id: RECORDER_SYNC_TOAST,
+				}),
 		}),
 	);
 
@@ -86,7 +101,13 @@ function RecorderCard({
 		trpc.recorders.setKey.mutationOptions({
 			onSuccess: () => {
 				setApiKey("");
-				toast.success(`${COPY[provider].name} connected.`);
+				const notice = CONNECTION_SYNC_COPY.recorders.connected(
+					COPY[provider].name,
+				);
+				toast.success(notice.title, {
+					description: notice.description,
+					duration: 10_000,
+				});
 				onChange();
 			},
 			onError: () => toast.error("That key was not saved."),

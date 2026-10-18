@@ -42,6 +42,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { LocalRelativeTime } from "@/components/local-date-time";
+import {
+	CONNECTED_PARAM,
+	CONNECTION_SYNC_COPY,
+} from "@/lib/connection-sync-copy";
 import { isSyncing, SYNC_POLL_MS } from "@/lib/sync-status";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -123,6 +127,8 @@ function GoogleUnavailable() {
 	);
 }
 
+const GOOGLE_SYNC_TOAST = "google-sync";
+
 const CONNECT_ERRORS = new Map([
 	[
 		"email_doesn't_match",
@@ -152,7 +158,7 @@ function ConnectGoogle({
 		const { error } = await authClient.linkSocial({
 			provider: "google",
 			scopes: [...SYNC_SCOPES],
-			callbackURL: `${origin}/${slug}/settings/connections/google`,
+			callbackURL: `${origin}/${slug}/settings/connections/google?${CONNECTED_PARAM}=google`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
 		});
 
@@ -258,7 +264,16 @@ export function GoogleConnection({
 
 	const syncNow = useMutation(
 		trpc.google.syncNow.mutationOptions({
+			onMutate: () => {
+				toast.loading(CONNECTION_SYNC_COPY.google.checking, {
+					id: GOOGLE_SYNC_TOAST,
+				});
+			},
 			onSuccess: async () => {
+				toast.success(CONNECTION_SYNC_COPY.google.checked.title, {
+					id: GOOGLE_SYNC_TOAST,
+					description: CONNECTION_SYNC_COPY.google.checked.description,
+				});
 				const before = failureSignature(status.data?.sources ?? []);
 				await cache.google();
 
@@ -269,7 +284,7 @@ export function GoogleConnection({
 
 				if (after && after === before) setInsistence((count) => count + 1);
 			},
-			onError: (error) => toast.error(error.message),
+			onError: (error) => toast.error(error.message, { id: GOOGLE_SYNC_TOAST }),
 		}),
 	);
 
@@ -495,7 +510,7 @@ function MeetOptIn({
 		const { error } = await authClient.linkSocial({
 			provider: "google",
 			scopes: [...MEET_OPT_IN_SCOPES],
-			callbackURL: `${origin}/${slug}/settings/connections/google`,
+			callbackURL: `${origin}/${slug}/settings/connections/google?${CONNECTED_PARAM}=meet`,
 			errorCallbackURL: `${origin}/${slug}/settings/connections/google?provider=google`,
 		});
 		if (error) {

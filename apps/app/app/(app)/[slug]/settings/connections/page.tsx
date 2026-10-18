@@ -115,12 +115,6 @@ async function ConnectionsSettingsPageContent({
 			description: "Fireflies and Fathom meeting transcripts",
 			href: `/${slug}/settings/connections/recorders`,
 		},
-		{
-			logo: MicrosoftLogo,
-			name: "Microsoft 365",
-			description: "Outlook email and the people on it",
-			href: `/${slug}/settings/connections/microsoft`,
-		},
 	].filter((row) => !connectedNames.has(row.name));
 
 	return (
@@ -163,6 +157,7 @@ async function ConnectionsSettingsPageContent({
 							</div>
 						</section>
 					) : null}
+					{microsoft.linked ? null : <ComingSoon />}
 				</div>
 			) : (
 				<div className="mx-auto flex w-full max-w-(--container-narrow) flex-1 flex-col justify-center gap-(--spacing-page-gap) text-center">
@@ -190,18 +185,13 @@ async function ConnectionsSettingsPageContent({
 							href={`/${slug}/settings/connections/slack`}
 						/>
 						<StarterRow
-							logo={MicrosoftLogo}
-							name="Microsoft 365"
-							description="File Outlook email against the right company"
-							href={`/${slug}/settings/connections/microsoft`}
-						/>
-						<StarterRow
 							logo={Microphone}
 							name="Meeting recorders"
 							description="Fireflies and Fathom meeting transcripts"
 							href={`/${slug}/settings/connections/recorders`}
 						/>
 					</div>
+					{microsoft.linked ? null : <ComingSoon />}
 					<p className="px-(--spacing-block-inline) text-muted-foreground text-sm">
 						Looking for something else?{" "}
 						<Link
@@ -274,6 +264,28 @@ function CapabilityRow({ label, value }: { label: string; value: string }) {
 			<span className="w-22 shrink-0 text-muted-foreground">{label}</span>
 			<span>{value}</span>
 		</div>
+	);
+}
+
+function ComingSoon() {
+	return (
+		<section className="flex flex-col gap-2 text-left">
+			<h2 className="px-(--spacing-block-inline) font-medium text-base">
+				Coming soon
+			</h2>
+			<div className="flex items-center gap-3 rounded-lg border bg-card px-(--spacing-block-inline) py-4">
+				<MicrosoftLogo className="size-5 shrink-0" />
+				<div className="min-w-0 flex-1">
+					<p className="font-medium text-sm">Microsoft 365</p>
+					<p className="text-muted-foreground text-xs">
+						Outlook email and Teams meetings
+					</p>
+				</div>
+				<span className="rounded-full bg-muted px-3 py-1 text-muted-foreground text-xs">
+					Coming soon
+				</span>
+			</div>
+		</section>
 	);
 }
 

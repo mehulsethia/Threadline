@@ -115,13 +115,6 @@ async function SignIn({
 					</div>
 				</>
 			)}
-
-			{hasOtherMethods ? null : (
-				<p className="text-muted-foreground text-sm">
-					Team sign-in is off on this install. An admin turns it on by setting
-					GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID.
-				</p>
-			)}
 		</>
 	);
 }
