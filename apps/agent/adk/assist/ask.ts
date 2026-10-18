@@ -21,9 +21,9 @@ export type AskResult = { answer: string; tools: string[] };
 export type AskEvent = AskStreamEvent;
 
 const INSTRUCTION = `You are Threadline's CRM analyst. Answer the user's question about their sales pipeline using only the tools. Never guess numbers, names or dates.
-- Call tools until you have what you need; prefer one precise call over many.
+- Call tools until you have what you need; prefer one precise call over many. Every tool filter is optional: leave out what the question does not mention. Never ask the user for a filter.
 - When you mention a record, link it exactly like [Name](deal:ID), [Name](contact:ID) or [Name](company:ID) using the id from the tool result.
-- Amounts are in the reporting currency the tools return.
+- Amounts are in the currency the tools return. Format them for people: currency code or symbol and thousands separators, like €72,000 or ¥11,492,537.
 - Be concise: lead with the direct answer, then a short bulleted list. Use a small markdown table for comparisons.
 - If the data does not answer the question, say so and suggest what would.
 - Reply in the user's language.`;
@@ -68,18 +68,31 @@ function tools(called: string[], onTool?: (name: string) => void) {
 			description:
 				"List deals with filters. Sort by score, value, closing date or recent activity.",
 			parameters: z.object({
-				stage: stageEnum.nullable().describe("Only this stage, or null."),
+				stage: stageEnum
+					.optional()
+					.describe("Only this stage. Leave out for all open stages."),
 				health: z
 					.enum(["on_track", "at_risk", "stalled"])
-					.nullable()
-					.describe("Only this health, or null."),
-				minScore: z.number().nullable().describe("Minimum lead score 0-100."),
+					.optional()
+					.describe("Only this health. Leave out for any health."),
+				minScore: z
+					.number()
+					.optional()
+					.describe("Minimum lead score 0-100. Leave out for any score."),
 				closingBefore: z
 					.string()
-					.nullable()
-					.describe("ISO date: expected close before this date."),
-				includeClosed: z.boolean().describe("Include won and lost deals."),
-				sortBy: z.enum(["score", "value", "closing", "recent"]),
+					.optional()
+					.describe(
+						"ISO date: expected close before this date. Leave out for any date.",
+					),
+				includeClosed: z
+					.boolean()
+					.optional()
+					.describe("Include won and lost deals. Defaults to false."),
+				sortBy: z
+					.enum(["score", "value", "closing", "recent"])
+					.optional()
+					.describe("Defaults to recent activity."),
 			}),
 			execute: async (args) => {
 				track("list_deals");
@@ -93,7 +106,7 @@ function tools(called: string[], onTool?: (name: string) => void) {
 								: { notIn: [DealStage.CLOSED_WON, DealStage.CLOSED_LOST] }),
 						health: args.health ?? undefined,
 						leadScore:
-							args.minScore === null ? undefined : { gte: args.minScore },
+							args.minScore === undefined ? undefined : { gte: args.minScore },
 						expectedCloseDate: args.closingBefore
 							? { lte: new Date(args.closingBefore) }
 							: undefined,
@@ -213,8 +226,8 @@ function tools(called: string[], onTool?: (name: string) => void) {
 			description:
 				"Promises made by us or by leads, with due dates and status (open, overdue, kept).",
 			parameters: z.object({
-				status: z.enum(["open", "overdue", "kept"]).nullable(),
-				owner: z.enum(["us", "lead"]).nullable(),
+				status: z.enum(["open", "overdue", "kept"]).optional(),
+				owner: z.enum(["us", "lead"]).optional(),
 			}),
 			execute: async ({ status, owner }) => {
 				track("list_promises");
@@ -240,7 +253,7 @@ function tools(called: string[], onTool?: (name: string) => void) {
 		new FunctionTool({
 			name: "list_tasks",
 			description: "Open follow-up tasks, optionally only overdue ones.",
-			parameters: z.object({ overdueOnly: z.boolean() }),
+			parameters: z.object({ overdueOnly: z.boolean().optional() }),
 			execute: async ({ overdueOnly }) => {
 				track("list_tasks");
 				const tasks = await db.activity.findMany({
