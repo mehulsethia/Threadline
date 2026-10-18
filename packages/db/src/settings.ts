@@ -9,7 +9,7 @@ import {
 export const SETTINGS_ID = "app";
 
 export const DEFAULT_AGENT_MODEL = {
-	id: process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash",
+	id: process.env.GEMINI_FAST_MODEL || "gemini-4-argon",
 	contextWindowTokens: 1_000_000,
 } as const;
 

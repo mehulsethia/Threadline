@@ -13,11 +13,11 @@ void syncVersion();
 
 const vertex = createVertex({
 	project: process.env.GOOGLE_CLOUD_PROJECT,
-	location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+	location: process.env.GEMINI_FAST_LOCATION || "global",
 });
 
 export default defineAgent({
-	model: vertex(process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash"),
+	model: vertex(process.env.GEMINI_FAST_MODEL || "gemini-4-argon"),
 	modelContextWindowTokens: 1_000_000,
 	limits: {
 		maxInputTokensPerSession: 500_000,

@@ -32,7 +32,7 @@ export function GoogleCloud() {
 		<Section id="google-cloud">
 			<SectionHeading
 				title="Built on Google Cloud"
-				lede="Every agent, model call and record runs on Google Cloud. Models are set per task: a fast model for extraction, a reasoning model for drafts, and a live model for voice."
+				lede="Every agent, model call and record runs on Google Cloud. Gemini Argon on Vertex AI does the extraction, reasoning and drafting, and the Gemini Live API runs voice calls."
 			/>
 			<ul className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
 				{STACK.map((item) => (

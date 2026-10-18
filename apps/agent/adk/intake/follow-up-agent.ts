@@ -48,10 +48,10 @@ let model: Gemini | null = null;
 
 function gemini(): Gemini {
 	model ??= new Gemini({
-		model: process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash",
+		model: process.env.GEMINI_FAST_MODEL || "gemini-4-argon",
 		vertexai: true,
 		project: process.env.GOOGLE_CLOUD_PROJECT,
-		location: process.env.GEMINI_FAST_LOCATION || "us-central1",
+		location: process.env.GEMINI_FAST_LOCATION || "global",
 	});
 	return model;
 }

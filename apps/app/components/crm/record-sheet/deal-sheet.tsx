@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
 import { DealAssist } from "@/components/crm/deal-assist";
+import { DealScore } from "@/components/crm/deal-score";
 import { type GenericFact, RecordFactsSection } from "@/components/crm/facts";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
 import {
@@ -247,6 +248,13 @@ export function DealSheet({ dealId }: { dealId: string }) {
 									</span>
 								)}
 							</DetailSheetStat>
+							<DetailSheetStat label="Score">
+								<DealScore
+									score={deal.leadScore}
+									health={deal.health}
+									reason={deal.healthReason}
+								/>
+							</DetailSheetStat>
 							<DetailSheetStat label="Expected close">
 								{deal.expectedCloseDate ? (
 									<LocalDay date={deal.expectedCloseDate} />
@@ -338,7 +346,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 						value={
 							deal.amountCents === null ? null : String(deal.amountCents / 100)
 						}
-						placeholder="24000"
+						placeholder="Add an amount"
 						saving={isSaving("amountCents")}
 						onSave={(next) => {
 							if (next === "") return save({ amountCents: null });
@@ -396,11 +404,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 				<InlineTextArea
 					label="Description"
 					value={deal.description}
-					placeholder={
-						deal.company
-							? `What ${deal.company.name} is buying, why now, and what stands in the way.`
-							: "What they are buying, why now, and what stands in the way."
-					}
+					placeholder="Add a description: what they are buying, why now, and what stands in the way."
 					saving={isSaving("description")}
 					onSave={(description) => save({ description })}
 				/>

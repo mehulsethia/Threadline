@@ -51,11 +51,12 @@ a suggestion a rep approves. Nothing leaves the building without a human approvi
 | **Voice Qualifier** | A real-time voice agent runs a BANT qualifying call in the lead's language, records each answer as a cited fact, and proposes a stage and a 0–100 score for the rep to accept. | Gemini Live API (native audio), streamed through the API over WebSocket |
 | **Ask your CRM** | Questions over deals, conversations, promises, tasks and the forecast; answers link to records. | Google ADK agent with CRM tools |
 | **Company research** | Grounded company profile with cited sources. Below 0.70 match confidence nothing is stored. | Gemini with Google Search grounding |
-| **Scoring and forecast** | Lead score 0–100 with reasons, deal health, win probability, weighted forecast in the reporting currency, promise tracker. | Gemini fast model |
+| **Scoring and forecast** | Lead score 0–100 with reasons, deal health, win probability, weighted forecast in the reporting currency, promise tracker. | Gemini Argon |
 
-Models are set by environment variable: `GEMINI_FAST_MODEL` for extraction and
-classification, `GEMINI_SMART_MODEL` for reasoning and drafting, `GEMINI_LIVE_MODEL`
-for voice. The ADK agents live in [`apps/agent/adk`](./apps/agent/adk).
+Every text and multimodal task runs on **Gemini Argon** (`gemini-4-argon`, Vertex AI,
+`global`), and voice runs on the Gemini Live API. Models are set by environment
+variable: `GEMINI_FAST_MODEL` and `GEMINI_SMART_MODEL` both default to Argon,
+`GEMINI_LIVE_MODEL` is the native-audio Live model. The ADK agents live in [`apps/agent/adk`](./apps/agent/adk).
 
 **Runs on Google Cloud:** three Cloud Run services (web app, API, agent worker; the
 agent accepts only IAM ID tokens), Cloud SQL for PostgreSQL with one schema per

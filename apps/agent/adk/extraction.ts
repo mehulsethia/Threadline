@@ -132,8 +132,8 @@ export type GeminiClient = { ai: GoogleGenAI; model: string };
 export function getFastClient(): GeminiClient {
 	const project =
 		process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
-	const model = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";
-	const location = process.env.GEMINI_FAST_LOCATION || "us-central1";
+	const model = process.env.GEMINI_FAST_MODEL || "gemini-4-argon";
+	const location = process.env.GEMINI_FAST_LOCATION || "global";
 
 	const ai = new GoogleGenAI({
 		vertexai: true,

@@ -4,13 +4,13 @@ import { z } from "zod";
 
 const vertex = createVertex({
 	project: process.env.GOOGLE_CLOUD_PROJECT,
-	location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+	location: process.env.GEMINI_FAST_LOCATION || "global",
 });
 
 export default defineAgent({
 	description:
 		"Turn one private CRM builder-chat request into a validated, reviewable team-agent version without deploying it.",
-	model: vertex(process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash"),
+	model: vertex(process.env.GEMINI_FAST_MODEL || "gemini-4-argon"),
 	modelContextWindowTokens: 1_000_000,
 	outputSchema: z.object({
 		status: z.literal("draft_ready"),

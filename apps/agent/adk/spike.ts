@@ -22,10 +22,10 @@ const searchTool = new FunctionTool({
 });
 
 const gemini = new Gemini({
-	model: process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash",
+	model: process.env.GEMINI_FAST_MODEL || "gemini-4-argon",
 	vertexai: true,
 	project: process.env.GOOGLE_CLOUD_PROJECT,
-	location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+	location: process.env.GEMINI_FAST_LOCATION || "global",
 });
 
 const agent = new LlmAgent({

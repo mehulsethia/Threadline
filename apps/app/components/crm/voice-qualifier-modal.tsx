@@ -499,87 +499,76 @@ export function VoiceQualifierModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-3xl overflow-hidden p-0 border border-border shadow-2xl">
-				<div className="flex flex-col h-[750px] bg-background">
-					<DialogHeader className="p-6 border-b border-border bg-muted/20">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-3">
-								<div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-									<Icon icon={PhoneVoice} size="lg" />
-								</div>
-								<div>
-									<DialogTitle className="text-lg font-semibold tracking-tight">
-										Voice Lead Qualifier — Gemini Live
-									</DialogTitle>
-									<DialogDescription className="text-xs text-muted-foreground">
-										Real-time bilingual voice agent for{" "}
-										<span className="font-medium text-foreground">
-											{dealName}
-										</span>
-									</DialogDescription>
-								</div>
+			<DialogContent className="gap-0 overflow-hidden p-0 text-sm sm:max-w-[min(64rem,calc(100vw-2rem))]">
+				<div className="flex h-[min(720px,calc(100svh-2rem))] flex-col bg-background">
+					<DialogHeader className="flex flex-row items-start justify-between gap-6 border-b px-8 py-6 text-left">
+						<div className="flex min-w-0 items-start gap-4">
+							<div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-foreground">
+								<Icon icon={PhoneVoice} size="lg" />
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex min-w-0 flex-col gap-1">
+								<DialogTitle className="font-heading font-normal text-2xl tracking-[-0.02em]">
+									Qualifying call
+								</DialogTitle>
+								<DialogDescription className="text-muted-foreground text-sm">
+									Gemini Live talks with the lead about{" "}
+									<span className="text-foreground">{dealName}</span>, in their
+									language.
+								</DialogDescription>
+							</div>
+						</div>
+						<div className="flex shrink-0 items-center gap-2 pr-8">
+							<Badge variant="outline" className="rounded-full px-3 uppercase">
+								{contextQuery.data?.language || "EN"}
+							</Badge>
+							{status === "in_call" && (
 								<Badge
-									variant="outline"
-									className="text-xs font-mono uppercase"
+									variant="success"
+									className="flex items-center gap-1.5 rounded-full px-3 tabular-nums"
 								>
-									{contextQuery.data?.language || "EN"}
+									<span className="size-2 rounded-full bg-current motion-safe:animate-pulse" />
+									Live {formatTimer(seconds)}
 								</Badge>
-								{status === "in_call" && (
-									<Badge
-										variant="success"
-										className="animate-pulse flex items-center gap-1.5 font-mono text-xs"
-									>
-										<span className="h-2 w-2 rounded-full bg-white" />
-										LIVE {formatTimer(seconds)}
-									</Badge>
-								)}
-							</div>
+							)}
 						</div>
 					</DialogHeader>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-border">
-						<div className="md:col-span-2 flex flex-col h-full bg-background/50">
-							<div className="flex-1 overflow-y-auto p-4 space-y-3">
+					<div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_340px]">
+						<section className="flex min-h-0 flex-col">
+							<div className="flex-1 space-y-5 overflow-y-auto px-8 py-8">
 								{transcripts.length === 0 ? (
-									<div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
-										<Icon
-											icon={PhoneVoice}
-											size="lg"
-											className="mb-2 opacity-40 text-primary"
-										/>
-										<p className="text-sm font-medium">
-											Ready for real-time conversation.
-										</p>
-										<p className="text-xs max-w-sm mt-1 text-muted-foreground/80">
-											The voice qualifier will greet the prospect, respect known
-											facts, and ask concise questions in their language to
-											uncover missing BANT details.
-										</p>
+									<div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+										<div className="flex size-16 items-center justify-center rounded-full bg-muted">
+											<Icon icon={PhoneVoice} size="lg" />
+										</div>
+										<div className="flex max-w-[44ch] flex-col gap-2">
+											<p className="font-medium text-base">
+												Ready when you are
+											</p>
+											<p className="text-muted-foreground text-sm leading-relaxed">
+												The agent greets the lead, skips what Threadline already
+												knows, and asks short questions to fill in budget,
+												authority, need and timeline.
+											</p>
+										</div>
 									</div>
 								) : (
 									transcripts.map((t) => (
 										<div
 											key={t.id}
-											className={`flex flex-col ${
+											className={`flex flex-col gap-1.5 ${
 												t.role === "assistant" ? "items-start" : "items-end"
 											}`}
 										>
-											<div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1 px-1">
-												<span className="font-semibold">
-													{t.role === "assistant"
-														? "Threadline Voice Agent"
-														: "Lead / Prospect"}
-												</span>
-												<span>•</span>
-												<span>{t.timestamp}</span>
-											</div>
+											<span className="px-1 text-muted-foreground text-xs">
+												{t.role === "assistant" ? "Threadline" : "Lead"},{" "}
+												{t.timestamp}
+											</span>
 											<div
-												className={`rounded-2xl px-4 py-2.5 max-w-[85%] text-xs leading-relaxed shadow-sm ${
+												className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
 													t.role === "assistant"
-														? "bg-muted/80 text-foreground border border-border"
-														: "bg-primary text-primary-foreground font-medium"
+														? "bg-muted text-foreground"
+														: "bg-primary text-primary-foreground"
 												}`}
 											>
 												{t.text}
@@ -590,165 +579,153 @@ export function VoiceQualifierModal({
 								<div ref={transcriptEndRef} />
 							</div>
 
-							<div className="p-4 border-t border-border bg-card/40 flex items-center justify-between gap-3">
-								{status === "connecting" ? (
-									<div className="flex items-center gap-2 w-full">
+							{fallbackMode && (
+								<div className="flex flex-wrap items-center justify-between gap-4 border-t border-dashed bg-muted/40 px-8 py-4">
+									<p className="max-w-[48ch] text-muted-foreground text-sm">
+										No live connection? Record a voice note and Threadline
+										transcribes and qualifies it.
+									</p>
+									{!recordingFallback ? (
 										<Button
-											disabled
-											aria-busy
-											className="w-full gap-2 font-medium"
-											variant="default"
+											variant="outline"
+											onClick={startFallbackRecording}
+											className="gap-2"
 										>
-											<Icon icon={Renew} className="animate-spin" />
-											Connecting…
+											<Icon icon={Microphone} />
+											Record voice note
+										</Button>
+									) : (
+										<Button
+											variant="destructive"
+											onClick={stopFallbackRecording}
+											className="gap-2"
+										>
+											<Icon icon={Renew} />
+											Stop and qualify
+										</Button>
+									)}
+								</div>
+							)}
+
+							<div className="flex flex-wrap items-center justify-between gap-3 border-t px-8 py-5">
+								{status === "connecting" ? (
+									<>
+										<Button disabled aria-busy size="lg" className="gap-2 px-6">
+											<Icon icon={Renew} className="motion-safe:animate-spin" />
+											Connecting
 										</Button>
 										<Button
 											variant="outline"
+											size="lg"
 											onClick={() => {
 												releaseCall();
 												setStatus("idle");
 											}}
-											className="text-xs whitespace-nowrap"
 										>
 											Cancel
 										</Button>
-									</div>
+									</>
 								) : status === "idle" ||
 									status === "ended" ||
 									status === "error" ? (
-									<div className="flex flex-col gap-2 w-full">
-										{status === "error" && callError && (
-											<p role="alert" className="text-xs text-destructive">
-												{callError}
-											</p>
-										)}
-										<div className="flex items-center gap-2 w-full">
+									<>
+										<div className="flex flex-col gap-2">
+											{status === "error" && callError && (
+												<p role="alert" className="text-destructive text-sm">
+													{callError}
+												</p>
+											)}
 											<Button
 												onClick={startCall}
-												className="w-full gap-2 font-medium"
-												variant="default"
+												size="lg"
+												className="gap-2 px-6"
 											>
 												<Icon icon={status === "error" ? Renew : PhoneVoice} />
 												{status === "error"
-													? "Retry call"
+													? "Try again"
 													: status === "ended"
-														? "Start New Call"
-														: "Start Live Qualification Call"}
-											</Button>
-											<Button
-												variant="outline"
-												onClick={() => setFallbackMode(!fallbackMode)}
-												className="text-xs whitespace-nowrap"
-											>
-												{fallbackMode ? "Live Mode" : "Fallback Audio"}
+														? "Start a new call"
+														: "Start call"}
 											</Button>
 										</div>
-									</div>
+										<Button
+											variant="ghost"
+											size="lg"
+											onClick={() => setFallbackMode(!fallbackMode)}
+										>
+											{fallbackMode
+												? "Use a live call"
+												: "Record a voice note instead"}
+										</Button>
+									</>
 								) : (
-									<div className="flex items-center justify-between w-full">
-										<div className="flex items-center gap-2">
+									<>
+										<div className="flex items-center gap-3">
 											<Button
 												variant={muted ? "destructive" : "outline"}
-												size="sm"
+												size="lg"
 												onClick={() => setMuted(!muted)}
-												className="gap-1.5 text-xs"
+												className="gap-2"
 											>
 												<Icon icon={muted ? MicrophoneOff : Microphone} />
 												{muted ? "Unmute" : "Mute"}
 											</Button>
 											{activeSpeaker && (
-												<span className="text-xs text-muted-foreground font-medium animate-pulse flex items-center gap-1.5">
-													<span className="h-2 w-2 rounded-full bg-primary" />
+												<span className="flex items-center gap-2 text-muted-foreground text-sm">
+													<span className="size-2 rounded-full bg-thread motion-safe:animate-pulse" />
 													{activeSpeaker === "assistant"
-														? "Agent speaking..."
-														: "Listening..."}
+														? "Threadline is speaking"
+														: "Listening"}
 												</span>
 											)}
 										</div>
 										<Button
 											variant="destructive"
-											size="sm"
+											size="lg"
 											onClick={endCall}
-											className="gap-1.5 text-xs font-semibold"
+											className="gap-2"
 										>
 											<Icon icon={PhoneOff} />
-											End Call
+											End call
 										</Button>
+									</>
+								)}
+							</div>
+						</section>
+
+						<aside className="flex min-h-0 flex-col gap-8 overflow-y-auto border-t bg-muted/40 px-6 py-6 md:border-t-0 md:border-l">
+							<div className="flex flex-col gap-3">
+								<div className="flex items-baseline justify-between">
+									<h3 className="font-medium text-sm">Qualification</h3>
+									<span className="font-heading text-3xl tabular-nums">
+										{proposedScore}
+										<span className="text-base text-muted-foreground">
+											/100
+										</span>
+									</span>
+								</div>
+								<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+									<div
+										className="h-2 rounded-full bg-primary transition-[width] duration-500"
+										style={{ width: `${proposedScore}%` }}
+									/>
+								</div>
+								{proposedStage && (
+									<div className="flex flex-col gap-1 rounded-lg bg-accent px-4 py-3">
+										<span className="text-muted-foreground text-xs">
+											Proposed stage
+										</span>
+										<span className="font-medium">{proposedStage}</span>
+										<span className="text-muted-foreground text-xs">
+											Waiting for your approval on the deal.
+										</span>
 									</div>
 								)}
 							</div>
 
-							{fallbackMode && (
-								<div className="p-4 border-t border-dashed border-border bg-muted/30">
-									<p className="text-xs text-muted-foreground mb-2">
-										Fallback: If microphone WebSocket is unavailable, record an
-										audio snippet to transcribe and qualify.
-									</p>
-									<div className="flex items-center gap-2">
-										{!recordingFallback ? (
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={startFallbackRecording}
-												className="text-xs gap-1.5"
-											>
-												<Icon icon={Microphone} />
-												Record Audio Note
-											</Button>
-										) : (
-											<Button
-												size="sm"
-												variant="destructive"
-												onClick={stopFallbackRecording}
-												className="text-xs gap-1.5 animate-pulse"
-											>
-												<Icon icon={Renew} />
-												Stop & Qualify
-											</Button>
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-
-						<div className="p-4 flex flex-col h-full bg-muted/10 overflow-y-auto">
-							<div className="mb-4">
-								<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-									Qualification Progress
-								</h4>
-								<div className="flex items-baseline justify-between mb-1">
-									<span className="text-xs font-medium">BANT Score</span>
-									<span className="text-sm font-bold font-mono text-primary">
-										{proposedScore}%
-									</span>
-								</div>
-								<div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-									<div
-										className="bg-primary h-2 transition-all duration-500 rounded-full"
-										style={{ width: `${proposedScore}%` }}
-									/>
-								</div>
-							</div>
-
-							{proposedStage && (
-								<div className="mb-4 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
-									<div className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-										Proposed Stage
-									</div>
-									<div className="text-xs font-bold text-foreground mt-0.5">
-										{proposedStage}
-									</div>
-									<div className="text-[10px] text-muted-foreground mt-0.5">
-										(PROPOSED in ledger, review on Deal sheet)
-									</div>
-								</div>
-							)}
-
-							<div className="mb-4">
-								<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-									BANT Criteria
-								</h4>
-								<div className="space-y-1.5">
+							<div className="flex flex-col gap-2">
+								<h3 className="font-medium text-sm">What we know</h3>
+								<ul className="flex flex-col divide-y rounded-lg border bg-card">
 									{BANT_CATEGORIES.map((cat) => {
 										const covered =
 											Boolean(
@@ -757,67 +734,54 @@ export function VoiceQualifierModal({
 												],
 											) || recordedFacts.some((f) => f.category === cat.key);
 										return (
-											<div
+											<li
 												key={cat.key}
-												className="flex items-center justify-between text-xs py-1 px-2 rounded-md bg-background/60 border border-border/50"
+												className="flex items-center justify-between gap-3 px-4 py-2.5"
 											>
-												<span className="text-foreground/90">{cat.label}</span>
+												<span>{cat.label}</span>
 												{covered ? (
-													<Icon
-														icon={CheckmarkFilled}
-														className="text-success"
-														size="sm"
-													/>
+													<span className="flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs">
+														<Icon icon={CheckmarkFilled} size="sm" />
+														Covered
+													</span>
 												) : (
-													<span className="text-[10px] font-mono text-muted-foreground">
+													<span className="rounded-full border border-dashed px-2.5 py-0.5 text-muted-foreground text-xs">
 														Missing
 													</span>
 												)}
-											</div>
+											</li>
 										);
 									})}
-								</div>
+								</ul>
 							</div>
 
-							<div className="flex-1">
-								<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-									Live Captured Evidence
-								</h4>
+							<div className="flex flex-col gap-2">
+								<h3 className="font-medium text-sm">Answers from this call</h3>
 								{recordedFacts.length === 0 ? (
-									<p className="text-[11px] text-muted-foreground/70 italic">
-										No answers recorded yet. As the lead speaks, verified claims
-										will appear here.
+									<p className="text-muted-foreground text-sm leading-relaxed">
+										Each answer the lead gives appears here with their exact
+										words, as a suggestion on the deal.
 									</p>
 								) : (
-									<div className="space-y-2">
+									<ul className="flex flex-col gap-2">
 										{recordedFacts.map((f) => (
-											<div
+											<li
 												key={`${f.category}-${f.fact}-${f.quote.slice(0, 15)}`}
-												className="p-2 rounded border border-border bg-background text-xs space-y-1"
+												className="flex flex-col gap-1.5 rounded-lg border bg-card px-4 py-3"
 											>
-												<div className="flex items-center justify-between">
-													<span className="font-semibold text-primary uppercase text-[10px]">
-														{f.category}
-													</span>
-													<Badge
-														variant="outline"
-														className="text-[9px] px-1 py-0"
-													>
-														PROPOSED
-													</Badge>
-												</div>
-												<div className="font-medium text-foreground">
-													{f.fact}
-												</div>
-												<div className="text-[10px] text-muted-foreground italic border-l-2 border-primary/40 pl-1.5">
-													"{f.quote}"
-												</div>
-											</div>
+												<span className="text-muted-foreground text-xs capitalize">
+													{f.category}
+												</span>
+												<span className="font-medium">{f.fact}</span>
+												<span className="border-thread border-l-2 pl-2 text-muted-foreground text-xs">
+													{f.quote}
+												</span>
+											</li>
 										))}
-									</div>
+									</ul>
 								)}
 							</div>
-						</div>
+						</aside>
 					</div>
 				</div>
 			</DialogContent>

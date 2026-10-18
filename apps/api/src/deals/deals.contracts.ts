@@ -241,6 +241,9 @@ const dealListRowOutput = z.object({
 	lastActivityAt: z.string().nullable(),
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),
+	leadScore: z.number().nullable(),
+	health: z.string().nullable(),
+	healthReason: z.string().nullable(),
 	fields: z.record(z.string(), fieldValueOutput),
 });
 
@@ -279,6 +282,9 @@ export const dealDetailOutput = z.object({
 	closedAt: z.string().nullable(),
 	createdAt: z.string(),
 	archivedAt: z.string().nullable(),
+	leadScore: z.number().nullable(),
+	health: z.string().nullable(),
+	healthReason: z.string().nullable(),
 	contacts: z.array(dealContactOutput),
 });
 

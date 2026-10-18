@@ -563,8 +563,8 @@ export class VoiceQualifierService {
 
 		const project =
 			process.env.GOOGLE_CLOUD_PROJECT || "project-e705af63-271f-48bf-92f";
-		const location = process.env.GEMINI_FAST_LOCATION || "us-central1";
-		const model = process.env.GEMINI_FAST_MODEL || "gemini-2.5-flash";
+		const location = process.env.GEMINI_FAST_LOCATION || "global";
+		const model = process.env.GEMINI_FAST_MODEL || "gemini-4-argon";
 
 		const ai = new GoogleGenAI({
 			vertexai: true,

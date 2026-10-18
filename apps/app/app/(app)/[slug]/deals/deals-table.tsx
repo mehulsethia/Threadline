@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
 import { CompanyCell } from "@/components/crm/company-cell";
+import { DealScore } from "@/components/crm/deal-score";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
 import { useFieldFacets } from "@/components/crm/fields/field-facets";
 import { OwnerCell } from "@/components/crm/owner-cell";
@@ -44,15 +45,29 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 		id: "company",
 		header: "Company",
 		sortable: true,
-		width: "w-[18%]",
+		width: "w-[16%]",
 		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{
 		id: "stage",
 		header: "Stage",
 		sortable: true,
-		width: "w-[18%]",
+		width: "w-[14%]",
 		cell: (row) => <DealStageMenu dealId={row.id} stage={row.stage} />,
+	},
+	{
+		id: "score",
+		header: "Score",
+		sortable: true,
+		width: "w-[10%]",
+		hideBelow: "sm",
+		cell: (row) => (
+			<DealScore
+				score={row.leadScore}
+				health={row.health}
+				reason={row.healthReason}
+			/>
+		),
 	},
 	{
 		id: "amount",
