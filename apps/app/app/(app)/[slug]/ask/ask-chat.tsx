@@ -3,17 +3,27 @@
 import Send from "@carbon/icons-react/es/Send";
 import { Button } from "@crm/ui/components/button";
 import { Markdown } from "@crm/ui/components/markdown";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@crm/ui/components/select";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
+import { useMountEffect } from "@crm/ui/hooks/use-mount-effect";
 import { cn } from "@crm/ui/lib/utils";
 import { parseAskStreamEvent } from "@crm/validation/ask-stream";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
 	type RecordKind,
 	useOpenRecord,
 } from "@/components/crm/record-sheet/record-stack";
 import {
+	PageShellActions,
 	PageShellContent,
 	PageShellDescription,
 	PageShellHeader,
@@ -21,7 +31,42 @@ import {
 	PageShellTitle,
 } from "@/components/page-shell";
 
-type Turn = { id: number; role: "user" | "assistant"; text: string };
+const turnSchema = z.object({
+	id: z.number(),
+	role: z.enum(["user", "assistant"]),
+	text: z.string(),
+});
+
+type Turn = z.infer<typeof turnSchema>;
+
+const conversationSchema = z.object({
+	id: z.string(),
+	title: z.string(),
+	turns: z.array(turnSchema),
+	updatedAt: z.number(),
+});
+
+type Conversation = z.infer<typeof conversationSchema>;
+
+const STORAGE_KEY = "threadline.ask.conversations";
+const MAX_CONVERSATIONS = 20;
+
+function loadConversations(): Conversation[] {
+	try {
+		const raw = window.localStorage.getItem(STORAGE_KEY);
+		if (!raw) return [];
+		const parsed = z.array(conversationSchema).safeParse(JSON.parse(raw));
+		return parsed.success ? parsed.data : [];
+	} catch {
+		return [];
+	}
+}
+
+function storeConversations(conversations: Conversation[]): void {
+	try {
+		window.localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+	} catch {}
+}
 
 const TOOL_LABEL = new Map<string, string>(
 	Object.entries({
@@ -58,7 +103,63 @@ function isRecordKind(value: string): value is RecordKind {
 
 export function AskChat() {
 	const openRecord = useOpenRecord();
-	const [turns, setTurns] = useState<Turn[]>([]);
+	const [turns, setTurnsState] = useState<Turn[]>([]);
+	const turnsRef = useRef<Turn[]>([]);
+	const [conversationId, setConversationId] = useState(() =>
+		crypto.randomUUID(),
+	);
+	const conversationRef = useRef(conversationId);
+	const [conversations, setConversations] = useState<Conversation[]>([]);
+	const setTurns = (update: (current: Turn[]) => Turn[]) =>
+		setTurnsState((current) => {
+			const next = update(current);
+			turnsRef.current = next;
+			return next;
+		});
+
+	useMountEffect(() => {
+		setConversations(loadConversations());
+	});
+
+	const saveConversation = () => {
+		const saved = turnsRef.current.filter((turn) => turn.text !== "");
+		const first = saved.find((turn) => turn.role === "user");
+		if (!first) return;
+		const entry: Conversation = {
+			id: conversationRef.current,
+			title: first.text.slice(0, 80),
+			turns: saved,
+			updatedAt: Date.now(),
+		};
+		setConversations((current) => {
+			const next = [
+				entry,
+				...current.filter((item) => item.id !== entry.id),
+			].slice(0, MAX_CONVERSATIONS);
+			storeConversations(next);
+			return next;
+		});
+	};
+
+	const startConversation = () => {
+		if (pending) return;
+		const id = crypto.randomUUID();
+		conversationRef.current = id;
+		setConversationId(id);
+		setTurns(() => []);
+		setDraft("");
+	};
+
+	const openConversation = (id: string) => {
+		if (pending) return;
+		const conversation = conversations.find((item) => item.id === id);
+		if (!conversation) return;
+		conversationRef.current = id;
+		setConversationId(id);
+		setTurns(() => conversation.turns);
+		nextId.current = Math.max(0, ...conversation.turns.map((turn) => turn.id));
+		scrollDown();
+	};
 	const [draft, setDraft] = useState("");
 	const [pending, setPending] = useState(false);
 	const [step, setStep] = useState<string | null>(null);
@@ -133,7 +234,7 @@ export function AskChat() {
 			...turns,
 			{ id: nextId.current, role: "user" as const, text: question },
 		];
-		setTurns(next);
+		setTurns(() => next);
 		setDraft("");
 		setPending(true);
 		setStep("Looking through your CRM");
@@ -152,6 +253,7 @@ export function AskChat() {
 			.finally(() => {
 				setPending(false);
 				setStep(null);
+				saveConversation();
 			});
 	};
 
@@ -174,6 +276,37 @@ export function AskChat() {
 						Answers come from your data and link to the records.
 					</PageShellDescription>
 				</PageShellHeading>
+				<PageShellActions>
+					{conversations.length > 0 ? (
+						<Select
+							value={
+								conversations.some((item) => item.id === conversationId)
+									? conversationId
+									: ""
+							}
+							onValueChange={openConversation}
+							disabled={pending}
+						>
+							<SelectTrigger className="w-56" aria-label="Past conversations">
+								<SelectValue placeholder="Past conversations" />
+							</SelectTrigger>
+							<SelectContent>
+								{conversations.map((item) => (
+									<SelectItem key={item.id} value={item.id}>
+										<span className="truncate">{item.title}</span>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					) : null}
+					<Button
+						variant="outline"
+						onClick={startConversation}
+						disabled={pending || turns.length === 0}
+					>
+						New conversation
+					</Button>
+				</PageShellActions>
 			</PageShellHeader>
 			<PageShellContent className="flex min-h-0 flex-1 flex-col gap-4">
 				<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
