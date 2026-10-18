@@ -24,7 +24,6 @@ import {
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AgentPanel } from "@/components/crm/agent-panel";
 import { EnrichmentActions } from "@/components/crm/enrichment-actions";
 import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
@@ -205,12 +204,6 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 					value: "activity",
 					label: "Activity",
 					content: <Timeline anchor={{ companyId: company.id }} />,
-				},
-				{
-					value: "agent",
-					label: "Agent",
-					content: <AgentPanel record={{ kind: "company", id: company.id }} />,
-					keepMounted: true,
 				},
 			]
 		: [];

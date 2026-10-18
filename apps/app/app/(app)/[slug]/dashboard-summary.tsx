@@ -337,16 +337,17 @@ function DealCell({
 		iconUrl: string | null;
 		iconDarkUrl: string | null;
 		iconTone: string | null;
-	};
+	} | null;
 	meta?: ReactNode;
 }) {
+	const subtitle = company?.name ?? "No company";
 	return (
 		<span className="flex min-w-0 items-center gap-2">
 			<EntityLogo
-				src={company.iconUrl}
-				darkSrc={company.iconDarkUrl}
-				tone={company.iconTone as EntityLogoTone | null | undefined}
-				name={company.name}
+				src={company?.iconUrl ?? null}
+				darkSrc={company?.iconDarkUrl ?? null}
+				tone={company?.iconTone as EntityLogoTone | null | undefined}
+				name={company?.name ?? name}
 				size="sm"
 			/>
 			<span className="flex min-w-0 flex-col">
@@ -354,10 +355,10 @@ function DealCell({
 				<span className="truncate text-muted-foreground">
 					{meta ? (
 						<>
-							{company.name} · {meta}
+							{subtitle} · {meta}
 						</>
 					) : (
-						company.name
+						subtitle
 					)}
 				</span>
 			</span>

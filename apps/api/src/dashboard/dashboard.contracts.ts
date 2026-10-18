@@ -58,7 +58,7 @@ const biggestOpenDealOutput = z.object({
 	name: z.string(),
 	stage: stageEnum,
 	currency: z.string(),
-	company: companyBriefOutput,
+	company: companyBriefOutput.nullable(),
 	owner: ownerOutput,
 	amountCents: z.number().nullable(),
 	baseAmountCents: z.number().nullable(),
