@@ -403,4 +403,3 @@ describe("onboarding steps after the workspace exists", () => {
 		).toBe("/onboarding");
 	});
 });
-

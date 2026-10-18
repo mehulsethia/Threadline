@@ -36,7 +36,6 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 
 	constructor(
 		private readonly adapterHost: HttpAdapterHost,
-		@InjectDatabase() private readonly db: Db,
 		private readonly voiceService: VoiceQualifierService,
 	) {}
 
