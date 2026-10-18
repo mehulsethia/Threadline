@@ -10,19 +10,14 @@ const Logo = (props: React.SVGProps<SVGSVGElement>) => (
 		{...props}
 	>
 		<path
-			d="M15.75 3.25H8.25A4.75 4.75 0 0 0 3.5 8v5.5a4.75 4.75 0 0 0 4.75 4.75H9v3l4.5-3h2.25a4.75 4.75 0 0 0 4.75-4.75V8a4.75 4.75 0 0 0-4.75-4.75Z"
+			d="M5 7h3.25c4.5 0 3 10 7.5 10H19"
 			stroke="currentColor"
 			strokeLinecap="round"
 			strokeLinejoin="round"
-			strokeWidth="1.7"
+			strokeWidth="2"
 		/>
-		<path
-			d="M6.5 8.75h1.25c2.5 0 2.5 4 5 4s2.5-4 5-4h.75m-12 4h1.25c2.5 0 2.5-4 5-4s2.5 4 5 4h.75"
-			stroke="currentColor"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			strokeWidth="1.5"
-		/>
+		<circle cx="4.25" cy="7" r="2.25" fill="currentColor" />
+		<circle cx="19.75" cy="17" r="2.25" fill="currentColor" />
 	</svg>
 );
 export default Logo;

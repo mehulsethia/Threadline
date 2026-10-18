@@ -46,7 +46,7 @@ export function SocialSignIn({ provider }: { provider: MailboxProviderId }) {
 
 	return (
 		<Button
-			className="h-11 w-full justify-center border-border/80 bg-background/80 font-medium shadow-2xs transition-all hover:bg-surface-container/70 active:scale-[0.96]"
+			className="h-11 w-full"
 			disabled={pending}
 			onClick={() => {
 				handleClick().catch(() => fail());

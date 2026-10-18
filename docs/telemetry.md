@@ -244,7 +244,7 @@ and the two CTA events below only after that setup. An install sends
 `install_daily` and its funnel. Install events set `$process_person_profile: false`,
 so they never become a person and never join one.
 
-### The two CTA events
+### No custom events
 
 | Event | When |
 | --- | --- |
@@ -301,7 +301,7 @@ actually drops it. See `adrs/telemetry.md`.
 | `apps/api/src/telemetry` | The daily rollup, the funnel sweep, the boot-and-hourly timer, the optional cron route |
 | `apps/agent/agent/hooks/telemetry.ts` | Tool, turn and session failures |
 | `apps/app/lib/analytics.ts` | The two hostnames the landing page may report from |
-| `apps/app/components/landing/analytics.tsx` | The only `posthog-js` import in the repo, behind that gate and a dynamic `import()`. `init` on mount, `captureLanding` for the two CTA events |
+| `apps/app/components/landing/analytics.tsx` | The only `posthog-js` import in the repo, behind that gate and a dynamic `import()`. `init` on mount |
 
 Nothing is instrumented inside `apps/agent/agent/sandbox`, which runs `deny-all` egress by
 design. A capture in there would hang and then fail.

@@ -1,51 +1,50 @@
-import { Link } from "@crm/ui/components/link";
-import Logo from "@crm/ui/components/logo";
-import { REPO_LINKS } from "./links";
+import Link from "next/link";
+import { PROJECT_LINKS, SECTION_LINKS } from "./links";
 import { Wordmark } from "./wordmark";
 
 export function LandingFooter() {
 	return (
-		<footer className="relative flex w-full shrink-0 flex-col items-center border-border border-t">
-			<div className="flex w-full max-w-6xl flex-col items-start justify-between gap-12 px-6 py-16 sm:flex-row sm:gap-16">
-				<div className="flex w-[280px] max-w-full shrink-0 flex-col gap-[14px]">
-					<Wordmark />
-					<p className="text-[13px]/[21px] text-muted-foreground">
-						The open source agentic CRM.
-					</p>
+		<footer className="flex w-full justify-center border-border border-t px-4 pt-16 pb-10 sm:px-6">
+			<div className="flex w-full max-w-6xl flex-col gap-12">
+				<div className="flex flex-col justify-between gap-10 md:flex-row">
+					<div className="flex max-w-sm flex-col gap-4">
+						<Wordmark />
+						<p className="text-muted-foreground text-[15px]/7">
+							The agentic CRM that turns conversations in any language into
+							evidence-backed records, then works the leads.
+						</p>
+					</div>
+					<div className="flex gap-16">
+						<nav aria-label="Product" className="flex flex-col gap-3 text-sm">
+							<p className="text-muted-foreground">Product</p>
+							{SECTION_LINKS.map((link) => (
+								<Link
+									key={link.href}
+									href={link.href}
+									className="hover:underline"
+								>
+									{link.label}
+								</Link>
+							))}
+						</nav>
+						<nav aria-label="Project" className="flex flex-col gap-3 text-sm">
+							<p className="text-muted-foreground">Project</p>
+							{PROJECT_LINKS.map((link) => (
+								<Link
+									key={link.href}
+									href={link.href}
+									className="hover:underline"
+								>
+									{link.label}
+								</Link>
+							))}
+						</nav>
+					</div>
 				</div>
-
-				<nav className="flex w-[180px] shrink-0 flex-col items-start gap-[14px]">
-					<p className="font-mono text-[11px]/4 text-muted-foreground tracking-widest">
-						PROJECT
-					</p>
-					{REPO_LINKS.map((link) => (
-						<Link
-							key={link.label}
-							variant="quiet"
-							href={link.href}
-							target="_blank"
-							rel="noreferrer"
-							className="text-[13px]/6"
-						>
-							{link.label}
-						</Link>
-					))}
-				</nav>
-			</div>
-
-			<div className="flex w-full justify-center border-border border-t">
-				<div className="flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 md:h-[60px] md:py-0">
-					<p className="flex flex-1 items-center gap-[5px] pt-[2px] text-[13px]/[21px] text-muted-foreground">
-						Built with love by
-						<Logo className="size-[13px] shrink-0 text-foreground" />
-						<span className="font-medium text-foreground">Threadline</span>
-					</p>
-
-					<p className="flex items-center gap-2 text-[13px]/5 text-muted-foreground">
-						<span className="size-1.5 shrink-0 rounded-full bg-ring" />
-						All systems normal
-					</p>
-				</div>
+				<p className="border-border border-t pt-6 text-muted-foreground text-sm">
+					Threadline builds on Comp AI's open-source CRM, MIT licensed. Made for
+					the Google Cloud AI Builder Cup 2026.
+				</p>
 			</div>
 		</footer>
 	);

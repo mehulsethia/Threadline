@@ -3,26 +3,25 @@ import { Toaster } from "@crm/ui/components/sonner";
 import { TooltipProvider } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
 import type { Metadata } from "next";
-import { Roboto, Roboto_Flex, Roboto_Mono } from "next/font/google";
+import { Hanken_Grotesk, JetBrains_Mono, Newsreader } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { LocalDateTimeHydrator } from "@/components/local-date-time";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCReactProvider } from "@/lib/trpc/client";
 
-const fontSans = Roboto({
-	weight: ["400", "500", "700"],
-	variable: "--font-roboto",
+const fontSans = Hanken_Grotesk({
+	variable: "--font-body",
 	subsets: ["latin"],
 });
 
-const fontDisplay = Roboto_Flex({
-	variable: "--font-roboto-flex",
+const fontDisplay = Newsreader({
+	variable: "--font-display",
 	subsets: ["latin"],
+	style: ["normal", "italic"],
 });
 
-const fontMono = Roboto_Mono({
-	weight: ["400", "500", "700"],
-	variable: "--font-roboto-mono",
+const fontMono = JetBrains_Mono({
+	variable: "--font-code",
 	subsets: ["latin"],
 });
 
@@ -31,7 +30,8 @@ export const metadata: Metadata = {
 		default: "Threadline",
 		template: "%s · Threadline",
 	},
-	description: "Your conversations, turned into closed deals.",
+	description:
+		"Threadline is an agentic CRM that turns sales conversations in any language into evidence-backed records, then follows up on every deal.",
 	icons: {
 		icon: [
 			{ url: "/favicon.svg", type: "image/svg+xml" },

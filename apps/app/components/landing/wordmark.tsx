@@ -5,12 +5,12 @@ export function Wordmark({ className }: { className?: string }) {
 	return (
 		<span
 			className={cn(
-				"flex shrink-0 select-none items-center gap-[9px]",
+				"flex shrink-0 select-none items-center gap-2 text-foreground",
 				className,
 			)}
 		>
-			<Logo className="size-[18px] shrink-0 text-foreground" />
-			<span className="font-semibold text-[15px]/5 tracking-[-0.01em] text-foreground">
+			<Logo className="size-6 shrink-0" />
+			<span className="font-heading text-[22px]/none tracking-[-0.02em]">
 				Threadline
 			</span>
 		</span>

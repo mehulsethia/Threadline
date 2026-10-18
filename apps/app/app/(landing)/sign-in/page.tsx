@@ -92,8 +92,8 @@ async function SignIn({
 	return (
 		<>
 			<AuthHeading
-				title="Welcome to Threadline"
-				description="Evaluate the agentic CRM instantly or sign in with your enterprise credentials."
+				title="Sign in to Threadline"
+				description="Open the demo workspace, or sign in with your work account."
 			/>
 
 			<DemoSignIn />
@@ -102,8 +102,8 @@ async function SignIn({
 				<>
 					<div className="relative flex items-center justify-center py-1">
 						<Separator className="w-full" />
-						<span className="absolute bg-card px-2 font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
-							or continue with
+						<span className="absolute bg-card px-3 text-muted-foreground text-sm">
+							or
 						</span>
 					</div>
 
@@ -116,10 +116,12 @@ async function SignIn({
 				</>
 			)}
 
-			<div className="rounded-lg border border-border/70 bg-surface-container/50 px-3.5 py-2.5 text-center text-muted-foreground text-xs leading-relaxed">
-				For team members: configure GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID to
-				enable production OAuth.
-			</div>
+			{hasOtherMethods ? null : (
+				<p className="text-muted-foreground text-sm">
+					Team sign-in is off on this install. An admin turns it on by setting
+					GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID.
+				</p>
+			)}
 		</>
 	);
 }

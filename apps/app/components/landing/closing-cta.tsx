@@ -1,48 +1,33 @@
-import ArrowRight from "@carbon/icons-react/es/ArrowRight";
-import Rocket from "@carbon/icons-react/es/Rocket";
 import { Button } from "@crm/ui/components/button";
 import Link from "next/link";
-import { GitHubStarButton } from "./github-star-button";
+import { DemoLaunchButton } from "@/components/demo-launch-button";
+import { Section } from "./section-heading";
 
 export function ClosingCta() {
 	return (
-		<section className="relative flex w-full shrink-0 flex-col items-center gap-8 px-6 py-16">
-			<div className="relative flex w-[970px] max-w-full shrink-0 flex-col items-center justify-center gap-7 overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-b from-primary/5 via-card to-background px-6 py-16 shadow-xl shadow-primary/5 md:px-12">
-				<div
-					aria-hidden="true"
-					className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary/10 to-transparent"
-				/>
-
-				<div className="flex flex-col items-center gap-3 text-center">
-					<span className="font-mono text-xs font-semibold text-primary uppercase tracking-wider">
-						Ready to transform your sales pipeline?
-					</span>
-					<h2 className="max-w-xl text-balance font-semibold text-4xl/[44px] tracking-tight md:text-5xl/[52px]">
-						Try the live demo or fork the code.
+		<Section tone="band">
+			<div className="flex flex-col items-start gap-8 lg:flex-row lg:items-end lg:justify-between">
+				<div className="flex max-w-2xl flex-col gap-4">
+					<h2 className="text-4xl/[1.08] tracking-[-0.03em] md:text-[56px]/[1.04]">
+						Import one conversation. Watch the record fill in.
 					</h2>
-					<p className="max-w-md text-pretty text-muted-foreground text-sm/6">
-						Evaluate pre-seeded enterprise deals with evidence-backed records,
-						lead revival, and Gemini voice qualification.
+					<p className="text-band-foreground/75 text-lg/8">
+						The demo workspace is ready now. Bring a WhatsApp export of your
+						own, or use the sample deals.
 					</p>
 				</div>
-
-				<div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+				<div className="flex flex-wrap gap-3">
+					<DemoLaunchButton className="bg-band-foreground text-band hover:bg-band-foreground/90" />
 					<Button
 						asChild
-						variant="default"
+						variant="ghost"
 						size="lg"
-						className="gap-2 font-medium shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/25"
+						className="px-6 text-band-foreground hover:bg-band-foreground/10 hover:text-band-foreground"
 					>
-						<Link href="/sign-in">
-							<Rocket size={16} />
-							<span>Explore Live Demo</span>
-							<ArrowRight size={14} />
-						</Link>
+						<Link href="/sign-in">Sign in with Google</Link>
 					</Button>
-					<SetupPromptButton location="closing" />
-					<GitHubStarButton location="closing" />
 				</div>
 			</div>
-		</section>
+		</Section>
 	);
 }
