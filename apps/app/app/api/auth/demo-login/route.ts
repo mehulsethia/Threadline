@@ -111,11 +111,3 @@ export async function POST(req: NextRequest) {
 		redirectUrl: `/${DEMO_ORG_SLUG}/deals`,
 	});
 }
-
-export async function GET(req: NextRequest) {
-	const res = await POST(req);
-	if (res.status === 200) {
-		return NextResponse.redirect(new URL(`/${DEMO_ORG_SLUG}/deals`, req.url));
-	}
-	return res;
-}

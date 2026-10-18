@@ -53,7 +53,7 @@ const subjectOf = (companyId: string) => ({
 async function retiredSubjectOf(companyId: string) {
 	await db.$executeRaw`
 		UPDATE "company"
-		SET "updatedAt" = NOW() - INTERVAL '1 second'
+		SET "updatedAt" = ${new Date(Date.now() - 1000)}
 		WHERE id = ${companyId}
 	`;
 
