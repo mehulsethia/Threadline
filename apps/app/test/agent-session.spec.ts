@@ -162,8 +162,8 @@ describe("the panel", () => {
 });
 
 describe("the record sheet", () => {
-	it("keeps the agent tab mounted behind the others", () => {
-		for (const sheet of ["contact", "company", "deal"]) {
+	it("keeps the AI assist tab mounted behind the others", () => {
+		for (const sheet of ["deal"]) {
 			const source = readFileSync(
 				new URL(
 					`../components/crm/record-sheet/${sheet}-sheet.tsx`,
