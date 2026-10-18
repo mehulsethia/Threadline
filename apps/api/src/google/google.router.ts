@@ -67,7 +67,10 @@ export class GoogleRouter {
 		meta: restMeta("POST", "/google/sync", ["Google"]),
 	})
 	async syncNow(@Ctx() ctx: AuthedTrpcContext) {
-		await this.sync.runForUser(ctx.user.id, { backfillIfEmpty: true });
+		await this.sync.runForUser(ctx.user.id, {
+			backfillIfEmpty: true,
+			report: true,
+		});
 		return this.connection.status(ctx.user.id);
 	}
 

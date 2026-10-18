@@ -29,6 +29,7 @@ function harness(options: { cursor: string | null; storedMail: boolean }) {
 	const historyCalls: string[] = [];
 	const stored: string[] = [];
 	const settled: (string | null | undefined)[] = [];
+	const notes: { title: string; body?: string }[] = [];
 
 	const gmail = {
 		profile: async () => ({
@@ -56,6 +57,11 @@ function harness(options: { cursor: string | null; storedMail: boolean }) {
 	};
 
 	const db = {
+		notification: {
+			create: async ({ data }: { data: { title: string; body?: string } }) => {
+				notes.push(data);
+			},
+		},
 		emailMessage: {
 			findMany: async () => [],
 			findFirst: async () => (options.storedMail ? { id: "existing" } : null),
@@ -76,13 +82,18 @@ function harness(options: { cursor: string | null; storedMail: boolean }) {
 		} as unknown as SyncStateService,
 		{
 			context: async () => ({}),
-			store: async (
+			storeWithReason: async (
 				_row: MailboxSyncModel,
 				_options: { mailbox: string; origin: string },
 				parsed: { rfcMessageId: string },
 			) => {
 				stored.push(parsed.rfcMessageId);
-				return true;
+				return {
+					stored: true,
+					reason: "stored",
+					companyId: "company-1",
+					contactId: "contact-1",
+				};
 			},
 		} as unknown as ThreadWriterService,
 	);
@@ -94,7 +105,7 @@ function harness(options: { cursor: string | null; storedMail: boolean }) {
 		cursor: options.cursor,
 	} as unknown as MailboxSyncModel;
 
-	return { service, row, listCalls, historyCalls, stored, settled };
+	return { service, row, listCalls, historyCalls, stored, settled, notes };
 }
 
 describe("Gmail backfill", () => {
@@ -139,5 +150,15 @@ describe("Gmail backfill", () => {
 
 		expect(h.listCalls).toHaveLength(0);
 		expect(h.historyCalls).toEqual(["800"]);
+	});
+
+	it("posts a sync report with counts and reasons after a manual sync", async () => {
+		const h = harness({ cursor: null, storedMail: false });
+
+		await h.service.sync(h.row, { backfillIfEmpty: true, report: true });
+
+		expect(h.notes).toHaveLength(1);
+		expect(h.notes[0]?.title).toBe("Gmail sync: 2 added, 0 skipped");
+		expect(h.notes[0]?.body).toContain("Read 2 messages from the last 7 days");
 	});
 });

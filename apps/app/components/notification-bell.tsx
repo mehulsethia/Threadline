@@ -152,7 +152,13 @@ export function NotificationBell() {
 										{item.title}
 									</span>
 									{item.body ? (
-										<span className="line-clamp-2 text-muted-foreground text-xs">
+										<span
+											className={
+												item.kind === "sync.report"
+													? "whitespace-pre-line text-muted-foreground text-xs leading-relaxed"
+													: "line-clamp-2 text-muted-foreground text-xs"
+											}
+										>
 											{item.body}
 										</span>
 									) : null}

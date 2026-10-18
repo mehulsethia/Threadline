@@ -10,7 +10,7 @@ export const CONNECTION_SYNC_COPY = {
 		checked: {
 			title: "Check finished",
 			description:
-				"New conversations become contacts, deals and facts in the background. They appear within a few minutes.",
+				"A sync report with what was added and what was skipped, and why, is in the notification bell. New deals appear within a few minutes.",
 		},
 	},
 	meet: {

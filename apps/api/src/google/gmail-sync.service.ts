@@ -3,6 +3,7 @@ import {
 	GoogleSyncStatus,
 	type MailboxSyncModel as MailboxSync,
 } from "@crm/db";
+import { notify } from "@crm/db/notifications";
 import { Injectable, Logger } from "@nestjs/common";
 import { CAPTURE } from "../capture/capture-config";
 import { InjectDatabase } from "../database/database.constants";
@@ -16,6 +17,7 @@ import { parseAddress, parseAddressList } from "../mailbox/participants";
 import { SyncStateService } from "../mailbox/sync-state.service";
 import {
 	type IncomingMessage,
+	type StoreSkipReason,
 	ThreadWriterService,
 } from "../mailbox/thread-writer.service";
 import { GmailClient, type GmailMessage } from "./gmail.client";
@@ -28,7 +30,29 @@ import {
 
 const MAX_MESSAGES_PER_TICK = 120;
 
-export type GmailSyncOptions = { backfillIfEmpty?: boolean };
+export type GmailSyncOptions = { backfillIfEmpty?: boolean; report?: boolean };
+
+type SyncTally = {
+	read: number;
+	stored: number;
+	companies: Set<string>;
+	skipped: Record<StoreSkipReason | "unreadable", number>;
+};
+
+function emptyTally(): SyncTally {
+	return {
+		read: 0,
+		stored: 0,
+		companies: new Set(),
+		skipped: {
+			"already-filed": 0,
+			"not-replied": 0,
+			"auto-create-off": 0,
+			"no-external-person": 0,
+			unreadable: 0,
+		},
+	};
+}
 
 export type GmailSyncOutcome = {
 	source: "gmail";
@@ -94,20 +118,33 @@ export class GmailSyncService {
 			};
 		}
 
+		const tally = options.report ? emptyTally() : undefined;
+
 		if (
 			!row.cursor ||
 			(options.backfillIfEmpty === true &&
 				!(await this.hasStoredMail(row.userId)))
 		) {
-			return this.start(
+			const outcome = await this.start(
 				row,
 				token.accessToken,
 				mailbox,
 				profile.data.historyId ?? null,
+				tally,
 			);
+			if (tally) await this.report(tally, true);
+			return outcome;
 		}
 
-		return this.incremental(row, token.accessToken, mailbox, row.cursor);
+		const outcome = await this.incremental(
+			row,
+			token.accessToken,
+			mailbox,
+			row.cursor,
+			tally,
+		);
+		if (tally) await this.report(tally, false);
+		return outcome;
 	}
 
 	private async start(
@@ -115,6 +152,7 @@ export class GmailSyncService {
 		accessToken: string,
 		mailbox: string,
 		historyId: string | null,
+		tally?: SyncTally,
 	): Promise<GmailSyncOutcome> {
 		if (!historyId) {
 			await this.state.markFailed(row.id, "Gmail returned no historyId.");
@@ -126,7 +164,7 @@ export class GmailSyncService {
 			};
 		}
 
-		const written = await this.backfill(row, accessToken, mailbox);
+		const written = await this.backfill(row, accessToken, mailbox, tally);
 
 		await this.state.settle(row.id, {
 			cursor: historyId,
@@ -152,6 +190,7 @@ export class GmailSyncService {
 		row: MailboxSync,
 		accessToken: string,
 		mailbox: string,
+		tally?: SyncTally,
 	): Promise<number> {
 		const before = new Date();
 		const after = new Date(before.getTime() - CAPTURE.email.backfillMs);
@@ -185,6 +224,8 @@ export class GmailSyncService {
 			accessToken,
 			mailbox,
 			ids.slice(0, limit),
+			tally,
+			limit,
 		);
 		return written;
 	}
@@ -202,6 +243,7 @@ export class GmailSyncService {
 		accessToken: string,
 		mailbox: string,
 		startHistoryId: string,
+		tally?: SyncTally,
 	): Promise<GmailSyncOutcome> {
 		const history = await this.gmail.listHistory(accessToken, {
 			startHistoryId,
@@ -234,6 +276,7 @@ export class GmailSyncService {
 			accessToken,
 			mailbox,
 			[...ids],
+			tally,
 		);
 
 		await this.state.settle(row.id, {
@@ -266,6 +309,8 @@ export class GmailSyncService {
 		accessToken: string,
 		mailbox: string,
 		ids: readonly string[],
+		tally?: SyncTally,
+		limit: number = MAX_MESSAGES_PER_TICK,
 	): Promise<{ written: number; remaining: number }> {
 		if (ids.length === 0) return { written: 0, remaining: 0 };
 
@@ -278,8 +323,13 @@ export class GmailSyncService {
 		);
 
 		const pending = ids.filter((id) => !seen.has(id));
-		const batch = pending.slice(0, MAX_MESSAGES_PER_TICK);
+		const batch = pending.slice(0, limit);
 		const remaining = pending.length - batch.length;
+
+		if (tally) {
+			tally.read += ids.length;
+			tally.skipped["already-filed"] += ids.length - pending.length;
+		}
 
 		if (batch.length === 0) return { written: 0, remaining };
 
@@ -289,21 +339,67 @@ export class GmailSyncService {
 
 		for (const id of batch) {
 			const message = await this.gmail.getMessage(accessToken, id);
-			if (message.outcome !== "ok") continue;
+			const parsed = message.outcome === "ok" ? this.parse(message.data) : null;
+			if (!parsed) {
+				if (tally) tally.skipped.unreadable += 1;
+				continue;
+			}
 
-			const parsed = this.parse(message.data);
-			if (!parsed) continue;
-
-			const stored = await this.threads.store(
+			const result = await this.threads.storeWithReason(
 				row,
 				{ mailbox, origin: "gmail" },
 				parsed,
 				context,
 			);
-			if (stored) written += 1;
+			if (result.stored) {
+				written += 1;
+				if (tally) {
+					tally.stored += 1;
+					if (result.companyId) tally.companies.add(result.companyId);
+				}
+			} else if (tally) {
+				tally.skipped[result.reason] += 1;
+			}
 		}
 
 		return { written, remaining };
+	}
+
+	private async report(tally: SyncTally, backfill: boolean): Promise<void> {
+		const skipped = Object.values(tally.skipped).reduce((a, b) => a + b, 0);
+		const lines = [
+			backfill
+				? `Read ${tally.read} messages from the last 7 days. Promotions, Social and Forums are never read.`
+				: `Read ${tally.read} new messages since the last sync.`,
+			`Added ${tally.stored} messages on ${tally.companies.size} ${tally.companies.size === 1 ? "company" : "companies"}. Their conversations become facts and deals in a few minutes.`,
+		];
+		const reasons: [keyof SyncTally["skipped"], string][] = [
+			[
+				"not-replied",
+				"you never replied and no known contact or company is on the thread",
+			],
+			[
+				"auto-create-off",
+				"you replied, but email auto-create is off. Turn on Email in Settings, Connections, Google",
+			],
+			[
+				"no-external-person",
+				"only your own team, role addresses or suppressed domains are on the thread",
+			],
+			["already-filed", "already in Threadline"],
+			["unreadable", "Gmail could not return the message"],
+		];
+		for (const [key, why] of reasons) {
+			if (tally.skipped[key] > 0) {
+				lines.push(`Skipped ${tally.skipped[key]}: ${why}.`);
+			}
+		}
+		await notify(this.db, {
+			kind: "sync.report",
+			title: `Gmail sync: ${tally.stored} added, ${skipped} skipped`,
+			body: lines.join("\n"),
+			source: "email",
+		});
 	}
 
 	private parse(message: GmailMessage): IncomingMessage | null {

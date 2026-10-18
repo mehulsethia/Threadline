@@ -193,6 +193,8 @@ Two rules follow for the serverless build:
   current `historyId`. Check now repeats that first sync only while the mailbox has no
   stored Gmail message; the cron never backfills, because a backfill that stores nothing
   would re-fetch the same messages every tick.
+  `ThreadWriterService.storeWithReason` says why a message was skipped; a manual Check now
+  posts the counts as a `sync.report` notification in the bell.
   For Outlook, Graph has no
   mailbox-wide delta, so the Outlook cursor is the last `receivedDateTime` seen,
   re-read with a one-second overlap; `rfcMessageId` is unique, so the overlap costs a

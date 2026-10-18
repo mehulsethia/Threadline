@@ -32,6 +32,21 @@ export type IncomingMessage = {
 	outlookWebLink?: string | null;
 };
 
+export type StoreSkipReason =
+	| "already-filed"
+	| "not-replied"
+	| "auto-create-off"
+	| "no-external-person";
+
+export type StoreResult =
+	| {
+			stored: true;
+			reason: "stored";
+			companyId: string | null;
+			contactId: string | null;
+	  }
+	| { stored: false; reason: StoreSkipReason };
+
 @Injectable()
 export class ThreadWriterService {
 	private readonly logger = new Logger(ThreadWriterService.name);
@@ -64,6 +79,16 @@ export class ThreadWriterService {
 		parsed: IncomingMessage,
 		context: MatchContext,
 	): Promise<boolean> {
+		const result = await this.storeWithReason(row, options, parsed, context);
+		return result.stored;
+	}
+
+	async storeWithReason(
+		row: MailboxSync,
+		options: { mailbox: string; origin: SyncSource },
+		parsed: IncomingMessage,
+		context: MatchContext,
+	): Promise<StoreResult> {
 		const existing = await this.db.emailMessage.findUnique({
 			where: { rfcMessageId: parsed.rfcMessageId },
 			select: {
@@ -77,7 +102,8 @@ export class ThreadWriterService {
 				},
 			},
 		});
-		if (existing?.thread.activity) return false;
+		if (existing?.thread.activity)
+			return { stored: false, reason: "already-filed" };
 
 		const repair = existing !== null;
 		const participants = [parsed.from, ...parsed.recipients];
@@ -116,7 +142,14 @@ export class ThreadWriterService {
 			contactId = match.contactId;
 
 			if (!companyId && !contactId) {
-				return false;
+				return {
+					stored: false,
+					reason: !repliedTo
+						? "not-replied"
+						: row.autoCreate
+							? "no-external-person"
+							: "auto-create-off",
+				};
 			}
 		}
 
@@ -197,7 +230,9 @@ export class ThreadWriterService {
 				});
 			});
 		} catch (error) {
-			if (await this.storedElsewhere(error, parsed.rfcMessageId)) return false;
+			if (await this.storedElsewhere(error, parsed.rfcMessageId)) {
+				return { stored: false, reason: "already-filed" };
+			}
 			throw error;
 		}
 
@@ -207,7 +242,9 @@ export class ThreadWriterService {
 			await this.capture.captureThread(storedThreadId, row.userId);
 		}
 
-		return !repair;
+		return repair
+			? { stored: false, reason: "already-filed" }
+			: { stored: true, reason: "stored", companyId, contactId };
 	}
 
 	private async storedElsewhere(
