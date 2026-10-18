@@ -1,4 +1,5 @@
 import EveLogo from "@crm/ui/components/brand-logos/eve";
+import GCloudLogo from "@crm/ui/components/brand-logos/gcloud";
 import NextjsLogo from "@crm/ui/components/brand-logos/nextjs";
 import VercelLogo from "@crm/ui/components/brand-logos/vercel";
 
@@ -22,6 +23,10 @@ export function BuiltWith() {
 					<li className="flex items-center gap-3">Context</li>
 					<li className="flex items-center gap-3">
 						<EveLogo aria-label="eve" className="h-[26px] w-[82px] shrink-0" />
+					</li>
+					<li className="flex items-center gap-3">
+						<GCloudLogo className="size-[26px] shrink-0" />
+						Google Cloud
 					</li>
 				</ul>
 			</div>
