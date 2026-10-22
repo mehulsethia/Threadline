@@ -111,3 +111,38 @@ export const dashboardSummaryOutput = z.object({
 	overdueTasks: z.array(overdueTaskOutput),
 	recentActivity: z.array(recentActivityOutput),
 });
+
+export const AGENT_FEED_KINDS = [
+	"read",
+	"lead",
+	"call",
+	"draft",
+	"score",
+	"promise",
+] as const;
+
+export const agentFeedItem = z.object({
+	id: z.string(),
+	kind: z.enum(AGENT_FEED_KINDS),
+	at: z.string(),
+	title: z.string(),
+	detail: z.string().nullable(),
+	record: z
+		.object({ kind: z.enum(["deal", "contact"]), id: z.string() })
+		.nullable(),
+	needsApproval: z.boolean(),
+});
+
+export type AgentFeedItem = z.infer<typeof agentFeedItem>;
+
+export const agentFeedOutput = z.object({
+	stats: z.object({
+		conversations: z.number(),
+		leads: z.number(),
+		scored: z.number(),
+		waiting: z.number(),
+	}),
+	items: z.array(agentFeedItem),
+});
+
+export type AgentFeed = z.infer<typeof agentFeedOutput>;

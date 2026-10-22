@@ -18,11 +18,13 @@ import {
 import { Icon } from "@crm/ui/components/icon";
 import { jsonText } from "@crm/validation/json-text";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import {
 	createMicGate,
 	createPlaybackQueue,
@@ -86,6 +88,7 @@ export function VoiceQualifierModal({
 }: VoiceQualifierModalProps) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const workspaceUrl = useWorkspaceUrl();
 
 	const [status, setStatus] = useState<
 		"idle" | "connecting" | "in_call" | "ended" | "error"
@@ -580,6 +583,19 @@ export function VoiceQualifierModal({
 								)}
 								<div ref={transcriptEndRef} />
 							</div>
+
+							{status === "ended" && transcripts.length > 0 && (
+								<div className="flex flex-wrap items-center justify-between gap-3 border-t bg-accent px-8 py-4">
+									<p className="max-w-[52ch] text-sm">
+										The agent is writing a call summary, a follow-up message and
+										a stage proposal. They wait for your approval on the Revival
+										page in about a minute.
+									</p>
+									<Button asChild variant="outline" size="sm">
+										<Link href={workspaceUrl("/revival")}>Open Revival</Link>
+									</Button>
+								</div>
+							)}
 
 							{fallbackMode && (
 								<div className="flex flex-wrap items-center justify-between gap-4 border-t border-dashed bg-muted/40 px-8 py-4">

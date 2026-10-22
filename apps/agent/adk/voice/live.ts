@@ -3,6 +3,7 @@ import { jsonText } from "@crm/validation/json-text";
 import {
 	VOICE_CATEGORIES,
 	type VoiceDealContext,
+	type VoiceRecordedFact,
 	voiceClientMessage,
 	voiceRecordedFact,
 } from "@crm/validation/voice";
@@ -14,6 +15,7 @@ import {
 	type Tool,
 	Type,
 } from "@google/genai";
+import { type CallTurn, wrapUpCall } from "./after-call";
 import { recordAnswer } from "./answers";
 import { dealContext } from "./context";
 import { liveLocation, liveModel, VOICE } from "./voice-config";
@@ -118,12 +120,30 @@ export async function startLiveCall(
 		location: liveLocation(),
 	});
 
+	const turns: CallTurn[] = [];
+	const facts: VoiceRecordedFact[] = [];
+	const heard = (role: CallTurn["role"], text: string) => {
+		const last = turns.at(-1);
+		if (last?.role === role) last.text += text;
+		else turns.push({ role, text });
+	};
+
+	let wrapped = false;
+	const wrapUp = () => {
+		if (wrapped) return;
+		wrapped = true;
+		wrapUpCall(workspaceId, dealId, turns, facts).catch((error) =>
+			console.error("[voice] call wrap-up failed", error),
+		);
+	};
+
 	let ended = false;
 	const finish = (reason?: string) => {
 		if (ended) return;
 		ended = true;
 		peer.send({ type: "call_ended", reason });
 		peer.close();
+		wrapUp();
 	};
 
 	const onToolCall = async (session: Session, msg: LiveServerMessage) => {
@@ -134,6 +154,7 @@ export async function startLiveCall(
 			const recorded = await runInWorkspace(workspaceId, () =>
 				recordAnswer(dealId, parsed.data),
 			);
+			facts.push(parsed.data);
 			try {
 				session.sendToolResponse({
 					functionResponses: [
@@ -175,6 +196,7 @@ export async function startLiveCall(
 					}
 				}
 				if (content?.inputTranscription?.text) {
+					heard("user", content.inputTranscription.text);
 					peer.send({
 						type: "transcript",
 						role: "user",
@@ -182,6 +204,7 @@ export async function startLiveCall(
 					});
 				}
 				if (content?.outputTranscription?.text) {
+					heard("assistant", content.outputTranscription.text);
 					peer.send({
 						type: "transcript",
 						role: "assistant",
@@ -228,6 +251,7 @@ export async function startLiveCall(
 					audio: { mimeType: VOICE.live.inputMimeType, data: msg.pcm },
 				});
 			} else if (msg.type === "text") {
+				heard("user", msg.text);
 				session.sendClientContent({
 					turns: [{ role: "user", parts: [{ text: msg.text }] }],
 				});
@@ -243,6 +267,7 @@ export async function startLiveCall(
 			try {
 				session.close();
 			} catch {}
+			wrapUp();
 		},
 	};
 }

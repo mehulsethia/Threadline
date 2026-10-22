@@ -62,8 +62,11 @@ export class RevivalRouter {
 		output: revivalApproveOutput,
 		meta: restMeta("POST", "/revival/approve", ["Revival"]),
 	})
-	async approveAndSend(@Input() input: z.infer<typeof revivalApproveInput>) {
-		return this.revival.approveAndSend(input);
+	async approveAndSend(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof revivalApproveInput>,
+	) {
+		return this.revival.approveAndSend(input, ctx.user.id);
 	}
 
 	@Mutation({

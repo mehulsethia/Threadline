@@ -1697,6 +1697,7 @@ model OutboundDraft {
   citedEvidence    Json?
   stalledReason    String?
   priorityScore    Float?
+  proposedStage    DealStage?
   status           OutboundDraftStatus @default(PENDING_APPROVAL)
   approvedById     String?
   approvedBy       User?               @relation("DraftApprover", fields: [approvedById], references: [id], onDelete: SetNull)

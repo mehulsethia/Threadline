@@ -61,6 +61,7 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { DEAL_STAGE_OPTIONS, dealStageLabel } from "@/lib/deal-stage";
 import { useTRPC } from "@/lib/trpc/client";
 
 type DraftStatusTab = "PENDING_APPROVAL" | "SENT" | "REJECTED";
@@ -86,6 +87,7 @@ type RevivalDraft = {
 	citedEvidence: CitedEvidenceItem[];
 	stalledReason: string | null;
 	priorityScore: number | null;
+	proposedStage: string | null;
 	status: string;
 	waLink: string | null;
 	createdAt: string;
@@ -241,11 +243,19 @@ function RevivalDraftCard({
 	const [isEditing, setIsEditing] = useState(false);
 	const [editedText, setEditedText] = useState(draft.draftText);
 	const [editedSubject, setEditedSubject] = useState(draft.subject || "");
+	const afterCall = draft.strategy === "post_call";
+	const proposedStage = DEAL_STAGE_OPTIONS.find(
+		(option) => option.value === draft.proposedStage,
+	)?.value;
 
 	const approveMutation = useMutation(
 		trpc.revival.approveAndSend.mutationOptions({
 			onSuccess: (result) => {
-				toast.success("Draft approved and marked as sent");
+				toast.success(
+					result.stageChanged
+						? "Approved. The deal moved stage and the message is ready to send."
+						: "Draft approved and marked as sent",
+				);
 				if (result.actionUrl) {
 					window.open(result.actionUrl, "_blank", "noopener,noreferrer");
 				}
@@ -336,14 +346,32 @@ function RevivalDraftCard({
 					</div>
 				</div>
 
-				{draft.stalledReason && (
-					<div className="mt-3 flex items-start gap-2 rounded-md bg-warning/10 p-2.5 text-xs text-warning">
-						<Warning className="mt-0.5 size-4 shrink-0 text-warning" />
-						<div>
-							<span className="font-semibold">Why stalled: </span>
-							{draft.stalledReason}
-						</div>
+				{afterCall ? (
+					<div className="mt-3 flex flex-col gap-1.5 rounded-md bg-accent p-3 text-sm">
+						<span className="font-medium">After the qualifying call</span>
+						<span className="text-muted-foreground">
+							The agent summarised the call, drafted this follow-up
+							{proposedStage
+								? ` and proposes moving the deal to ${dealStageLabel(proposedStage)}`
+								: ""}
+							. Approving does all of it at once.
+						</span>
+						{draft.stalledReason && (
+							<span className="text-muted-foreground text-xs">
+								{draft.stalledReason}
+							</span>
+						)}
 					</div>
+				) : (
+					draft.stalledReason && (
+						<div className="mt-3 flex items-start gap-2 rounded-md bg-warning/10 p-2.5 text-xs text-warning">
+							<Warning className="mt-0.5 size-4 shrink-0 text-warning" />
+							<div>
+								<span className="font-semibold">Why stalled: </span>
+								{draft.stalledReason}
+							</div>
+						</div>
+					)
 				)}
 			</CardHeader>
 
@@ -380,7 +408,9 @@ function RevivalDraftCard({
 
 				{draft.contextRationale && (
 					<div className="text-xs text-muted-foreground">
-						<span className="font-medium text-foreground">Rationale: </span>
+						<span className="font-medium text-foreground">
+							{afterCall ? "Call summary: " : "Rationale: "}
+						</span>
 						{draft.contextRationale}
 					</div>
 				)}
@@ -531,7 +561,9 @@ function RevivalDraftCard({
 						) : (
 							<Send className="size-3.5" />
 						)}
-						Approve & Send
+						{proposedStage
+							? `Approve, move to ${dealStageLabel(proposedStage)} & send`
+							: "Approve & Send"}
 					</Button>
 				</CardFooter>
 			)}

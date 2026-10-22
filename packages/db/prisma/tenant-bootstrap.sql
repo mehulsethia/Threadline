@@ -1160,6 +1160,7 @@ CREATE TABLE "outboundDraft" (
     "citedEvidence" JSONB,
     "stalledReason" TEXT,
     "priorityScore" DOUBLE PRECISION,
+    "proposedStage" "DealStage",
     "status" "OutboundDraftStatus" NOT NULL DEFAULT 'PENDING_APPROVAL',
     "approvedById" TEXT,
     "approvedAt" TIMESTAMP(3),

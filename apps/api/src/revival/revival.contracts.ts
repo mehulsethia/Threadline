@@ -28,6 +28,7 @@ export const revivalDraftItem = z.object({
 	citedEvidence: z.array(citedEvidenceItem),
 	stalledReason: z.string().nullable(),
 	priorityScore: z.number().nullable(),
+	proposedStage: z.string().nullable(),
 	status: z.string(),
 	waLink: z.string().nullable(),
 	createdAt: z.string(),
@@ -53,6 +54,7 @@ export const revivalApproveOutput = z.object({
 	success: z.boolean(),
 	status: z.string(),
 	actionUrl: z.string().nullable(),
+	stageChanged: z.boolean(),
 });
 
 export const revivalUpdateInput = z.object({

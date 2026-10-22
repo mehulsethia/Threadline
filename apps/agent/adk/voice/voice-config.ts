@@ -5,6 +5,13 @@ export const VOICE = {
 		inputMimeType: "audio/pcm;rate=16000",
 	},
 	transcribe: { model: "gemini-4-argon", location: "global" },
+	wrapUp: {
+		model: "gemini-4-argon",
+		location: "global",
+		minLeadTurns: 1,
+		draftPriority: 100,
+		maxTranscriptCharacters: 20_000,
+	},
 	evidenceScore: 0.9,
 } as const;
 
@@ -22,4 +29,12 @@ export function transcribeModel(): string {
 
 export function transcribeLocation(): string {
 	return process.env.GEMINI_FAST_LOCATION || VOICE.transcribe.location;
+}
+
+export function wrapUpModel(): string {
+	return process.env.GEMINI_SMART_MODEL || VOICE.wrapUp.model;
+}
+
+export function wrapUpLocation(): string {
+	return process.env.GEMINI_SMART_LOCATION || VOICE.wrapUp.location;
 }

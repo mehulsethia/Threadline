@@ -41,13 +41,26 @@ export async function recordAnswer(
 		status: FactStatus.PROPOSED,
 	});
 
-	await db.contactFact.create({
-		data: proposed(
-			`qualification.${input.category}`,
-			input.fact,
-			"gemini-live-call",
-		),
+	const field = `qualification.${input.category}`;
+	const earlier = await db.contactFact.findFirst({
+		where: {
+			dealId,
+			field,
+			method: "gemini-live-call",
+			status: FactStatus.PROPOSED,
+		},
+		select: { id: true },
 	});
+	if (earlier) {
+		await db.contactFact.update({
+			where: { id: earlier.id },
+			data: { value: input.fact, evidence, observedAt: new Date() },
+		});
+	} else {
+		await db.contactFact.create({
+			data: proposed(field, input.fact, "gemini-live-call"),
+		});
+	}
 
 	const facts = await db.contactFact.findMany({
 		where: { dealId, status: { not: FactStatus.DISMISSED } },

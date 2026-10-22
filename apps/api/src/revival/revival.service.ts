@@ -12,6 +12,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { TRPCError } from "@trpc/server";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
+import { DealsService } from "../deals/deals.service";
 import { SlackRevivalService } from "../slack/slack-revival.service";
 
 @Injectable()
@@ -21,6 +22,7 @@ export class RevivalService {
 		@Inject(AgentTriggerService)
 		private readonly agentTrigger: AgentTriggerService,
 		private readonly slackRevival: SlackRevivalService,
+		private readonly deals: DealsService,
 	) {}
 
 	async listDrafts(input?: { status?: string }) {
@@ -81,6 +83,7 @@ export class RevivalService {
 					citedEvidence: cited,
 					stalledReason: d.stalledReason,
 					priorityScore: d.priorityScore,
+					proposedStage: d.proposedStage,
 					status: d.status,
 					waLink: d.waLink,
 					createdAt: d.createdAt.toISOString(),
@@ -105,7 +108,10 @@ export class RevivalService {
 		};
 	}
 
-	async approveAndSend(input: { draftId: string; draftText?: string }) {
+	async approveAndSend(
+		input: { draftId: string; draftText?: string },
+		actingUserId: string,
+	) {
 		const draft = await this.db.outboundDraft.findUnique({
 			where: { id: input.draftId },
 			include: {
@@ -144,45 +150,52 @@ export class RevivalService {
 			"APPROVED",
 		);
 
-		const defaultUser = await this.db.user.findFirst({ select: { id: true } });
-		if (defaultUser) {
-			await this.db.activity.create({
-				data: {
-					type:
-						draft.channel === "whatsapp"
-							? ActivityType.WHATSAPP
-							: ActivityType.EMAIL,
-					subject: draft.subject || `Revival message sent via ${draft.channel}`,
-					body: textToSend,
-					dealId: draft.dealId,
-					contactId: draft.contactId,
-					createdById: defaultUser.id,
-					occurredAt: now,
-					meta: {
-						channel: draft.channel,
-						draftId: draft.id,
-						strategy: draft.strategy,
-					},
-				},
-			});
+		const stageChanged = draft.proposedStage
+			? (
+					await this.deals.setStage(
+						{ id: draft.dealId, stage: draft.proposedStage },
+						actingUserId,
+					)
+				).changed
+			: false;
 
-			const followUpDue = new Date(now.getTime() + 3 * 86400 * 1000);
-			await this.db.activity.create({
-				data: {
-					type: ActivityType.TASK,
-					subject: `Check: Revival response from ${draft.contact.firstName}`,
-					dueAt: followUpDue,
-					dealId: draft.dealId,
-					contactId: draft.contactId,
-					createdById: defaultUser.id,
+		await this.db.activity.create({
+			data: {
+				type:
+					draft.channel.toUpperCase() === "WHATSAPP"
+						? ActivityType.WHATSAPP
+						: ActivityType.EMAIL,
+				subject: draft.subject || `Revival message sent via ${draft.channel}`,
+				body: textToSend,
+				dealId: draft.dealId,
+				contactId: draft.contactId,
+				createdById: actingUserId,
+				occurredAt: now,
+				meta: {
+					channel: draft.channel,
+					draftId: draft.id,
+					strategy: draft.strategy,
 				},
-			});
-		}
+			},
+		});
+
+		const followUpDue = new Date(now.getTime() + 3 * 86400 * 1000);
+		await this.db.activity.create({
+			data: {
+				type: ActivityType.TASK,
+				subject: `Check: Revival response from ${draft.contact.firstName}`,
+				dueAt: followUpDue,
+				dealId: draft.dealId,
+				contactId: draft.contactId,
+				createdById: actingUserId,
+			},
+		});
 
 		return {
 			success: true,
 			status: "SENT",
 			actionUrl,
+			stageChanged,
 		};
 	}
 
