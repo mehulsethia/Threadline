@@ -25,8 +25,52 @@ const INSTRUCTION = `You are Threadline's CRM analyst. Answer the user's questio
 - When you mention a record, link it exactly like [Name](deal:ID), [Name](contact:ID) or [Name](company:ID) using the id from the tool result.
 - Amounts are in the currency the tools return. Format them for people: currency code or symbol and thousands separators, like €72,000 or ¥11,492,537.
 - Be concise: lead with the direct answer, then a short bulleted list. Use a small markdown table for comparisons.
+- Treat every new question on its own. Call the tools again; never reuse an earlier answer as the data.
+- When a filter returns nothing, widen it once and say what you widened. Never stop at "there are none" when open deals exist.
+- "Likely to close" means open deals ranked by win probability, then lead score. Show each deal's expected close date, or say it is not set.
+- "Active" or "open" deals are every deal not won or lost.
+- When the question is about what a lead said, asked for, needs or promised, call get_deal for each deal involved and answer from its messages and facts.
 - If the data does not answer the question, say so and suggest what would.
 - Reply in the user's language.`;
+
+const OPEN_STAGES = { notIn: [DealStage.CLOSED_WON, DealStage.CLOSED_LOST] };
+
+async function pipelineSnapshot(now: Date): Promise<string> {
+	const monthStart = new Date(
+		Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+	);
+	const monthEnd = new Date(
+		Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+	);
+	const open = { archivedAt: null, stage: OPEN_STAGES };
+	const [byStage, undated, closingThisMonth, contacts, companies] =
+		await Promise.all([
+			db.deal.groupBy({
+				by: ["stage"],
+				where: open,
+				_count: { _all: true },
+			}),
+			db.deal.count({ where: { ...open, expectedCloseDate: null } }),
+			db.deal.count({
+				where: {
+					...open,
+					expectedCloseDate: { gte: monthStart, lt: monthEnd },
+				},
+			}),
+			db.contact.count({ where: { archivedAt: null } }),
+			db.company.count({ where: { archivedAt: null } }),
+		]);
+	const stages = byStage
+		.map((row) => `${row.stage}: ${row._count._all}`)
+		.join(", ");
+	const openTotal = byStage.reduce((sum, row) => sum + row._count._all, 0);
+	return [
+		`Open deals: ${openTotal}${stages ? ` (${stages})` : ""}.`,
+		`Open deals with no expected close date: ${undated}.`,
+		`Open deals expected to close this calendar month: ${closingThisMonth}.`,
+		`Contacts: ${contacts}. Companies: ${companies}.`,
+	].join("\n");
+}
 
 const stageEnum = z.enum(
 	Object.values(DealStage) as [DealStage, ...DealStage[]],
@@ -85,31 +129,43 @@ function tools(called: string[], onTool?: (name: string) => void) {
 					.describe(
 						"ISO date: expected close before this date. Leave out for any date.",
 					),
+				closingAfter: z
+					.string()
+					.optional()
+					.describe(
+						"ISO date: expected close on or after this date. Leave out for any date.",
+					),
 				includeClosed: z
 					.boolean()
 					.optional()
 					.describe("Include won and lost deals. Defaults to false."),
 				sortBy: z
-					.enum(["score", "value", "closing", "recent"])
+					.enum(["score", "value", "closing", "likely", "recent"])
 					.optional()
-					.describe("Defaults to recent activity."),
+					.describe(
+						"likely sorts by win probability, then score. Defaults to recent activity.",
+					),
 			}),
 			execute: async (args) => {
 				track("list_deals");
 				const deals = await db.deal.findMany({
 					where: {
 						archivedAt: null,
-						stage:
-							args.stage ??
-							(args.includeClosed
-								? undefined
-								: { notIn: [DealStage.CLOSED_WON, DealStage.CLOSED_LOST] }),
+						stage: args.stage ?? (args.includeClosed ? undefined : OPEN_STAGES),
 						health: args.health ?? undefined,
 						leadScore:
 							args.minScore === undefined ? undefined : { gte: args.minScore },
-						expectedCloseDate: args.closingBefore
-							? { lte: new Date(args.closingBefore) }
-							: undefined,
+						expectedCloseDate:
+							args.closingBefore || args.closingAfter
+								? {
+										lte: args.closingBefore
+											? new Date(args.closingBefore)
+											: undefined,
+										gte: args.closingAfter
+											? new Date(args.closingAfter)
+											: undefined,
+									}
+								: undefined,
 					},
 					orderBy:
 						args.sortBy === "score"
@@ -118,7 +174,12 @@ function tools(called: string[], onTool?: (name: string) => void) {
 								? { baseAmount: { sort: "desc", nulls: "last" } }
 								: args.sortBy === "closing"
 									? { expectedCloseDate: { sort: "asc", nulls: "last" } }
-									: { lastActivityAt: { sort: "desc", nulls: "last" } },
+									: args.sortBy === "likely"
+										? [
+												{ winProbability: { sort: "desc", nulls: "last" } },
+												{ leadScore: { sort: "desc", nulls: "last" } },
+											]
+										: { lastActivityAt: { sort: "desc", nulls: "last" } },
 					take: ASSIST.ask.listLimit,
 					select: {
 						id: true,
@@ -142,7 +203,7 @@ function tools(called: string[], onTool?: (name: string) => void) {
 		new FunctionTool({
 			name: "get_deal",
 			description:
-				"Everything known about one deal: facts, messages, tasks, promises, score.",
+				"Everything known about one deal: facts, messages, tasks, promises, score. Call it whenever the user asks what a lead said, asked for, needs or promised.",
 			parameters: z.object({ dealId: z.string() }),
 			execute: async ({ dealId }) => {
 				track("get_deal");
@@ -285,10 +346,12 @@ export async function runAsk(
 	emit?: (event: AskEvent) => void,
 ): Promise<AskResult> {
 	const called: string[] = [];
+	const now = new Date();
+	const snapshot = await pipelineSnapshot(now);
 	const agent = new LlmAgent({
 		name: "threadline_crm_analyst",
 		model: gemini(),
-		instruction: `${INSTRUCTION}\nToday is ${new Date().toISOString().slice(0, 10)}.`,
+		instruction: `${INSTRUCTION}\nToday is ${now.toISOString().slice(0, 10)}.\nCurrent pipeline:\n${snapshot}`,
 		tools: tools(called, (name) => emit?.({ type: "tool", name })),
 	});
 	const runner = new InMemoryRunner({ agent });

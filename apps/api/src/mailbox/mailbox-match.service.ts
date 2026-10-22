@@ -10,6 +10,7 @@ import { InjectDatabase } from "../database/database.constants";
 import {
 	dominantDomain,
 	externalParticipants,
+	freeMailParticipants,
 	isDerivedName,
 	type Participant,
 	splitName,
@@ -36,6 +37,7 @@ export type MatchContext = {
 export type MatchRequest = {
 	participants: readonly Participant[];
 	allowCreate: boolean;
+	pendingReview: boolean;
 	source: SyncRecordSource;
 	ownerId: string;
 };
@@ -89,15 +91,19 @@ export class MailboxMatchService {
 		request: MatchRequest,
 		context: MatchContext,
 	): Promise<MatchResult> {
-		const external = externalParticipants(request.participants, {
+		const filter = {
 			ourDomains: context.ourDomains,
 			ourAddresses: context.ourAddresses,
 			suppressedDomains: context.suppressedDomains,
 			suppressedEmails: context.suppressedEmails,
-		});
+		};
+		const external = externalParticipants(request.participants, filter);
 
 		if (external.length === 0) {
-			return { companyId: null, contactId: null, external };
+			return this.resolveFreeMail(
+				freeMailParticipants(request.participants, filter),
+				request,
+			);
 		}
 
 		const contact = await this.db.contact.findFirst({
@@ -137,11 +143,15 @@ export class MailboxMatchService {
 
 		const existing = known.find((company) => company.domain === domain);
 		if (existing) {
+			const person = external.find(
+				(candidate) => workDomain(candidate.email) === domain,
+			);
 			return {
 				companyId: existing.id,
-				contactId: request.allowCreate
-					? await this.createContact(external, domain, existing.id, request)
-					: null,
+				contactId:
+					request.allowCreate && person
+						? await this.createContact(person, existing.id, request)
+						: null,
 				external,
 			};
 		}
@@ -173,15 +183,13 @@ export class MailboxMatchService {
 
 		await this.db.company.update({
 			where: { id: companyId },
-			data: { source: request.source },
+			data: { source: request.source, pendingReview: request.pendingReview },
 		});
 
-		const contactId = await this.createContact(
-			external,
-			domain,
-			companyId,
-			request,
-		);
+		const contactId =
+			workDomain(lead.email) === domain
+				? await this.createContact(lead, companyId, request)
+				: null;
 
 		await this.log.record({
 			companyId,
@@ -202,17 +210,37 @@ export class MailboxMatchService {
 		return { companyId, contactId, external };
 	}
 
-	private async createContact(
+	private async resolveFreeMail(
 		external: Participant[],
-		domain: string,
-		companyId: string,
 		request: MatchRequest,
-	): Promise<string | null> {
-		const person = external.find(
-			(candidate) => workDomain(candidate.email) === domain,
-		);
-		if (!person) return null;
+	): Promise<MatchResult> {
+		const person = external[0];
+		if (!person) return { companyId: null, contactId: null, external };
 
+		const known = await this.db.contact.findFirst({
+			where: { email: { in: external.map((p) => p.email) } },
+			select: { id: true, companyId: true },
+		});
+		if (known) {
+			return { companyId: known.companyId, contactId: known.id, external };
+		}
+
+		if (!request.allowCreate || request.source !== RecordSource.EMAIL) {
+			return { companyId: null, contactId: null, external };
+		}
+
+		const contactId = await this.createContact(person, null, {
+			...request,
+			pendingReview: true,
+		});
+		return { companyId: null, contactId, external };
+	}
+
+	private async createContact(
+		person: Participant,
+		companyId: string | null,
+		request: MatchRequest,
+	): Promise<string> {
 		const { firstName, lastName } = splitName(person.name, person.email);
 
 		const outcome = await this.agent.withCrmEvents(async (tx, emit) => {
@@ -238,6 +266,7 @@ export class MailboxMatchService {
 					companyId,
 					source: request.source,
 					ownerId: request.ownerId,
+					pendingReview: request.pendingReview,
 				},
 				select: {
 					id: true,

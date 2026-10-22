@@ -37,7 +37,9 @@ export class GoogleConnectionService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async status(userId: string): Promise<GoogleConnectionStatus> {
+	async status(
+		userId: string,
+	): Promise<Omit<GoogleConnectionStatus, "fetchingRecent">> {
 		await this.onConnected(userId);
 
 		const [granted, rows, hasRefreshToken, accounts, user] = await Promise.all([

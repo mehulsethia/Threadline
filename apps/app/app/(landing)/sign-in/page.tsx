@@ -7,6 +7,7 @@ import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { getSession } from "@/lib/session";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { DemoSignIn } from "./demo-sign-in";
+import { EmailSignIn } from "./email-sign-in";
 import { SocialSignIn } from "./social-sign-in";
 import { type SsoProvider, SsoSignIn } from "./sso-sign-in";
 
@@ -93,19 +94,18 @@ async function SignIn({
 		<>
 			<AuthHeading
 				title="Sign in to Threadline"
-				description="Open the demo workspace, or sign in with your work account."
+				description="Open the demo workspace, or sign in to your own."
 			/>
 
 			<DemoSignIn />
 
+			<OrDivider />
+
+			<EmailSignIn />
+
 			{hasOtherMethods && (
 				<>
-					<div className="relative flex items-center justify-center py-1">
-						<Separator className="w-full" />
-						<span className="absolute bg-card px-3 text-muted-foreground text-sm">
-							or
-						</span>
-					</div>
+					<OrDivider />
 
 					<div className="flex flex-col gap-2.5">
 						{showSso ? <SsoSignIn providers={providers} /> : null}
@@ -116,5 +116,16 @@ async function SignIn({
 				</>
 			)}
 		</>
+	);
+}
+
+function OrDivider() {
+	return (
+		<div className="relative flex items-center justify-center py-1">
+			<Separator className="w-full" />
+			<span className="absolute bg-card px-3 text-muted-foreground text-sm">
+				or
+			</span>
+		</div>
 	);
 }

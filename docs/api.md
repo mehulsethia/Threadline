@@ -114,6 +114,14 @@ self-hoster's admin cannot redeploy.
 - **It is the API's answer, not the app's** — the API serves `/api/auth/*`.
 - **An install with no Google, no Microsoft and no provider says so**, naming the
   variables; a read that *fails* falls back to offering Google.
+- **Email and password always works**, with no keys at all. Better Auth's
+  `emailAndPassword` is on, lengths come from `PASSWORD` (`@crm/auth/password`),
+  and there is no verification email because the install has no mail sender. A
+  password account is not a mailbox, so it is never walled by `needsMailboxGrant`;
+  it connects Gmail or Outlook later through `linkSocial`, and
+  `allowDifferentEmails` lets that inbox use another address.
+- **`sso.signInOptions` runs before anyone has a workspace.** Without a workspace
+  in context it skips the provider lookup and reports Google and Microsoft only.
 - **A provider hides the social buttons, it does not disable them** —
   `/sign-in?method=google` and `?method=microsoft` still work, so a mistyped issuer
   cannot lock an admin out.

@@ -14,6 +14,7 @@ import {
 	OPEN_DEAL_STAGES,
 } from "@crm/db/deal-stage";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { parseFactEvidence } from "@crm/validation/fact-evidence";
 import {
 	BadRequestException,
 	ConflictException,
@@ -264,12 +265,7 @@ export class DealsService {
 			fields: await this.fields.valuesFor("DEAL", id),
 			facts: (facts ?? []).map((fact) => ({
 				...fact,
-				evidence:
-					(fact.evidence as Array<{
-						kind: string;
-						detail: string;
-						sourceUrl?: string;
-					}>) ?? [],
+				evidence: parseFactEvidence(fact.evidence),
 				observedAt: fact.observedAt.toISOString(),
 			})),
 			amountCents: toCents(amount),

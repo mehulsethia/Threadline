@@ -9,7 +9,7 @@ export function RevivalMock() {
 					</span>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					Why it stalled: Klaus asked about volume pricing for 500 valves and
+					Why it stalled: Karen asked about volume pricing for 500 valves and
 					got no reply.
 				</p>
 			</div>
@@ -17,19 +17,19 @@ export function RevivalMock() {
 				<div className="flex flex-wrap items-center gap-2 text-sm">
 					<span className="text-muted-foreground">Strategy</span>
 					<span className="font-medium">Answer the open question</span>
-					<span className="text-muted-foreground">on WhatsApp, in German</span>
+					<span className="text-muted-foreground">on WhatsApp, in English</span>
 				</div>
 				<div className="rounded-lg bg-muted px-4 py-3 text-[15px]/7">
 					<p>
-						Guten Tag Herr Weber, vielen Dank für Ihre Frage zu den
-						Staffelpreisen für 500 Hochdruckventile. Gerne gehe ich die
-						Konditionen mit Ihnen in einem kurzen Gespräch durch.{" "}
+						Hi Karen, thanks for your question about volume pricing for 500
+						high-pressure valves. I would be glad to walk you through the terms
+						on a short call.{" "}
 						<del className="text-muted-foreground decoration-destructive">
-							Wir garantieren Lieferung in zwei Wochen.
+							We guarantee delivery in two weeks.
 						</del>
 					</p>
 					<p className="pt-3">
-						Viele Grüße
+						Best regards
 						<br />
 						Anna Schmidt, Northwind Systems
 					</p>

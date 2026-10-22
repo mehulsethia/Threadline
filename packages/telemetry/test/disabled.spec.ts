@@ -1,11 +1,21 @@
 import { describe, expect, it } from "bun:test";
 import { DISABLE_VARIABLES, telemetryDisabled } from "../src/disabled";
 
+const projectKey = "phc_test_project";
+
 describe("telemetryDisabled", () => {
+	it("sends nothing without a project key", () => {
+		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1" }, "")).toBe(true);
+	});
+
 	it("sends nothing unless explicitly enabled", () => {
-		expect(telemetryDisabled({})).toBe(true);
-		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "0" })).toBe(true);
-		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1" })).toBe(false);
+		expect(telemetryDisabled({}, projectKey)).toBe(true);
+		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "0" }, projectKey)).toBe(
+			true,
+		);
+		expect(telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1" }, projectKey)).toBe(
+			false,
+		);
 	});
 
 	it("sends nothing from a test run, whatever else is set", () => {
@@ -14,16 +24,22 @@ describe("telemetryDisabled", () => {
 
 	it("honours CRM_TELEMETRY_DISABLED", () => {
 		expect(
-			telemetryDisabled({
-				CRM_TELEMETRY_ENABLED: "1",
-				CRM_TELEMETRY_DISABLED: "1",
-			}),
+			telemetryDisabled(
+				{
+					CRM_TELEMETRY_ENABLED: "1",
+					CRM_TELEMETRY_DISABLED: "1",
+				},
+				projectKey,
+			),
 		).toBe(true);
 	});
 
 	it("honours DO_NOT_TRACK", () => {
 		expect(
-			telemetryDisabled({ CRM_TELEMETRY_ENABLED: "1", DO_NOT_TRACK: "1" }),
+			telemetryDisabled(
+				{ CRM_TELEMETRY_ENABLED: "1", DO_NOT_TRACK: "1" },
+				projectKey,
+			),
 		).toBe(true);
 	});
 
@@ -36,10 +52,13 @@ describe("telemetryDisabled", () => {
 	it("does not read an empty or negative value as a yes", () => {
 		for (const value of ["", " ", "0", "false", "no"]) {
 			expect(
-				telemetryDisabled({
-					CRM_TELEMETRY_ENABLED: "1",
-					CRM_TELEMETRY_DISABLED: value,
-				}),
+				telemetryDisabled(
+					{
+						CRM_TELEMETRY_ENABLED: "1",
+						CRM_TELEMETRY_DISABLED: value,
+					},
+					projectKey,
+				),
 			).toBe(false);
 		}
 	});

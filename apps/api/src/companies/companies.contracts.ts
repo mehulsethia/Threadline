@@ -50,6 +50,11 @@ export const companyUpdateArgs = z.object({
 
 export const companyIdInput = z.object({ id: z.string() });
 
+export const companyReviewInput = z.object({
+	id: z.string(),
+	decision: z.enum(["keep", "remove"]),
+});
+
 export const setPrimaryContactInput = z.object({
 	companyId: z.string(),
 	contactId: z.string().nullable(),
@@ -126,6 +131,7 @@ export const companyRowOutput = z.object({
 	enrichmentStatus: companyEnrichmentStatus,
 	queued: z.boolean(),
 	source: companyRecordSource,
+	pendingReview: z.boolean(),
 	owner: ownerSummaryOutput.nullable(),
 	contactCount: z.number(),
 	openDealCount: z.number(),
@@ -201,6 +207,7 @@ export const companyDetailOutput = z.object({
 	enrichmentStatus: companyEnrichmentStatus,
 	enrichmentError: z.string().nullable(),
 	source: companyRecordSource,
+	pendingReview: z.boolean(),
 	owner: ownerSummaryOutput.nullable(),
 	contacts: z.array(companyDetailContactOutput),
 	fields: z.array(companyRecordFieldOutput),

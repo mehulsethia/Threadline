@@ -51,11 +51,14 @@ inventory, including a `diagnostics` count that finds files eve silently ignored
 
 ## Running the agent
 
-The agent package's default `dev` command is interactive `eve dev`. The root
-Turbo task marks it interactive, so select the agent pane and press Enter before
-using the eve TUI. Run `turbo run dev:headless --filter=agent` when a terminal
-cannot render the TUI; that uses `eve dev --no-ui`, and the Turbo pane is the
-record because only interactive development writes `.eve/logs/` for `eve logs`.
+The agent package's default `dev` command runs the ADK worker
+(`bun --watch adk/worker.ts`), the same entrypoint the production container runs.
+It serves Ask your CRM, AI assist, the voice qualifier and the dispatch poke on
+port 2000. The legacy eve runtime does not serve those routes; start it with
+`bun run --filter=agent dev:eve` only when you work on eve code. Run
+`turbo run dev:headless --filter=agent` for `eve dev --no-ui` under Turbo; the
+Turbo pane is the record because only interactive development writes
+`.eve/logs/` for `eve logs`.
 Reach for the Turbo task rather than `bun run --filter=agent dev:headless`: the
 package script alone skips `dev:prepare`, so the agent would start against
 unmigrated tables.

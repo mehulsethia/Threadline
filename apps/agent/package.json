@@ -7,7 +7,8 @@
 	"scripts": {
 		"backfill:facts": "bun scripts/backfill-empty-facts.ts",
 		"backfill:images": "bun scripts/backfill-brand-images.ts",
-		"dev": "eve dev --no-ui",
+		"dev": "bun --watch adk/worker.ts",
+		"dev:eve": "eve dev --no-ui",
 		"dev:headless": "eve dev --no-ui",
 		"dispatch": "curl -fsS -X POST \"${AGENT_URL:-http://127.0.0.1:2000}/eve/v1/dev/schedules/dispatch\"",
 		"build": "eve build",
@@ -35,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",
+		"@types/bun": "^1.3.14",
 		"@types/node": "^24.0.0",
 		"microsandbox": "^0.6.8",
 		"typescript": "^5.9.2"

@@ -57,19 +57,14 @@ export async function syncVersion(
 	if (!version) return readInstall();
 
 	try {
-		const row = await db.install.update({
+		await db.install.updateMany({
 			where: { id: INSTALL_ID },
 			data: { version },
-			select: SELECT,
 		});
+	} catch {}
 
-		cached = row;
-		missingSince = 0;
-
-		return row;
-	} catch {
-		return readInstall();
-	}
+	forgetInstall();
+	return readInstall();
 }
 
 export const MILESTONES = [

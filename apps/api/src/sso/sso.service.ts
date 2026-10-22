@@ -9,7 +9,12 @@ import {
 	workspaceId,
 	workspaceRoleOf,
 } from "@crm/auth";
-import type { Db, Prisma } from "@crm/db";
+import {
+	currentWorkspaceId,
+	type Db,
+	isSingleSchema,
+	type Prisma,
+} from "@crm/db";
 import {
 	BadRequestException,
 	ForbiddenException,
@@ -117,11 +122,14 @@ export class SsoService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async signInOptions(): Promise<SignInOptions> {
-		const rows = await this.db.ssoProvider.findMany({
-			where: { organizationId: workspaceId() },
-			select: { providerId: true },
-			orderBy: { providerId: "asc" },
-		});
+		const rows =
+			currentWorkspaceId() || isSingleSchema()
+				? await this.db.ssoProvider.findMany({
+						where: { organizationId: workspaceId() },
+						select: { providerId: true },
+						orderBy: { providerId: "asc" },
+					})
+				: [];
 
 		return {
 			google: isGoogleConfigured(),

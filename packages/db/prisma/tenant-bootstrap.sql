@@ -240,6 +240,7 @@ CREATE TABLE "company" (
     "enrichedAt" TIMESTAMP(3),
     "enrichmentError" TEXT,
     "source" "RecordSource" NOT NULL DEFAULT 'MANUAL',
+    "pendingReview" BOOLEAN NOT NULL DEFAULT false,
     "lastActivityAt" TIMESTAMP(3),
     "archivedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -281,6 +282,7 @@ CREATE TABLE "contact" (
     "companyId" TEXT,
     "ownerId" TEXT,
     "source" "RecordSource" NOT NULL DEFAULT 'MANUAL',
+    "pendingReview" BOOLEAN NOT NULL DEFAULT false,
     "lastActivityAt" TIMESTAMP(3),
     "archivedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -760,6 +762,7 @@ CREATE TABLE "mailboxSync" (
     "lastError" TEXT,
     "retryAfter" TIMESTAMP(3),
     "autoCreate" BOOLEAN NOT NULL DEFAULT false,
+    "recentFetchStartedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

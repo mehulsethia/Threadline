@@ -18,8 +18,8 @@ import { agentListOutput, agentReviseInput, agentReviseOutput, agentIdInput, age
 import { apiKeyListInput, apiKeyListOutput, createApiKeyInput, createApiKeyOutput, revokeApiKeyInput, revokeApiKeyOutput } from "../api-keys/api-keys.contracts";
 import { askInput, askOutput, draftInput, draftOutput, dealInput, briefOutput, insightsOutput, rescoreAllOutput, forecastOutput, promiseListInput, promiseListOutput, promiseUpdateInput } from "../assist/assist.contracts";
 import { okOutput } from "../forms/../assist/assist.contracts";
-import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
-import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
+import { companyListInput, companyListOutput, companyIdInput, companyDetailOutput, companyOptionsInput, companyOptionOutput, companyCreateInput, companySummaryOutput, companyUpdateArgs, companyReviewInput, companyArchiveResultOutput, companyBulkOwnerInput, companyBulkResultOutput, companyBulkInput, companyEnrichOutput, companyResearchOutput, setPrimaryContactInput, companySetPrimaryContactOutput } from "../companies/companies.contracts";
+import { contactListInput, contactListOutput, contactIdInput, contactByIdOutput, contactCreateInput, contactBasicOutput, contactUpdateArgs, contactNameOutput, contactReviewInput, contactEnrichOutput, contactBulkOwnerInput, bulkResultOutput, contactBulkCompanyInput, contactBulkInput, factDecisionInput, decideFactOutput } from "../contacts/contacts.contracts";
 import { conversationListInput, conversationListOutput, builderListOutput, builderResourceSearchInput, builderResourcesOutput, conversationIdInput, builderConversationDetailOutput, conversationEventsInput, conversationEventsOutput, conversationSaveInput, conversationIdOutput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, builderResponseRatingOutput, conversationShareStatusOutput, conversationShareTokenOutput, sharedConversationInput, sharedConversationOutput } from "../conversations/conversations.contracts";
 import { currencySettingsOutput, setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput, dashboardSummaryOutput } from "../dashboard/dashboard.contracts";
@@ -205,6 +205,10 @@ const appRouter = t.router({
       .input(companyUpdateArgs)
       .output(companySummaryOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    review: publicProcedure
+      .input(companyReviewInput)
+      .output(companyArchiveResultOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     archive: publicProcedure
       .input(companyIdInput)
       .output(companyArchiveResultOutput)
@@ -269,6 +273,10 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     archive: publicProcedure
       .input(contactIdInput)
+      .output(contactNameOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    review: publicProcedure
+      .input(contactReviewInput)
       .output(contactNameOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     restore: publicProcedure
@@ -604,6 +612,9 @@ const appRouter = t.router({
       .output(revokeAccessOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     syncNow: publicProcedure
+      .output(googleConnectionStatusOutput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    fetchRecentMail: publicProcedure
       .output(googleConnectionStatusOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     setAutoCreate: publicProcedure

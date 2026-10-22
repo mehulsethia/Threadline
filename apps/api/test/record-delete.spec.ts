@@ -167,6 +167,7 @@ describe("purging a contact", () => {
 			{
 				participants: [{ email, name: "Gone Person" }],
 				allowCreate: true,
+				pendingReview: false,
 				source: RecordSource.EMAIL,
 				ownerId: userId,
 			},
@@ -186,6 +187,7 @@ describe("purging a contact", () => {
 					{ email: colleague, name: "Stays Here" },
 				],
 				allowCreate: true,
+				pendingReview: false,
 				source: RecordSource.EMAIL,
 				ownerId: userId,
 			},
@@ -232,6 +234,7 @@ describe("purging a contact", () => {
 			{
 				participants: [{ email: asSynced, name: "Mixed Case" }],
 				allowCreate: true,
+				pendingReview: false,
 				source: RecordSource.EMAIL,
 				ownerId: userId,
 			},

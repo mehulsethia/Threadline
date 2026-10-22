@@ -12,6 +12,7 @@ import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { MoreFeatures } from "@/components/landing/more-features";
 import { ProblemSection } from "@/components/landing/problem-section";
+import { Roadmap } from "@/components/landing/roadmap";
 
 export const metadata: Metadata = {
 	title: "Threadline — Your conversations, turned into closed deals",
@@ -35,6 +36,7 @@ export default function Home() {
 				<MoreFeatures />
 				<Comparison />
 				<GoogleCloud />
+				<Roadmap />
 				<Faq />
 				<ClosingCta />
 			</main>

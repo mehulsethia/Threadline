@@ -234,6 +234,7 @@ export class CalendarSyncService {
 			{
 				participants,
 				allowCreate: row.autoCreate && !declinedByUs,
+				pendingReview: false,
 				source: RecordSource.CALENDAR,
 				ownerId: row.userId,
 			},

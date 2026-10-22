@@ -1,13 +1,13 @@
 import {
 	type ContactBriefSections,
 	type Db,
-	type FactEvidence,
 	FactStatus,
 	type Prisma,
 	Prisma as PrismaNamespace,
 	type RecordSource,
 } from "@crm/db";
 import type { FieldDefinitionWithOptions } from "@crm/db/fields";
+import { parseFactEvidence } from "@crm/validation/fact-evidence";
 import {
 	ConflictException,
 	Injectable,
@@ -122,6 +122,7 @@ export class ContactsService {
 					title: true,
 					imageUrl: true,
 					source: true,
+					pendingReview: true,
 					company: { select: COMPANY_SELECT },
 					owner: { select: OWNER_SELECT },
 					lastActivityAt: true,
@@ -167,6 +168,7 @@ export class ContactsService {
 				imageUrl: true,
 				enrichmentStatus: true,
 				enrichmentError: true,
+				pendingReview: true,
 				createdAt: true,
 				archivedAt: true,
 				brief: {
@@ -245,7 +247,7 @@ export class ContactsService {
 				: null,
 			facts: facts.map((fact) => ({
 				...fact,
-				evidence: fact.evidence as FactEvidence[],
+				evidence: parseFactEvidence(fact.evidence),
 				observedAt: fact.observedAt.toISOString(),
 			})),
 			relationship,
@@ -377,6 +379,54 @@ export class ContactsService {
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+	}
+
+	async review(
+		id: string,
+		decision: "keep" | "remove",
+	): Promise<{ id: string; name: string }> {
+		const contact = await this.db.contact.findUnique({
+			where: { id },
+			select: {
+				firstName: true,
+				lastName: true,
+				companyId: true,
+				company: { select: { pendingReview: true } },
+			},
+		});
+		if (!contact) throw new NotFoundException(`No contact with id ${id}.`);
+
+		if (decision === "keep") {
+			await this.db.$transaction([
+				this.db.contact.update({
+					where: { id },
+					data: { pendingReview: false },
+				}),
+				...(contact.companyId
+					? [
+							this.db.company.updateMany({
+								where: { id: contact.companyId, pendingReview: true },
+								data: { pendingReview: false },
+							}),
+						]
+					: []),
+			]);
+			return { id, name: nameOf(contact) };
+		}
+
+		const result = await this.archive(id);
+		if (contact.companyId && contact.company?.pendingReview) {
+			const remaining = await this.db.contact.count({
+				where: { companyId: contact.companyId, archivedAt: null },
+			});
+			if (remaining === 0) {
+				await this.db.company.update({
+					where: { id: contact.companyId },
+					data: { archivedAt: new Date() },
+				});
+			}
+		}
+		return result;
 	}
 
 	async purge(id: string): Promise<{ id: string; name: string }>;

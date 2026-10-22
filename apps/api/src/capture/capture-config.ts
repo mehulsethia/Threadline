@@ -1,4 +1,5 @@
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 export const CAPTURE = {
@@ -6,6 +7,8 @@ export const CAPTURE = {
 	email: {
 		backfillMs: 7 * DAY_MS,
 		backfillMaxMessages: 300,
+		fetchConcurrency: 8,
+		recentFetchStaleMs: 10 * MINUTE_MS,
 		maxAgeMs: 30 * DAY_MS,
 		maxMessages: 60,
 		maxCharactersPerMessage: 6_000,

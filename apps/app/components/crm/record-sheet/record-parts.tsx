@@ -24,6 +24,7 @@ export function RecordSheetFrame({
 	note,
 	media,
 	actions,
+	notice,
 	stats,
 	tabs,
 	tab,
@@ -36,6 +37,7 @@ export function RecordSheetFrame({
 	note?: ReactNode;
 	media?: ReactNode;
 	actions?: ReactNode;
+	notice?: ReactNode;
 	stats?: ReactNode;
 	tabs: DetailSheetTab[];
 	tab: string;
@@ -66,6 +68,7 @@ export function RecordSheetFrame({
 				</div>
 			) : (
 				<>
+					{notice}
 					{stats}
 					<DetailSheetTabs
 						tabs={tabs}

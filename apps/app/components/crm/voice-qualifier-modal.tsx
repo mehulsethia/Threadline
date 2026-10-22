@@ -23,10 +23,14 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import {
+	createMicGate,
+	createPlaybackQueue,
+	encodePcm16Base64,
+	type PlaybackQueue,
+	VOICE_CALL,
+} from "@/lib/voice-audio";
 import { warmApi } from "@/lib/warm-api";
-
-// Covers a cold API start plus Gemini Live session setup.
-const CONNECT_TIMEOUT_MS = 45_000;
 
 /** What the call socket sends; unknown fields are ignored. */
 const serverMessage = z.object({
@@ -104,7 +108,11 @@ export function VoiceQualifierModal({
 	const statusRef = useRef(status);
 	statusRef.current = status;
 	const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const audioCtxRef = useRef<AudioContext | null>(null);
+	const playbackRef = useRef<PlaybackQueue | null>(null);
+	const inputCtxRef = useRef<AudioContext | null>(null);
+	const mutedRef = useRef(muted);
+	mutedRef.current = muted;
+	const openTurnRef = useRef<"assistant" | "user" | null>(null);
 	const micStreamRef = useRef<MediaStream | null>(null);
 	const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
 	const transcriptEndRef = useRef<HTMLDivElement | null>(null);
@@ -159,11 +167,17 @@ export function VoiceQualifierModal({
 			micStreamRef.current = null;
 		}
 
-		if (audioCtxRef.current) {
-			void audioCtxRef.current.close();
-			audioCtxRef.current = null;
+		if (inputCtxRef.current) {
+			void inputCtxRef.current.close();
+			inputCtxRef.current = null;
 		}
 
+		if (playbackRef.current) {
+			playbackRef.current.close();
+			playbackRef.current = null;
+		}
+
+		openTurnRef.current = null;
 		setActiveSpeaker(null);
 	}, []);
 
@@ -187,9 +201,9 @@ export function VoiceQualifierModal({
 		if (status === "in_call") {
 			timer = setInterval(() => {
 				setSeconds((s) => {
-					if (s >= 180) {
+					if (s >= VOICE_CALL.maxCallSeconds) {
 						endCall();
-						return 180;
+						return VOICE_CALL.maxCallSeconds;
 					}
 					return s + 1;
 				});
@@ -206,45 +220,32 @@ export function VoiceQualifierModal({
 		}
 	}, [transcripts]);
 
-	const playAudioChunk = useCallback((base64Pcm: string) => {
-		try {
-			if (!audioCtxRef.current) {
-				audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
-			}
-			const ctx = audioCtxRef.current;
-			if (ctx.state === "suspended") {
-				void ctx.resume();
-			}
-
-			const binary = atob(base64Pcm);
-			const len = binary.length;
-			const bytes = new Uint8Array(len);
-			for (let i = 0; i < len; i++) {
-				bytes[i] = binary.charCodeAt(i);
-			}
-
-			const pcm16 = new Int16Array(bytes.buffer);
-			const float32 = new Float32Array(pcm16.length);
-			for (let i = 0; i < pcm16.length; i++) {
-				float32[i] = (pcm16[i] ?? 0) / 32768;
-			}
-
-			const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
-			audioBuffer.copyToChannel(float32, 0);
-
-			const source = ctx.createBufferSource();
-			source.buffer = audioBuffer;
-			source.connect(ctx.destination);
-			source.start();
-
-			setActiveSpeaker("assistant");
-			source.onended = () => {
-				setActiveSpeaker(null);
-			};
-		} catch (err) {
-			console.error("Failed to play audio chunk", err);
-		}
-	}, []);
+	const appendTranscript = useCallback(
+		(role: "assistant" | "user", text: string) => {
+			const continues = openTurnRef.current === role;
+			openTurnRef.current = role;
+			setTranscripts((prev) => {
+				const last = prev.at(-1);
+				if (continues && last?.role === role) {
+					return [...prev.slice(0, -1), { ...last, text: last.text + text }];
+				}
+				return [
+					...prev,
+					{
+						id: Math.random().toString(36).slice(2),
+						role,
+						text: text.trimStart(),
+						timestamp: new Date().toLocaleTimeString([], {
+							hour: "2-digit",
+							minute: "2-digit",
+							second: "2-digit",
+						}),
+					},
+				];
+			});
+		},
+		[],
+	);
 
 	const startCall = useCallback(async () => {
 		try {
@@ -255,12 +256,17 @@ export function VoiceQualifierModal({
 			setRecordedFacts([]);
 			setSeconds(0);
 
+			playbackRef.current = createPlaybackQueue((speaking) =>
+				setActiveSpeaker(speaking ? "assistant" : null),
+			);
+
 			const stream = await navigator.mediaDevices.getUserMedia({
 				audio: {
 					channelCount: 1,
-					sampleRate: 16000,
+					sampleRate: VOICE_CALL.input.sampleRate,
 					echoCancellation: true,
 					noiseSuppression: true,
+					autoGainControl: true,
 				},
 			});
 			micStreamRef.current = stream;
@@ -281,7 +287,7 @@ export function VoiceQualifierModal({
 				if (statusRef.current === "connecting") {
 					failCall("The call service took too long to answer.");
 				}
-			}, CONNECT_TIMEOUT_MS);
+			}, VOICE_CALL.connectTimeoutMs);
 
 			// The socket opening is not enough: the call is live once the API
 			// reports the Gemini Live session ready, so audio is never dropped.
@@ -293,28 +299,30 @@ export function VoiceQualifierModal({
 				setStatus("in_call");
 				toast.success("Voice qualification call active.");
 
-				const inputCtx = new AudioContext({ sampleRate: 16000 });
+				const inputCtx = new AudioContext({
+					sampleRate: VOICE_CALL.input.sampleRate,
+				});
+				inputCtxRef.current = inputCtx;
 				const sourceNode = inputCtx.createMediaStreamSource(stream);
-				const processor = inputCtx.createScriptProcessor(4096, 1, 1);
+				const processor = inputCtx.createScriptProcessor(
+					VOICE_CALL.input.frameSize,
+					1,
+					1,
+				);
 				scriptProcessorRef.current = processor;
 
+				const gate = createMicGate();
 				processor.onaudioprocess = (e) => {
-					if (muted || ws.readyState !== WebSocket.OPEN) return;
-					const inputData = e.inputBuffer.getChannelData(0);
-					const pcm16 = new Int16Array(inputData.length);
-					for (let i = 0; i < inputData.length; i++) {
-						const s = Math.max(-1, Math.min(1, inputData[i] ?? 0));
-						pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+					if (mutedRef.current || ws.readyState !== WebSocket.OPEN) return;
+					const frames = gate.accept(
+						e.inputBuffer.getChannelData(0),
+						playbackRef.current,
+					);
+					for (const frame of frames) {
+						ws.send(
+							JSON.stringify({ type: "audio", pcm: encodePcm16Base64(frame) }),
+						);
 					}
-
-					let binary = "";
-					const bytes = new Uint8Array(pcm16.buffer);
-					for (let i = 0; i < bytes.length; i++) {
-						binary += String.fromCharCode(bytes[i] ?? 0);
-					}
-					const pcmBase64 = btoa(binary);
-
-					ws.send(JSON.stringify({ type: "audio", pcm: pcmBase64 }));
 				};
 
 				sourceNode.connect(processor);
@@ -332,21 +340,14 @@ export function VoiceQualifierModal({
 					if (msg.type === "ready") {
 						startStreaming();
 					} else if (msg.type === "audio" && msg.pcm) {
-						playAudioChunk(msg.pcm);
+						playbackRef.current?.play(msg.pcm);
+					} else if (msg.type === "interrupted") {
+						playbackRef.current?.flush();
+						openTurnRef.current = null;
+					} else if (msg.type === "turn_complete") {
+						openTurnRef.current = null;
 					} else if (msg.type === "transcript" && msg.text) {
-						setTranscripts((prev) => [
-							...prev,
-							{
-								id: Math.random().toString(36).slice(2),
-								role: msg.role || "assistant",
-								text: msg.text || "",
-								timestamp: new Date().toLocaleTimeString([], {
-									hour: "2-digit",
-									minute: "2-digit",
-									second: "2-digit",
-								}),
-							},
-						]);
+						appendTranscript(msg.role || "assistant", msg.text);
 					} else if (msg.type === "fact_proposed" && msg.category && msg.fact) {
 						setRecordedFacts((prev) => [
 							...prev,
@@ -406,8 +407,7 @@ export function VoiceQualifierModal({
 		}
 	}, [
 		dealId,
-		muted,
-		playAudioChunk,
+		appendTranscript,
 		cache,
 		endCall,
 		failCall,
@@ -504,7 +504,7 @@ export function VoiceQualifierModal({
 					<DialogHeader className="flex flex-row items-start justify-between gap-6 border-b px-8 py-6 text-left">
 						<div className="flex min-w-0 items-start gap-4">
 							<div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-foreground">
-								<Icon icon={PhoneVoice} size="lg" />
+								<Icon icon={PhoneVoice} size={20} />
 							</div>
 							<div className="flex min-w-0 flex-col gap-1">
 								<DialogTitle className="font-heading font-normal text-2xl tracking-[-0.02em]">
@@ -539,16 +539,18 @@ export function VoiceQualifierModal({
 								{transcripts.length === 0 ? (
 									<div className="flex h-full flex-col items-center justify-center gap-4 text-center">
 										<div className="flex size-16 items-center justify-center rounded-full bg-muted">
-											<Icon icon={PhoneVoice} size="lg" />
+											<Icon icon={PhoneVoice} size={24} />
 										</div>
 										<div className="flex max-w-[44ch] flex-col gap-2">
 											<p className="font-medium text-base">
-												Ready when you are
+												{status === "in_call"
+													? "The agent is starting the call"
+													: "Ready when you are"}
 											</p>
 											<p className="text-muted-foreground text-sm leading-relaxed">
-												The agent greets the lead, skips what Threadline already
-												knows, and asks short questions to fill in budget,
-												authority, need and timeline.
+												{status === "in_call"
+													? "It speaks first. Answer out loud as the lead. Each turn appears here as text."
+													: "The agent greets the lead, skips what Threadline already knows, and asks short questions to fill in budget, authority, need and timeline."}
 											</p>
 										</div>
 									</div>
@@ -741,7 +743,7 @@ export function VoiceQualifierModal({
 												<span>{cat.label}</span>
 												{covered ? (
 													<span className="flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs">
-														<Icon icon={CheckmarkFilled} size="sm" />
+														<Icon icon={CheckmarkFilled} size={12} />
 														Covered
 													</span>
 												) : (

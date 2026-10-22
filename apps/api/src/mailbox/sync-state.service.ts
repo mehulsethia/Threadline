@@ -171,6 +171,27 @@ export class SyncStateService {
 
 		await this.db.mailboxSync.deleteMany({ where });
 	}
+
+	async claimRecentFetch(id: string, staleBefore: Date): Promise<boolean> {
+		const { count } = await this.db.mailboxSync.updateMany({
+			where: {
+				id,
+				OR: [
+					{ recentFetchStartedAt: null },
+					{ recentFetchStartedAt: { lt: staleBefore } },
+				],
+			},
+			data: { recentFetchStartedAt: new Date() },
+		});
+		return count === 1;
+	}
+
+	async releaseRecentFetch(id: string): Promise<void> {
+		await this.db.mailboxSync.update({
+			where: { id },
+			data: { recentFetchStartedAt: null },
+		});
+	}
 }
 
 function dueWhere(now: Date) {

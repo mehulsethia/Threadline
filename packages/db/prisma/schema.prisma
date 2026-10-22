@@ -330,7 +330,8 @@ model Company {
   enrichmentError  String?
   enrichment       CompanyEnrichment?
 
-  source RecordSource @default(MANUAL)
+  source        RecordSource @default(MANUAL)
+  pendingReview Boolean      @default(false)
 
   lastActivityAt DateTime?
   archivedAt     DateTime?
@@ -395,7 +396,8 @@ model Contact {
   owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   primaryOf Company? @relation("PrimaryContact")
 
-  source RecordSource @default(MANUAL)
+  source        RecordSource @default(MANUAL)
+  pendingReview Boolean      @default(false)
 
   lastActivityAt DateTime?
   archivedAt     DateTime?
@@ -1202,6 +1204,8 @@ model MailboxSync {
   lastError    String?
   retryAfter   DateTime?
   autoCreate   Boolean          @default(false)
+
+  recentFetchStartedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

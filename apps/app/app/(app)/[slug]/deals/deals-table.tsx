@@ -21,6 +21,7 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu } from "@/components/crm/stage-change";
+import { ListRefresh } from "@/components/data-table/list-refresh";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
@@ -247,15 +248,21 @@ export function DealsTable() {
 			query={query}
 			search={<ListSearch placeholder="Search deals by name or company…" />}
 			actions={
-				<Button
-					variant={input.archived ? "contrast" : "outline"}
-					size="sm"
-					className="justify-start sm:justify-center"
-					onClick={() => toggleArchived(!input.archived)}
-				>
-					<Archive data-icon="inline-start" />
-					Archived
-				</Button>
+				<>
+					<ListRefresh
+						fetching={deals.isFetching}
+						onRefresh={() => void deals.refetch()}
+					/>
+					<Button
+						variant={input.archived ? "contrast" : "outline"}
+						size="sm"
+						className="justify-start sm:justify-center"
+						onClick={() => toggleArchived(!input.archived)}
+					>
+						<Archive data-icon="inline-start" />
+						Archived
+					</Button>
+				</>
 			}
 			columns={columns}
 			rows={rows}

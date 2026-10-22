@@ -228,6 +228,7 @@ export function GoogleConnection({
 	const status = useQuery({
 		...trpc.google.status.queryOptions(),
 		refetchInterval: (query) =>
+			query.state.data?.fetchingRecent ||
 			query.state.data?.sources.some((source) => isSyncing(source.status))
 				? SYNC_POLL_MS
 				: false,
@@ -288,6 +289,24 @@ export function GoogleConnection({
 		}),
 	);
 
+	const fetchRecentMail = useMutation(
+		trpc.google.fetchRecentMail.mutationOptions({
+			onMutate: () => {
+				toast.loading(CONNECTION_SYNC_COPY.google.fetchingRecent, {
+					id: GOOGLE_SYNC_TOAST,
+				});
+			},
+			onSuccess: async () => {
+				toast.success(CONNECTION_SYNC_COPY.google.fetchedRecent.title, {
+					id: GOOGLE_SYNC_TOAST,
+					description: CONNECTION_SYNC_COPY.google.fetchedRecent.description,
+				});
+				await Promise.all([cache.google(), cache.contact(), cache.company()]);
+			},
+			onError: (error) => toast.error(error.message, { id: GOOGLE_SYNC_TOAST }),
+		}),
+	);
+
 	if (!status.data) return null;
 
 	const { sources, hasRefreshToken, configured, linked, required } =
@@ -306,6 +325,7 @@ export function GoogleConnection({
 		.at(-1);
 
 	const healthy = failing.length === 0 && hasRefreshToken;
+	const gmailFetching = status.data.fetchingRecent;
 
 	return (
 		<Card>
@@ -325,11 +345,23 @@ export function GoogleConnection({
 					happen.
 				</CardDescription>
 
-				<CardAction>
+				<CardAction className="flex-wrap">
+					{sources.some((source) => source.source === "gmail") && (
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={
+								fetchRecentMail.isPending || syncNow.isPending || gmailFetching
+							}
+							onClick={() => fetchRecentMail.mutate()}
+						>
+							{gmailFetching ? "Fetching…" : "Fetch last 7 days"}
+						</Button>
+					)}
 					<Button
 						variant="contrast"
 						size="sm"
-						disabled={syncNow.isPending}
+						disabled={syncNow.isPending || fetchRecentMail.isPending}
 						onClick={() => syncNow.mutate()}
 					>
 						{syncNow.isPending ? "Checking…" : "Check now"}

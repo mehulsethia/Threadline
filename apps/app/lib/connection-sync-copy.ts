@@ -12,6 +12,13 @@ export const CONNECTION_SYNC_COPY = {
 			description:
 				"A sync report with what was added and what was skipped, and why, is in the notification bell. New deals appear within a few minutes.",
 		},
+		fetchingRecent:
+			"Fetching the last 7 days of Gmail. You can keep working: new contacts appear as each message is filed, and mail already in Threadline is skipped.",
+		fetchedRecent: {
+			title: "Finished fetching the last 7 days",
+			description:
+				"The sync report in the notification bell lists what was added and why the rest was skipped.",
+		},
 	},
 	meet: {
 		connected: {

@@ -25,6 +25,7 @@ import {
 	companyOptionOutput,
 	companyOptionsInput,
 	companyResearchOutput,
+	companyReviewInput,
 	companySetPrimaryContactOutput,
 	companySummaryOutput,
 	companyUpdateArgs,
@@ -82,6 +83,15 @@ export class CompaniesRouter {
 	})
 	async update(@Input() input: z.infer<typeof companyUpdateArgs>) {
 		return this.companies.update(input.id, input.data);
+	}
+
+	@Mutation({
+		input: companyReviewInput,
+		output: companyArchiveResultOutput,
+		meta: restMeta("POST", "/companies/{id}/review", ["Companies"]),
+	})
+	async review(@Input() input: z.infer<typeof companyReviewInput>) {
+		return this.companies.review(input.id, input.decision);
 	}
 
 	@Mutation({

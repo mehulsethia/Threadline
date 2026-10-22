@@ -34,7 +34,6 @@ export type IncomingMessage = {
 
 export type StoreSkipReason =
 	| "already-filed"
-	| "not-replied"
 	| "auto-create-off"
 	| "no-external-person";
 
@@ -131,7 +130,8 @@ export class ThreadWriterService {
 			const match = await this.match.resolve(
 				{
 					participants,
-					allowCreate: row.autoCreate && repliedTo,
+					allowCreate: row.autoCreate,
+					pendingReview: !repliedTo,
 					source: RecordSource.EMAIL,
 					ownerId: row.userId,
 				},
@@ -144,11 +144,7 @@ export class ThreadWriterService {
 			if (!companyId && !contactId) {
 				return {
 					stored: false,
-					reason: !repliedTo
-						? "not-replied"
-						: row.autoCreate
-							? "no-external-person"
-							: "auto-create-off",
+					reason: row.autoCreate ? "no-external-person" : "auto-create-off",
 				};
 			}
 		}

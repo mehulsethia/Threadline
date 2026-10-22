@@ -1,10 +1,9 @@
 import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { URL } from "node:url";
-import { auth, env, workspaceId } from "@crm/auth";
+import { auth, env } from "@crm/auth";
 import { runInWorkspace } from "@crm/db";
 import { workspaceIdsForUser } from "@crm/db/workspaces";
-import { jsonText } from "@crm/validation/json-text";
 import {
 	Injectable,
 	Logger,
@@ -13,29 +12,16 @@ import {
 import { HttpAdapterHost } from "@nestjs/core";
 import { fromNodeHeaders } from "better-auth/node";
 import { WebSocket, WebSocketServer } from "ws";
-import { z } from "zod";
-import {
-	type LiveSessionBridge,
-	VoiceQualifierService,
-} from "./voice-qualifier.service";
+import { agentHeaders, requireBridge } from "../agent/agent-call";
+import { VOICE } from "./voice-config";
 import { verifyVoiceTicket } from "./voice-ticket";
-
-/** What the browser may send over the call socket. */
-const clientMessage = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("audio"), pcm: z.string().min(1) }),
-	z.object({ type: z.literal("text"), text: z.string().min(1) }),
-	z.object({ type: z.literal("end_call") }),
-]);
 
 @Injectable()
 export class VoiceQualifierGateway implements OnApplicationBootstrap {
 	private readonly logger = new Logger(VoiceQualifierGateway.name);
 	private wss: WebSocketServer | null = null;
 
-	constructor(
-		private readonly adapterHost: HttpAdapterHost,
-		private readonly voiceService: VoiceQualifierService,
-	) {}
+	constructor(private readonly adapterHost: HttpAdapterHost) {}
 
 	onApplicationBootstrap() {
 		const server = this.adapterHost.httpAdapter?.getHttpServer();
@@ -136,118 +122,65 @@ export class VoiceQualifierGateway implements OnApplicationBootstrap {
 
 	private async startCall(ws: WebSocket, dealId: string) {
 		try {
-			const context = await this.voiceService.getDealContext(dealId);
+			const agent = requireBridge();
+			const target = agent.url(VOICE.agent.livePath);
+			target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
+			target.searchParams.set("dealId", dealId);
 
-			ws.send(
-				JSON.stringify({
-					type: "connected",
-					dealId: context.dealId,
-					dealName: context.dealName,
-					leadName: context.leadName,
-					language: context.language,
-					missingCategories: context.missingCategories,
-					qualificationScore: context.qualificationScore,
-					currentStage: context.currentStage,
-					proposedStage: context.proposedStage,
-				}),
-			);
-
-			let liveSession: LiveSessionBridge | null = null;
-
-			liveSession = await this.voiceService.createLiveSession({
-				context,
-				onAudioChunk: (pcmBase64) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(JSON.stringify({ type: "audio", pcm: pcmBase64 }));
-					}
-				},
-				onTranscript: (turn) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(
-							JSON.stringify({
-								type: "transcript",
-								role: turn.role,
-								text: turn.text,
-							}),
-						);
-					}
-				},
-				onFactProposed: (fact) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(
-							JSON.stringify({
-								type: "fact_proposed",
-								category: fact.category,
-								fact: fact.fact,
-								quote: fact.quote,
-								proposedScore: fact.proposedScore,
-								proposedStage: fact.proposedStage,
-							}),
-						);
-					}
-				},
-				onClose: (reason) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(JSON.stringify({ type: "call_ended", reason }));
-						ws.close();
-					}
-				},
+			const upstream = new WebSocket(target, {
+				headers: await agentHeaders(agent),
 			});
+			const pending: string[] = [];
 
-			// Gemini Live is set up: the client may start streaming the mic.
-			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({ type: "ready" }));
-			}
-
-			ws.on("message", (data: WebSocket.RawData) => {
-				try {
-					const parsed = jsonText
-						.pipe(clientMessage)
-						.safeParse(data.toString());
-					if (!parsed.success) return;
-					const msg = parsed.data;
-
-					if (msg.type === "audio") {
-						liveSession?.sendRealtimeInput({
-							media: {
-								mimeType: "audio/pcm;rate=16000",
-								data: msg.pcm,
-							},
-						});
-					} else if (msg.type === "text") {
-						liveSession?.sendClientContent({
-							turns: [{ role: "user", parts: [{ text: msg.text }] }],
-						});
-					} else {
-						try {
-							liveSession?.close();
-						} catch {}
-						ws.send(
-							JSON.stringify({ type: "call_ended", reason: "user_ended" }),
-						);
-						ws.close();
-					}
-				} catch (err) {
-					this.logger.error("Error processing client WebSocket message", err);
+			upstream.on("open", () => {
+				for (const raw of pending.splice(0)) upstream.send(raw);
+			});
+			upstream.on("message", (data: WebSocket.RawData) => {
+				if (ws.readyState === WebSocket.OPEN) ws.send(data.toString());
+			});
+			upstream.on("close", () => {
+				if (ws.readyState === WebSocket.OPEN) ws.close();
+			});
+			upstream.on("error", (error) => {
+				this.logger.error(
+					{ message: "Agent call socket failed", dealId },
+					error.stack,
+				);
+				if (ws.readyState === WebSocket.OPEN) {
+					ws.send(
+						JSON.stringify({
+							type: "error",
+							message: "The call service is not reachable.",
+						}),
+					);
+					ws.close(1011, "Agent unreachable");
 				}
 			});
 
+			ws.on("message", (data: WebSocket.RawData) => {
+				const raw = data.toString();
+				if (upstream.readyState === WebSocket.OPEN) upstream.send(raw);
+				else if (upstream.readyState === WebSocket.CONNECTING) {
+					pending.push(raw);
+				}
+			});
 			ws.on("close", () => {
-				try {
-					liveSession?.close();
-				} catch {}
+				if (
+					upstream.readyState === WebSocket.OPEN ||
+					upstream.readyState === WebSocket.CONNECTING
+				) {
+					upstream.close();
+				}
 			});
 		} catch (err: unknown) {
-			this.logger.error("Connection handler failed", err);
 			const message = err instanceof Error ? err.message : String(err);
+			this.logger.error(
+				{ message: "Call relay failed to start", dealId },
+				err instanceof Error ? err.stack : message,
+			);
 			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(
-					JSON.stringify({
-						type: "error",
-						message,
-					}),
-				);
-				ws.close(1011, message);
+				ws.send(JSON.stringify({ type: "error", message }));
+				ws.close(1011, "Relay failed");
 			}
 		}
 	}

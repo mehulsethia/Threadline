@@ -106,6 +106,7 @@ export class CompaniesService {
 					industry: true,
 					enrichmentStatus: true,
 					source: true,
+					pendingReview: true,
 					owner: { select: OWNER_SELECT },
 					_count: {
 						select: {
@@ -142,6 +143,7 @@ export class CompaniesService {
 				enrichmentStatus: row.enrichmentStatus,
 				queued: queued.has(row.id),
 				source: row.source,
+				pendingReview: row.pendingReview,
 				owner: row.owner,
 				contactCount: row._count.contacts,
 				openDealCount: row._count.deals,
@@ -187,6 +189,7 @@ export class CompaniesService {
 				enrichedAt: true,
 				enrichmentError: true,
 				source: true,
+				pendingReview: true,
 				createdAt: true,
 				archivedAt: true,
 				owner: { select: OWNER_SELECT },
@@ -393,6 +396,37 @@ export class CompaniesService {
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+	}
+
+	async review(
+		id: string,
+		decision: "keep" | "remove",
+	): Promise<{ id: string; name: string }> {
+		const company = await this.db.company.findUnique({
+			where: { id },
+			select: { name: true, domain: true },
+		});
+		if (!company) throw new NotFoundException(`No company with id ${id}.`);
+
+		if (decision === "keep") {
+			await this.db.$transaction([
+				this.db.company.update({
+					where: { id },
+					data: { pendingReview: false },
+				}),
+				this.db.contact.updateMany({
+					where: { companyId: id, pendingReview: true },
+					data: { pendingReview: false },
+				}),
+			]);
+			return { id, name: company.name };
+		}
+
+		await this.db.contact.updateMany({
+			where: { companyId: id, pendingReview: true, archivedAt: null },
+			data: { archivedAt: new Date() },
+		});
+		return this.archive(id);
 	}
 
 	async archive(id: string): Promise<{ id: string; name: string }> {

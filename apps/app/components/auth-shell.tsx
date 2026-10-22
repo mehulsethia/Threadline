@@ -12,17 +12,17 @@ function EvidenceExample() {
 	return (
 		<figure className="flex max-w-md flex-col gap-3">
 			<blockquote className="rounded-xl bg-band-foreground/8 px-4 py-3 text-[15px]/7">
-				Es sind 500 Einheiten, Budget ca.{" "}
+				We need 500 units, budget about{" "}
 				<span className="font-semibold underline decoration-2 decoration-thread underline-offset-4">
-					72.000 €
+					$72,000
 				</span>
-				, Lieferung bis Ende Q1.
+				, delivery by end of Q1.
 			</blockquote>
 			<div className="ml-6 h-6 w-px bg-thread" aria-hidden="true" />
 			<figcaption className="flex items-center justify-between gap-4 rounded-xl border border-band-foreground/15 px-4 py-3 text-sm">
 				<span>
 					<span className="text-band-foreground/65">Budget</span>
-					<span className="ml-2">€72,000 (EUR)</span>
+					<span className="ml-2">$72,000 (USD)</span>
 				</span>
 				<span className="rounded-full bg-band-foreground px-2.5 py-0.5 text-band text-xs">
 					Verified

@@ -1,4 +1,5 @@
 import { apiUrl } from "@crm/auth";
+import type { VoiceTranscribeRequest } from "@crm/validation/voice";
 import { Injectable } from "@nestjs/common";
 import { TRPCError } from "@trpc/server";
 import {
@@ -39,7 +40,7 @@ export class VoiceRouter {
 	})
 	@UseMiddlewares(AuthMiddleware)
 	async dealContext(input: { dealId: string }) {
-		return await this.voiceService.getDealContext(input.dealId);
+		return await this.voiceService.dealContext(input.dealId);
 	}
 
 	@Mutation({
@@ -51,8 +52,7 @@ export class VoiceRouter {
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: { dealId: string },
 	) {
-		// Confirms the deal exists before handing out a pass for it.
-		await this.voiceService.getDealContext(input.dealId);
+		await this.voiceService.dealContext(input.dealId);
 		if (!(await this.voiceService.consumeCallQuota(ctx.user.id))) {
 			throw new TRPCError({
 				code: "TOO_MANY_REQUESTS",
@@ -70,16 +70,7 @@ export class VoiceRouter {
 		output: voiceTranscribeQualifyOutput,
 	})
 	@UseMiddlewares(AuthMiddleware)
-	async transcribeQualify(input: {
-		dealId: string;
-		audioBase64: string;
-		mimeType?: string;
-	}) {
-		const audioBuffer = Buffer.from(input.audioBase64, "base64");
-		return await this.voiceService.transcribeAndQualify({
-			dealId: input.dealId,
-			audioBuffer,
-			mimeType: input.mimeType,
-		});
+	async transcribeQualify(input: VoiceTranscribeRequest) {
+		return await this.voiceService.transcribe(input);
 	}
 }

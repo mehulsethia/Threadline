@@ -1,4 +1,8 @@
-import { domainFromEmail, isMachineDomain } from "../companies/domain";
+import {
+	domainFromEmail,
+	isFreeMailDomain,
+	isMachineDomain,
+} from "../companies/domain";
 
 export type Participant = {
 	email: string;
@@ -158,6 +162,20 @@ export function externalParticipants(
 
 		return true;
 	});
+}
+
+export function freeMailParticipants(
+	participants: readonly Participant[],
+	options: ExternalFilterOptions,
+): Participant[] {
+	return participants.filter(
+		(participant) =>
+			!options.ourAddresses.has(participant.email) &&
+			!options.suppressedEmails.has(participant.email) &&
+			!isMachineAddress(participant.email) &&
+			!isAutomatedAddress(participant.email) &&
+			isFreeMailDomain(participant.email.split("@").at(-1)),
+	);
 }
 
 export function dominantDomain(

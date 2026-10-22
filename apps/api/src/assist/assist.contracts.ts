@@ -158,8 +158,3 @@ export const forecastOutput = z.object({
 	overduePromises: z.number(),
 	unconverted: z.number(),
 });
-
-export const agentEnvelope = z.object({
-	result: z.unknown().optional(),
-	error: z.string().optional(),
-});

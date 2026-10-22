@@ -710,3 +710,19 @@ script did not create.
 **`taskFromToken` keys on the `task:` marker, not a fixed prefix**
 (`test/crm-token.spec.ts`). **A channel handler must not assume the token it receives
 is byte-identical to the one it sent.**
+
+## Voice qualifier
+
+`adk/voice/` owns the whole call: the deal context, the Gemini Live session, the
+`record_answer` tool, the facts it proposes and the voice-note transcription. The
+worker serves it at `POST /internal/crm/voice/{context,transcribe}` and the
+WebSocket `/internal/voice/live`, all behind `AGENT_BRIDGE_SECRET` and
+`x-crm-workspace`.
+
+- **The API only relays.** `apps/api/src/voice` checks the browser's ticket, spends
+  the demo quota and pipes socket frames to the agent unchanged. It has no Gemini
+  client and decides nothing.
+- **Shapes live in `@crm/validation/voice`** — the context, the transcription
+  result and the browser's socket messages are parsed against it on both sides.
+- **Evidence is stored as `{ kind, detail }`**, like every other fact writer. The
+  record sheets parse it with `@crm/validation/fact-evidence`.

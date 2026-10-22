@@ -11,6 +11,7 @@ import { API_KEY_EXPIRATION, API_KEY_HEADER, API_KEY_PREFIX } from "./api-keys";
 import { AUTH_COOKIE_PREFIX } from "./cookies";
 import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
+import { PASSWORD } from "./password";
 import {
 	GOOGLE_PROVIDER_ID,
 	IDENTITY_SCOPES,
@@ -73,7 +74,10 @@ export const auth = betterAuth({
 	}),
 
 	emailAndPassword: {
-		enabled: false,
+		enabled: true,
+		autoSignIn: true,
+		minPasswordLength: PASSWORD.minLength,
+		maxPasswordLength: PASSWORD.maxLength,
 	},
 
 	socialProviders,
@@ -81,6 +85,7 @@ export const auth = betterAuth({
 	account: {
 		accountLinking: {
 			enabled: true,
+			allowDifferentEmails: true,
 			trustedProviders: [
 				GOOGLE_PROVIDER_ID,
 				...(ENABLE_MICROSOFT_AUTH ? [MICROSOFT_PROVIDER_ID] : []),

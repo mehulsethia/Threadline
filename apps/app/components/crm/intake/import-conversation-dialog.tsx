@@ -23,7 +23,7 @@ import { Label } from "@crm/ui/components/label";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import { Textarea } from "@crm/ui/components/textarea";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -74,6 +74,7 @@ export function ImportConversationDialog() {
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const trpc = useTRPC();
+	const queryClient = useQueryClient();
 	const cache = useCrmCache();
 	const openRecord = useOpenRecord();
 
@@ -154,13 +155,13 @@ export function ImportConversationDialog() {
 				data.sourceType === "WHATSAPP_EXPORT" ||
 				data.sourceType === "MEETING_TRANSCRIPT"
 			) {
-				const previewRes = await fetch(
-					`/api/trpc/intake.previewParticipants?input=${encodeURIComponent(
-						JSON.stringify({ jobId: data.jobId }),
-					)}`,
-				);
-				const previewJson = await previewRes.json();
-				const preview = previewJson?.result?.data?.json;
+				const preview = await queryClient
+					.fetchQuery(
+						trpc.intake.previewParticipants.queryOptions({
+							jobId: data.jobId,
+						}),
+					)
+					.catch(() => null);
 
 				if (preview && preview.participants?.length > 0) {
 					setParticipants(preview.participants);

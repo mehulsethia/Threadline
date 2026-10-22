@@ -24,9 +24,9 @@ const BUBBLES: Bubble[] = [
 		y: 96,
 		width: 360,
 		lines: [
-			[{ text: "Guten Tag, wir suchen" }],
-			[{ text: "Durchflusssensoren", mark: true }, { text: " für drei" }],
-			[{ text: "Fertigungslinien in Stuttgart." }],
+			[{ text: "Hi, we are looking for" }],
+			[{ text: "flow sensors", mark: true }, { text: " for three" }],
+			[{ text: "production lines in Ohio." }],
 		],
 	},
 	{
@@ -35,8 +35,8 @@ const BUBBLES: Bubble[] = [
 		width: 320,
 		outbound: true,
 		lines: [
-			[{ text: "Gerne! Wie viele Einheiten" }],
-			[{ text: "brauchen Sie, und bis wann?" }],
+			[{ text: "Happy to help. How many units" }],
+			[{ text: "do you need, and by when?" }],
 		],
 	},
 	{
@@ -45,15 +45,15 @@ const BUBBLES: Bubble[] = [
 		width: 360,
 		lines: [
 			[
-				{ text: "Es sind " },
-				{ text: "500 Einheiten", mark: true },
-				{ text: ", Budget" },
+				{ text: "We need " },
+				{ text: "500 units", mark: true },
+				{ text: ", budget" },
 			],
 			[
-				{ text: "ca. " },
-				{ text: "72.000 €", mark: true },
-				{ text: ", Lieferung bis " },
-				{ text: "Ende Q1", mark: true },
+				{ text: "about " },
+				{ text: "$72,000", mark: true },
+				{ text: ", delivery by " },
+				{ text: "end of Q1", mark: true },
 				{ text: "." },
 			],
 		],
@@ -63,20 +63,20 @@ const BUBBLES: Bubble[] = [
 		y: 370,
 		width: 360,
 		lines: [
-			[{ text: "Bitte schicken Sie das Angebot an" }],
-			[{ text: "einkauf@weber-mb.de", mark: true }],
+			[{ text: "Please send the quote to" }],
+			[{ text: "purchasing@weberind.com", mark: true }],
 		],
 	},
 ];
 
 const FIELDS: Field[] = [
-	{ label: "Contact", value: "Klaus Weber, purchasing" },
+	{ label: "Contact", value: "Karen Weber, purchasing" },
 	{ label: "Need", value: "Flow sensors for 3 production lines" },
 	{ label: "Quantity", value: "500 units" },
-	{ label: "Budget", value: "€72,000 (EUR)" },
+	{ label: "Budget", value: "$72,000 (USD)" },
 	{ label: "Timeline", value: "End of Q1" },
-	{ label: "Email", value: "einkauf@weber-mb.de" },
-	{ label: "Language", value: "German", suggested: true },
+	{ label: "Email", value: "purchasing@weberind.com" },
+	{ label: "Language", value: "English", suggested: true },
 ];
 
 const ROW_TOP = 88;
@@ -131,14 +131,14 @@ function ChatPanel() {
 				y={32}
 				className="fill-foreground font-sans font-semibold text-[15px]"
 			>
-				Klaus Weber
+				Karen Weber
 			</text>
 			<text
 				x={72}
 				y={51}
 				className="fill-muted-foreground font-sans text-[12px]"
 			>
-				WhatsApp, Weber Maschinenbau
+				WhatsApp, Weber Industries
 			</text>
 			<line x1={0} x2={480} y1={72} y2={72} className="stroke-border" />
 			{BUBBLES.map((bubble) => (
@@ -205,7 +205,7 @@ function RecordPanel() {
 				y={34}
 				className="fill-foreground font-sans font-semibold text-[15px]"
 			>
-				Weber Maschinenbau GmbH
+				Weber Industries Inc.
 			</text>
 			<text
 				x={24}
@@ -300,14 +300,12 @@ function MobileThread() {
 	return (
 		<div className="flex flex-col gap-4 lg:hidden">
 			<div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
-				<p className="font-medium text-sm">Klaus Weber on WhatsApp</p>
+				<p className="font-medium text-sm">Karen Weber on WhatsApp</p>
 				<p className="rounded-lg bg-muted px-3 py-2 text-sm/6">
-					Es sind{" "}
-					<span className="font-semibold text-tertiary">500 Einheiten</span>,
-					Budget ca.{" "}
-					<span className="font-semibold text-tertiary">72.000 €</span>,
-					Lieferung bis{" "}
-					<span className="font-semibold text-tertiary">Ende Q1</span>.
+					We need <span className="font-semibold text-tertiary">500 units</span>
+					, budget about{" "}
+					<span className="font-semibold text-tertiary">$72,000</span>, delivery
+					by <span className="font-semibold text-tertiary">end of Q1</span>.
 				</p>
 			</div>
 			<div className="ml-6 h-6 w-px bg-thread" aria-hidden="true" />
@@ -318,7 +316,7 @@ function MobileThread() {
 				</div>
 				<div>
 					<dt className="text-muted-foreground text-xs">Budget</dt>
-					<dd>€72,000 (EUR)</dd>
+					<dd>$72,000 (USD)</dd>
 				</div>
 				<div>
 					<dt className="text-muted-foreground text-xs">Timeline</dt>
@@ -326,7 +324,7 @@ function MobileThread() {
 				</div>
 				<div>
 					<dt className="text-muted-foreground text-xs">Language</dt>
-					<dd>German, suggested</dd>
+					<dd>English, suggested</dd>
 				</div>
 			</dl>
 		</div>
@@ -339,7 +337,7 @@ export function ThreadVisual() {
 			<svg
 				viewBox="0 0 1120 480"
 				role="img"
-				aria-label="A German WhatsApp conversation on the left. Threads connect the quantity, budget, timeline and email the lead wrote to the matching fields of a deal record on the right. Language is marked as a suggestion."
+				aria-label="A WhatsApp conversation on the left. Threads connect the quantity, budget, timeline and email the lead wrote to the matching fields of a deal record on the right. Language is marked as a suggestion."
 				className="hidden h-auto w-full lg:block"
 			>
 				<ChatPanel />

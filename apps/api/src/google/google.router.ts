@@ -38,12 +38,19 @@ export class GoogleRouter {
 		private readonly conversations: ConversationService,
 	) {}
 
+	private async statusFor(userId: string) {
+		return {
+			...(await this.connection.status(userId)),
+			fetchingRecent: await this.sync.isFetchingRecent(userId),
+		};
+	}
+
 	@Query({
 		output: googleConnectionStatusOutput,
 		meta: restMeta("GET", "/google/status", ["Google"]),
 	})
 	async status(@Ctx() ctx: AuthedTrpcContext) {
-		return this.connection.status(ctx.user.id);
+		return this.statusFor(ctx.user.id);
 	}
 
 	@Mutation({
@@ -71,7 +78,16 @@ export class GoogleRouter {
 			backfillIfEmpty: true,
 			report: true,
 		});
-		return this.connection.status(ctx.user.id);
+		return this.statusFor(ctx.user.id);
+	}
+
+	@Mutation({
+		output: googleConnectionStatusOutput,
+		meta: restMeta("POST", "/google/fetch-recent-mail", ["Google"]),
+	})
+	async fetchRecentMail(@Ctx() ctx: AuthedTrpcContext) {
+		await this.sync.fetchRecent(ctx.user.id);
+		return this.statusFor(ctx.user.id);
 	}
 
 	@Mutation({
@@ -88,7 +104,7 @@ export class GoogleRouter {
 			input.source,
 			input.enabled,
 		);
-		return this.connection.status(ctx.user.id);
+		return this.statusFor(ctx.user.id);
 	}
 
 	@Mutation({

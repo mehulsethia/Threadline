@@ -24,6 +24,7 @@ import {
 	contactListInput,
 	contactListOutput,
 	contactNameOutput,
+	contactReviewInput,
 	contactUpdateArgs,
 	decideFactOutput,
 	factDecisionInput,
@@ -80,6 +81,15 @@ export class ContactsRouter {
 	})
 	async archive(@Input("id") id: string) {
 		return this.contacts.archive(id);
+	}
+
+	@Mutation({
+		input: contactReviewInput,
+		output: contactNameOutput,
+		meta: restMeta("POST", "/contacts/{id}/review", ["Contacts"]),
+	})
+	async review(@Input() input: z.infer<typeof contactReviewInput>) {
+		return this.contacts.review(input.id, input.decision);
 	}
 
 	@Mutation({

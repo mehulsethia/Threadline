@@ -21,6 +21,8 @@ import { useFieldFacets } from "@/components/crm/fields/field-facets";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { ReviewBadge } from "@/components/crm/review-badge";
+import { ListRefresh } from "@/components/data-table/list-refresh";
 import { ListSearch } from "@/components/data-table/list-search";
 import { SavedViewsMenu } from "@/components/data-table/saved-views-menu";
 import { useTableQuery } from "@/components/data-table/use-table-query";
@@ -55,6 +57,7 @@ const COLUMNS: DataTableColumn<CompanyRow>[] = [
 					size="sm"
 				/>
 				<span className="truncate font-medium">{row.name}</span>
+				{row.pendingReview ? <ReviewBadge /> : null}
 			</span>
 		),
 	},
@@ -248,6 +251,10 @@ export function CompaniesTable() {
 			search={<ListSearch placeholder="Search companies by name or domain…" />}
 			actions={
 				<>
+					<ListRefresh
+						fetching={companies.isFetching}
+						onRefresh={() => void companies.refetch()}
+					/>
 					<SavedViewsMenu entity="COMPANY" table={table} />
 					<Button
 						variant={input.archived ? "contrast" : "outline"}

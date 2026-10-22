@@ -60,6 +60,11 @@ export const contactUpdateArgs = z.object({
 
 export const contactIdInput = z.object({ id: z.string() });
 
+export const contactReviewInput = z.object({
+	id: z.string(),
+	decision: z.enum(["keep", "remove"]),
+});
+
 export const contactBulkInput = bulkIdsInput;
 
 export const contactBulkOwnerInput = bulkIdsInput.extend({
@@ -140,6 +145,7 @@ export const contactRowOutput = z.object({
 	source: z.enum(
 		Object.values(RecordSource) as [RecordSource, ...RecordSource[]],
 	),
+	pendingReview: z.boolean(),
 	company: contactCompanyOutput.nullable(),
 	owner: contactOwnerOutput.nullable(),
 	lastActivityAt: z.string().nullable(),
@@ -225,6 +231,7 @@ const contactDealOutput = z.object({
 
 export const contactByIdOutput = z.object({
 	id: z.string(),
+	pendingReview: z.boolean(),
 	firstName: z.string(),
 	lastName: z.string().nullable(),
 	email: z.string().nullable(),

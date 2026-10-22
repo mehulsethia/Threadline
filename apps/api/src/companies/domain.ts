@@ -32,6 +32,11 @@ export function domainFromEmail(
 		: domain;
 }
 
+export function isFreeMailDomain(input: string | null | undefined): boolean {
+	const domain = normalizeDomain(input);
+	return domain !== null && FREE_EMAIL_DOMAINS.has(domain);
+}
+
 export function isMachineDomain(input: string | null | undefined): boolean {
 	const domain = normalizeDomain(input);
 	if (!domain) return false;

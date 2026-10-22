@@ -63,6 +63,7 @@ import { hasContactLinks } from "@/lib/social-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { ReviewNotice } from "../review-notice";
 import { RecordActions } from "./record-actions";
 import { DealAmount, MetaLine, RecordSheetFrame } from "./record-parts";
 import { useOpenRecord, useRecordSheetView } from "./record-stack";
@@ -127,7 +128,11 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 					value: "deals",
 					label: "Deals",
 					count: contact.deals.length,
-					content: <ContactDeals contact={contact} />,
+					content: (
+						<DetailSheetBody>
+							<ContactDeals contact={contact} />
+						</DetailSheetBody>
+					),
 				},
 				{
 					value: "activity",
@@ -142,6 +147,11 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 			loading={query.isPending}
 			error={query.error?.message ?? null}
 			title={contact ? contactName(contact) : "Contact"}
+			notice={
+				contact?.pendingReview ? (
+					<ReviewNotice kind="contact" id={contact.id} />
+				) : null
+			}
 			description={
 				contact ? (
 					<MetaLine parts={[contact.title, contact.company?.name]} />

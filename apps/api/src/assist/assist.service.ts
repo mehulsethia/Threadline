@@ -1,15 +1,18 @@
-import { type Db, requireWorkspaceId } from "@crm/db";
+import type { Db } from "@crm/db";
 import { consumeDemoQuota } from "@crm/db/demo";
 import { pipelineForecast } from "@crm/db/forecast";
-import { cloudRunAuthHeaders } from "@crm/env/cloud-run";
 import { Inject, Injectable } from "@nestjs/common";
 import { TRPCError } from "@trpc/server";
 import type { z } from "zod";
-import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { bridge } from "../agent/bridge";
-import { InjectDatabase } from "../database/database.constants";
 import {
 	agentEnvelope,
+	agentHeaders,
+	callAgent,
+	requireBridge,
+} from "../agent/agent-call";
+import { AgentTriggerService } from "../agent/agent-trigger.service";
+import { InjectDatabase } from "../database/database.constants";
+import {
 	type askInput,
 	askOutput,
 	briefOutput,
@@ -34,42 +37,17 @@ export class AssistService {
 		@Inject(AgentTriggerService) private readonly agent: AgentTriggerService,
 	) {}
 
-	private async call<T>(
+	private call<T>(
 		operation: string,
 		body: AgentRequest,
 		schema: z.ZodType<T>,
 	): Promise<T> {
-		const agent = bridge();
-		if (!agent) {
-			throw new TRPCError({
-				code: "PRECONDITION_FAILED",
-				message: "The agent is not configured for this deployment.",
-			});
-		}
-		const response = await fetch(
-			agent.url(`/internal/crm/assist/${operation}`),
-			{
-				method: "POST",
-				headers: {
-					...(await cloudRunAuthHeaders()),
-					authorization: `Bearer ${agent.secret}`,
-					"content-type": "application/json",
-					"x-crm-workspace": requireWorkspaceId(),
-				},
-				body: JSON.stringify(body),
-				signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
-			},
+		return callAgent(
+			`/internal/crm/assist/${operation}`,
+			body,
+			schema,
+			AGENT_TIMEOUT_MS,
 		);
-		const envelope = agentEnvelope.parse(
-			await response.json().catch(() => ({})),
-		);
-		if (!response.ok || envelope.error) {
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: envelope.error ?? `The agent answered ${response.status}.`,
-			});
-		}
-		return schema.parse(envelope.result);
 	}
 
 	private async quota(userId: string): Promise<void> {
@@ -94,20 +72,12 @@ export class AssistService {
 		history: z.infer<typeof askInput>["history"],
 	): Promise<Response> {
 		await this.quota(userId);
-		const agent = bridge();
-		if (!agent) {
-			throw new TRPCError({
-				code: "PRECONDITION_FAILED",
-				message: "The agent is not configured for this deployment.",
-			});
-		}
+		const agent = requireBridge();
 		return fetch(agent.url("/internal/crm/assist/ask-stream"), {
 			method: "POST",
 			headers: {
-				...(await cloudRunAuthHeaders()),
-				authorization: `Bearer ${agent.secret}`,
+				...(await agentHeaders(agent)),
 				"content-type": "application/json",
-				"x-crm-workspace": requireWorkspaceId(),
 			},
 			body: JSON.stringify({ history }),
 			signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),

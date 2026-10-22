@@ -59,6 +59,7 @@ import { hasCompanyLinks } from "@/lib/social-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { ReviewNotice } from "../review-notice";
 import { QuickAddContact, QuickAddDeal } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import {
@@ -179,12 +180,14 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 					label: "Contacts",
 					count: company.contacts.length,
 					content: (
-						<CompanyContacts
-							company={company}
-							adding={adding === "contact"}
-							onAdd={() => setAdding("contact")}
-							onDone={() => setAdding(null)}
-						/>
+						<DetailSheetBody>
+							<CompanyContacts
+								company={company}
+								adding={adding === "contact"}
+								onAdd={() => setAdding("contact")}
+								onDone={() => setAdding(null)}
+							/>
+						</DetailSheetBody>
 					),
 				},
 				{
@@ -192,12 +195,14 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 					label: "Deals",
 					count: company.deals.length,
 					content: (
-						<CompanyDeals
-							company={company}
-							adding={adding === "deal"}
-							onAdd={() => setAdding("deal")}
-							onDone={() => setAdding(null)}
-						/>
+						<DetailSheetBody>
+							<CompanyDeals
+								company={company}
+								adding={adding === "deal"}
+								onAdd={() => setAdding("deal")}
+								onDone={() => setAdding(null)}
+							/>
+						</DetailSheetBody>
 					),
 				},
 				{
@@ -213,6 +218,11 @@ export function CompanySheet({ companyId }: { companyId: string }) {
 			loading={query.isPending}
 			error={query.error?.message ?? null}
 			title={company?.name ?? "Company"}
+			notice={
+				company?.pendingReview ? (
+					<ReviewNotice kind="company" id={company.id} />
+				) : null
+			}
 			description={
 				company ? (
 					<MetaLine

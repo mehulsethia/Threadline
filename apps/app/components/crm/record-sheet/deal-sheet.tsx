@@ -157,12 +157,14 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					label: "Contacts",
 					count: deal.contacts.length,
 					content: (
-						<DealContacts
-							deal={deal}
-							adding={adding === "contact"}
-							onAdd={() => setAdding("contact")}
-							onDone={() => setAdding(null)}
-						/>
+						<DetailSheetBody>
+							<DealContacts
+								deal={deal}
+								adding={adding === "contact"}
+								onAdd={() => setAdding("contact")}
+								onDone={() => setAdding(null)}
+							/>
+						</DetailSheetBody>
 					),
 				},
 				{
@@ -173,7 +175,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 				{
 					value: "assist",
 					label: "AI assist",
-					content: <DealAssist dealId={deal.id} />,
+					content: (
+						<DetailSheetBody>
+							<DealAssist dealId={deal.id} />
+						</DetailSheetBody>
+					),
 					keepMounted: true,
 				},
 			]
