@@ -1,215 +1,144 @@
-<h1 align="center">Threadline</h1>
+# Threadline
 
-<p align="center">
-  <strong>Your conversations, turned into closed deals.</strong><br>
-  An agentic CRM built on Gemini, Google ADK and Cloud Run for the Google Cloud AI Builder Cup 2026.<br>
-  Forked from <a href="https://github.com/trycompai/crm">Comp AI's open-source CRM</a> (MIT License).
-</p>
+**Your conversations, turned into closed deals.**
 
-<p align="center">
-  <a href="#google-cloud-ai"><strong>Google Cloud AI</strong></a> ·
-  <a href="#what-we-reused-and-what-we-built"><strong>Reused / built</strong></a> ·
-  <a href="#the-stack"><strong>Stack</strong></a> ·
-  <a href="#quick-start"><strong>Quick start</strong></a> ·
-  <a href="#configuration"><strong>Configuration</strong></a> ·
-  <a href="#deploying"><strong>Deploying</strong></a>
-</p>
+Threadline is an agentic CRM for sales teams. It reads the WhatsApp chats, emails,
+calls and voice notes your team already has, in any language. It fills in the CRM,
+links every field to the message it came from, and follows up on deals before they go
+cold. It runs on Gemini, Google ADK and Cloud Run.
 
-<p align="center">
-  <img alt="Gemini on Vertex AI" src="https://img.shields.io/badge/model-Gemini%20on%20Vertex%20AI-4285F4.svg">
-  <img alt="Google ADK" src="https://img.shields.io/badge/agents-Google%20ADK-34A853.svg">
-  <img alt="Gemini Live API" src="https://img.shields.io/badge/voice-Gemini%20Live%20API-FBBC04.svg">
-  <img alt="Cloud Run" src="https://img.shields.io/badge/compute-Cloud%20Run-4285F4.svg">
-  <img alt="Cloud SQL" src="https://img.shields.io/badge/database-Cloud%20SQL%20Postgres-336791.svg">
-  <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue.svg">
-</p>
-
-<p align="center">
-  <img alt="The companies list with an account open on its Agent tab" src="./docs/images/product-shot.png">
-</p>
+[Live app](https://threadline-app-358743112898.us-central1.run.app) ·
+[What it does](#what-it-does) · [How it works](#how-it-works) ·
+[Quick start](#quick-start) · [Configuration](#configuration) ·
+[Deploying](#deploying-to-google-cloud) · [Roadmap](#roadmap)
 
 ---
 
-## What this is
+## The problem
 
-Sales teams sell in WhatsApp, email, Slack, calls and voice notes, not in the CRM. The
-CRM stays empty, deals stall without anyone noticing, and follow-ups are missed. AI
-CRMs that "auto-fill" records guess, and a confidently wrong fact about a customer is
-worse than a blank field, because nobody can tell it is wrong.
+Sales happens in WhatsApp, email, Slack and on calls, not in the CRM. So the CRM stays
+empty, deals stall without anyone noticing, and follow-ups are missed. AI tools that
+"auto-fill" a CRM guess, and a confident wrong fact about a customer is worse than a
+blank field, because nobody can tell it is wrong.
 
-Threadline turns those conversations, in any language, into evidence-backed CRM
-records, then works the leads. **Every field links to the exact message quote or audio
-timestamp it came from.** Strong evidence writes to the record. Weak evidence becomes
-a suggestion a rep approves. Nothing leaves the building without a human approving it.
+Threadline fills the CRM from the conversations themselves, and **every field links to
+the exact quote or audio moment it came from**. Strong evidence writes to the record.
+Weak evidence becomes a suggestion that a rep accepts or dismisses. No message leaves
+without a person approving it.
 
-## Google Cloud AI
+## What it does
 
-| Flow | What happens | Google Cloud AI |
+| Feature | What happens | Google Cloud AI |
 | --- | --- | --- |
-| **Self-filling CRM** | Import or auto-capture a conversation. Gemini extracts the contact, company, need, budget, currency (ISO 4217), language, objections, next steps and promises, each cited in the evidence ledger. Re-importing the same export creates no duplicates. | Gemini on Vertex AI (multimodal: text, PDF, audio), Google ADK intake agent |
-| **Lead Revival Agent** | Detects stalled deals by stage SLA, unanswered questions and overdue tasks; ranks them by currency-normalised value; drafts one follow-up in the lead's language and channel; a claim guard strips anything the evidence does not support; the rep approves in-app or in Slack. Opt-outs are permanent. | Google ADK agent, Gemini smart model |
-| **Voice Qualifier** | A real-time voice agent runs a BANT qualifying call in the lead's language, records each answer as a cited fact, and proposes a stage and a 0–100 score for the rep to accept. | Gemini Live API (native audio), streamed through the API over WebSocket |
-| **Ask your CRM** | Questions over deals, conversations, promises, tasks and the forecast; answers link to records. | Google ADK agent with CRM tools |
-| **Company research** | Grounded company profile with cited sources. Below 0.70 match confidence nothing is stored. | Gemini with Google Search grounding |
-| **Scoring and forecast** | Lead score 0–100 with reasons, deal health, win probability, weighted forecast in the reporting currency, promise tracker. | Gemini Argon |
+| **Self-filling CRM** | Import a WhatsApp export, email thread, call recording, voice note or transcript, or let Gmail capture it. Gemini extracts the contact, company, need, budget, currency, language, objections, next steps and promises. Each value cites its source in the evidence ledger. Importing the same file twice creates no duplicates. | Gemini on Vertex AI, Google ADK intake agent |
+| **Inbound lead review** | Gmail captures new inbound leads, including senders you have not answered yet and senders on free mail such as gmail.com. These leads show a **To review** badge. **Keep** makes them normal records. **Remove** takes them out of the CRM. | Gemini extraction on capture |
+| **Lead revival agent** | Finds stalled deals, ranks them by value, and drafts one follow-up in the lead's language and channel. A claim guard removes anything the evidence does not support. The rep approves in the app or in Slack. | Google ADK agent |
+| **Voice qualifier** | A live voice agent runs a short qualifying call (budget, authority, need, timeline, competitors, decision process) in the lead's language. It greets the lead, asks one question at a time, records each answer as a cited fact, and proposes a stage and a 0–100 score. | Gemini Live API, native audio |
+| **Ask your CRM** | Ask about deals, conversations, promises, tasks and the forecast in plain language. Answers link to the records. | Google ADK agent with CRM tools |
+| **AI assist** | A lead score with written reasons, deal health, win probability, personalised message drafts and meeting briefs for each deal. | Gemini on Vertex AI |
+| **Forecast and promises** | A weighted forecast by stage and month in one reporting currency, and a tracker for every promise made by you or the lead. | Gemini on Vertex AI |
+| **Enquiry forms** | A form on your site creates the contact and the deal, scores the lead and alerts the owner. | Gemini on Vertex AI |
 
-Every text and multimodal task runs on **Gemini Argon** (`gemini-4-argon`, Vertex AI,
-`global`), and voice runs on the Gemini Live API. Models are set by environment
-variable: `GEMINI_FAST_MODEL` and `GEMINI_SMART_MODEL` both default to Argon,
-`GEMINI_LIVE_MODEL` is the native-audio Live model. The ADK agents live in [`apps/agent/adk`](./apps/agent/adk).
+Deals keep their own currency (ISO 4217, detected from the conversation) and report in
+one workspace currency. Pipeline stages follow standard B2B: Lead, Qualified,
+Meeting/Demo, Proposal, Negotiation, Won, Lost.
 
-**Runs on Google Cloud:** three Cloud Run services (web app, API, agent worker; the
-agent accepts only IAM ID tokens), Cloud SQL for PostgreSQL with one schema per
-workspace, Cloud Storage for uploads and recordings, Cloud Scheduler for the hourly
-revival, 15-minute capture, daily exchange rates and nightly demo reset, and Cloud
-Build. See [`deploy/`](./deploy).
+### Connections
 
-## What this includes
-
-Threadline combines a CRM foundation with AI-assisted workflows for sales teams.
-The project is released under the MIT License.
-
-**CRM foundation:** the UI shell and record sheets, the Prisma schema for contacts,
-companies and deals, the `AgentTask` work queue with database leases, the evidence
-ledger core (`evidence.ts`, `facts.ts`, `tasks.ts`), Better Auth sign-in, and the eve
-research agent described [below](#the-research-agent).
-
-**Built for Threadline:**
-
-- All Gemini and Google ADK agents: intake and follow-up, lead revival with claim
-  guard, Ask your CRM, scoring, writer and meeting briefs, grounded company research.
-- The Voice Qualifier on the Gemini Live API.
-- Multilingual extraction from WhatsApp, email, Slack, call recordings, voice notes and
-  meeting transcripts, with first-hand evidence kinds (`whatsapp.message`,
-  `voice.transcript`, `voice.live-call`, `web.grounded`).
-- Multi-currency deals and reporting, standard B2B pipeline stages, forecast and
-  promise tracker.
-- Automatic capture from Gmail, Slack, Google Meet, Fireflies and Fathom; public
-  enquiry forms; notifications to Slack.
-- Multi-tenant workspaces (a Postgres schema per workspace), Google sign-in with
-  onboarding, and a one-click judge demo login with daily caps.
-- The Google Cloud deployment: Dockerfiles, Cloud Build, Cloud Run, Cloud SQL, Cloud
-  Storage and Cloud Scheduler.
-- The Material Design 3 theme.
-
-## The research agent (inherited from Comp AI)
-
-The original Comp AI research agent still runs beside the ADK agents. It is described
-here as Comp AI wrote it.
-
-[`apps/agent`](./apps/agent) is its own deployment, built on
-[**eve**](https://eve.dev) — Vercel's filesystem-first framework for durable agents.
-A tool is a file, a skill is a markdown file, a schedule is a file, and the runtime
-handles the durable part: sessions that survive a redeploy, work that resumes where it
-stopped.
-
-| | |
+| Source | What it brings in |
 | --- | --- |
-| **18 authored tools** | `read_crm_history`, `search_crm`, `identify_contact`, `research_person`, `enrich_company`, `record_fact`, `schedule_recheck`… |
-| **4 skills** | `evidence.md`, `identity-matching.md`, `data-boundaries.md`, `writing-a-brief.md` — prose the agent reads, versioned like code |
-| **1 schedule** | `dispatch.ts`, which decides nothing. It leases what is due and starts a session per row. |
-| **A sandbox** | `bash`, `grep`, `glob` and a `/workspace`, with **`deny-all` egress** |
+| **Gmail and Google Calendar** | Email threads and meetings, checked every 15 minutes. **Fetch last 7 days** re-reads a week of mail at any time and skips what is already filed. |
+| **Google Meet** | Meeting transcripts. |
+| **Slack** | Channel messages. It also posts revival drafts for one-tap approval. |
+| **Fireflies and Fathom** | Call transcripts. |
+| **Microsoft 365** | Outlook mail. |
+| **Import** | WhatsApp exports, email files, audio recordings, voice notes, PDFs and pasted text. |
 
-**It runs itself.** `lib/tasks.ts` is the work queue: `claimDue` leases rows with
-`FOR UPDATE SKIP LOCKED`, so two dispatchers take disjoint work and a run that dies
-frees its row when the lease expires. Anything that looks like "every N minutes, the
-oldest ten contacts" belongs in a task's `dueAt`, not in a cron expression. When the
-agent wants another look at somebody it calls `schedule_recheck` and says why — and
-the reason is shown to the rep, because an agent that cannot say why it will be back
-in fourteen days does not have a reason, it has a default.
+### Signing in
 
-**Every outside source is optional, and it is designed to run with none of them.**
-With no API keys at all it still works: `read_crm_history` reads your own threads,
-meetings and signature blocks, which is free and is the best evidence there is — no
-data vendor can sell you a reply from the person's own address. Each key opens one
-more place to look. It is told at the start of every session which ones this install
-has, so it plans around what it actually has rather than discovering the gaps one
-failed call at a time, and it prints the list at startup:
+- **Email and password**: sign up and sign in without any third-party account.
+- **Google**: one click. The same Google connection can later read Gmail and Calendar.
+- **Demo workspace**: one click opens a sample team with 12 deals. No sign-up.
+
+Every new account gets its own workspace and a short onboarding: name, website, profile,
+then connections.
+
+## How it works
 
 ```
-[agent] off  Web research (PERPLEXITY_API_KEY)
-[agent] on   Company brand data (Settings → General)
-[agent] on   LinkedIn (Settings → General)
+Browser ──▶ Web app (Next.js) ──/api/*──▶ API (NestJS, tRPC, Better Auth)
+                                             │
+                                             │ writes an AgentTask row, or calls
+                                             ▼ the agent with an IAM ID token
+                                          Agent worker (Google ADK + Gemini)
+                                             │
+                              Cloud SQL for PostgreSQL (one schema per workspace)
 ```
 
-**Company brand data and LinkedIn are both [Context](https://link.context.dev/crm)**,
-and both come from the same key. The first is the logo, the colours, the industry and
-the real name behind a domain, which is the difference between an account that arrives
-as itself and one that arrives as a grey square with its initials in it. The second
-reads a person back from a LinkedIn URL already on their record — their real name,
-current title, employer and every earlier role — which is what settles who an address
-belongs to. It is the one key that is asked for rather than configured: it lives in a
-row, the onboarding asks for it, and **Settings → General** changes it afterwards,
-because a self-hoster's admin cannot redeploy to set an environment variable.
+- **The web app** serves every page and proxies `/api/*` to the API, so sign-in
+  cookies and OAuth callbacks live on one origin.
+- **The API** handles HTTP, sign-in, tRPC and mailbox sync. It decides nothing about a
+  person or a company. It records that something happened and passes the work to the
+  agent.
+- **The agent worker** owns every model call: the intake, revival, Ask, scoring and
+  writer agents, and the Gemini Live voice session. The API relays the voice call's
+  WebSocket to it, so no Google credential reaches the browser.
+- **Each workspace is its own Postgres schema.** A query with no workspace in context
+  throws instead of guessing, so one workspace cannot read another's rows.
 
-**The sandbox has no network and no database.** Turning it on is what gives the model
-a shell — the difference between a tool-caller and something that can keep a dossier,
-diff this month's profile against last month's, and grep a thread for a signature
-block. `deny-all` egress costs nothing, because `web_fetch` runs in the app runtime
-and `web_search` at the model provider. What it removes is the only path by which a
-customer's email body could leave through a shell command. The other half of that rule
-is an absence: **the sandbox is never given `DATABASE_URL`.** A shell with credentials
-and egress is exfiltration-shaped even in an internal tool; a shell with neither is a
-text processor.
+### On Google Cloud
 
-**You can talk to it, and watch it work.** Every contact, company and deal has an
-**Agent** tab — the steps as it takes them, the leads it throws away and why, and its
-questions answered in place when it cannot decide between two people. Conversations
-are durable and survive a reload; the record travels in a signed token rather than
-being bolted onto the front of your message. Set `AGENT_BRIDGE_SECRET` to the same
-value in both processes to turn it on. Without it the tab reports that it is not
-configured, and the agent carries on running its own schedule.
+| Service | Use |
+| --- | --- |
+| **Vertex AI** | Gemini for extraction, drafting, scoring and Ask; the Gemini Live API for voice |
+| **Cloud Run** | Three services: the web app, the API and the agent worker. Only the API can call the agent (IAM-only). |
+| **Cloud SQL for PostgreSQL** | All data, one schema per workspace |
+| **Cloud Storage** | Uploaded files and recordings |
+| **Cloud Scheduler** | Hourly revival, 15-minute mail capture, daily exchange rates, nightly demo reset |
+| **Cloud Build and Artifact Registry** | Builds and stores the three images |
+| **Secret Manager** | OAuth clients, database URL and signing secrets |
 
-[`docs/agent.md`](./docs/agent.md) is the full write-up.
+Models are set by environment variable:
+
+| Variable | Default | Used for |
+| --- | --- | --- |
+| `GEMINI_FAST_MODEL` | `gemini-4-argon` | Extraction and classification |
+| `GEMINI_SMART_MODEL` | `gemini-4-argon` | Drafting and reasoning |
+| `GEMINI_ASK_MODEL` | `gemini-2.5-flash` | Ask your CRM |
+| `GEMINI_LIVE_MODEL` | `gemini-live-2.5-flash-native-audio` | Voice qualifier |
 
 ## The stack
 
-A [Turborepo](https://turborepo.dev) monorepo on [Bun](https://bun.com), deployed on
-[Google Cloud](https://cloud.google.com).
+A [Turborepo](https://turborepo.dev) monorepo on [Bun](https://bun.com).
 
 | | |
 | --- | --- |
-| **Models** | [Gemini on Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs) through `@google/genai` — fast, smart and Live models set by environment variable |
-| **Agents** | [Google Agent Development Kit](https://google.github.io/adk-docs/) (`@google/adk`) for intake, revival, Ask your CRM and scoring; the inherited [eve](https://eve.dev) research agent |
-| **Voice** | [Gemini Live API](https://cloud.google.com/vertex-ai/generative-ai/docs/live-api), native audio, proxied by the API so no credential reaches the browser |
-| **Grounding** | Google Search grounding for company research, with cited sources |
-| **Compute** | [Cloud Run](https://cloud.google.com/run) — web app, API and agent worker as three services; [Cloud Scheduler](https://cloud.google.com/scheduler) for recurring work |
-| **Data** | [Prisma](https://prisma.io) · [Cloud SQL for PostgreSQL](https://cloud.google.com/sql), one schema per workspace · in-memory cache |
-| **Files** | [Cloud Storage](https://cloud.google.com/storage) for uploads, recordings and profile pictures |
-| **Front end** | [Next.js](https://nextjs.org) App Router · [shadcn/ui](https://ui.shadcn.com) with Material Design 3 tokens · [nuqs](https://nuqs.dev) for URL state |
-| **API** | [NestJS](https://nestjs.com) with [nestjs-trpc](https://nestjs-trpc.io) — HTTP, auth, tRPC, mailbox sync |
-| **Auth** | [Better Auth](https://better-auth.com) — Google sign-in, workspaces, one-click demo login |
-| **Tooling** | [Biome](https://biomejs.dev) · [Zod](https://zod.dev) at every boundary · TypeScript everywhere |
+| **Models** | Gemini on Vertex AI through `@google/genai` |
+| **Agents** | [Google Agent Development Kit](https://google.github.io/adk-docs/) (`@google/adk`) |
+| **Front end** | [Next.js](https://nextjs.org) App Router, [shadcn/ui](https://ui.shadcn.com), [nuqs](https://nuqs.dev) for URL state |
+| **API** | [NestJS](https://nestjs.com) with [nestjs-trpc](https://nestjs-trpc.io) |
+| **Auth** | [Better Auth](https://better-auth.com): email and password, Google, Microsoft, SSO, workspaces |
+| **Data** | [Prisma](https://prisma.io) on PostgreSQL |
+| **Tooling** | TypeScript, [Zod](https://zod.dev) at every boundary, [Biome](https://biomejs.dev) |
 
-The app talks to the API over **tRPC**, and the router type is generated from the
-NestJS routers — so the front end is type-safe from the Prisma row to the table cell.
-List state (filters, sort, page) lives in the URL, so copying the address bar
-reproduces the view.
+The app calls the API over tRPC with a generated router type, so the front end is
+type-safe from the database row to the table cell. List filters, sorting and paging
+live in the URL.
 
 ### Layout
 
 | Path | |
 | --- | --- |
-| `apps/agent` | The ADK agents (`adk/`) and the inherited eve research agent (`agent/`) |
-| `apps/app` | Next.js front end · :3000 |
-| `apps/api` | NestJS API — HTTP, auth, tRPC, mailbox sync · :3001 |
-| `packages/db` | Prisma schema, migrations, shared Postgres client |
-| `packages/auth` | Better Auth config and the sign-in allow-list |
-| `packages/ui` | shadcn/ui components, the Tailwind theme |
-| `packages/env` | Finds and loads the root `.env` |
-
-### Three rules the codebase holds to
-
-Written up where the work happens, not in a style guide:
-
-- **Intelligence never lives in the API** ([docs/api.md](./docs/api.md)). Nest reports
-  that something happened; the agent decides what it means. Two copies of an identity
-  matcher once drifted until one matched every employer on earth.
-- **`packages/ui` is the only source of UI** ([docs/design.md](./docs/design.md)). No
-  overriding styles at the call site.
-- **Every workspace is its own Postgres schema.** A query with no workspace in context
-  throws instead of falling back, so a missed filter cannot read another workspace's
-  rows.
+| `apps/app` | Next.js web app, port 3000 |
+| `apps/api` | NestJS API: HTTP, auth, tRPC, mailbox sync. Port 3001 |
+| `apps/agent` | Agent worker (`adk/`): intake, revival, Ask, scoring, writer, voice. Port 2000 |
+| `packages/db` | Prisma schema, migrations, workspace schemas, shared client |
+| `packages/auth` | Better Auth configuration |
+| `packages/validation` | Zod schemas for every shape that crosses a package boundary |
+| `packages/ui` | Shared shadcn/ui components and the theme |
+| `packages/env` | Loads the one root `.env` |
+| `deploy/` | Cloud Build config and the Cloud Run deploy script |
+| `docs/` | Rules for each area of the code |
 
 ## Quick start
 
@@ -217,170 +146,116 @@ You need [Bun](https://bun.com) and Docker.
 
 ```sh
 git clone https://github.com/mehulsethia/Threadline.git && cd Threadline
-cp .env.example .env          # then fill in the values below
+cp .env.example .env          # then set the values below
 bun install
 
 docker compose up -d          # Postgres on :5432
-
 bun run db:deploy             # apply migrations
-bun run db:seed               # optional: a believable pipeline to look at
-bun run dev
+bun run db:seed               # optional: a sample pipeline
+bun run dev                   # app :3000, API :3001, agent :2000
 ```
 
-The app is on [localhost:3000](http://localhost:3000), the API on
-[localhost:3001](http://localhost:3001).
+Open [localhost:3000](http://localhost:3000) and create an account with email and
+password, or open the demo workspace.
 
 ### The values to set
 
-Open `.env` and set these. Everything else in the file is optional and commented out.
+| Variable | What to put in it |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
+| `ALLOWED_SIGN_IN` | Your team's email domain, e.g. `acme.com`. Mail from these addresses is never filed as a lead. |
+| `AGENT_BRIDGE_SECRET` | `openssl rand -base64 32`. Connects the API to the agent for Ask, AI assist, imports and voice. |
+| `GOOGLE_CLOUD_PROJECT` | Your Google Cloud project with Vertex AI enabled |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional. Google sign-in, Gmail and Calendar. Set both or neither. |
 
-| Variable                                   | What to put in it                                                    |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                       | `openssl rand -base64 32`                                             |
-| `ALLOWED_SIGN_IN`                          | Your email domain, e.g. `acme.com`. Or one address, e.g. `you@gmail.com`. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`| A Google OAuth client — 2 minutes, below. Both or neither.             |
-| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` | A Microsoft Entra app registration — below. Both or neither. |
+Gemini calls use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials).
+Run `gcloud auth application-default login` once on your machine.
 
-**Pick at least one of Google and Microsoft**, or add your own identity provider on
-**Settings → SSO** once you are in. Setting both is fine and common: the sign-in page
-offers both buttons, and each rep's mail is read from whichever they signed in with.
-
-`DATABASE_URL` already matches the `docker compose` Postgres, so leave it alone unless
-you brought your own.
+`DATABASE_URL` already matches the `docker compose` Postgres.
 
 <details>
-<summary><strong>Getting the Google OAuth client</strong></summary>
+<summary><strong>Setting up the Google OAuth client</strong></summary>
 
-1. [Google Cloud console](https://console.cloud.google.com/apis/credentials) → **Credentials** → **Create credentials** → **OAuth client ID** → **Web application**.
-2. Under **Authorised redirect URIs**, add `http://localhost:3001/api/auth/callback/google`.
-3. Enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and the [Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) for the project.
-4. Copy the client ID and secret into `.env`.
-
-Google is the sign-in method a new install starts with, and the same client reads Gmail and
-Calendar — so most installs want it. The API will nonetheless boot without it: an
-install that signs in with Microsoft, or through its own identity provider added on
-**Settings → SSO**, leaves both empty and gets no Google button and no Gmail sync. Set
-them together or not at all; half a pair is a button that fails at Google. If your
-account is on a Google Workspace domain, set the consent screen to **Internal** and
-nobody outside your org can even reach the prompt.
+1. [Google Cloud console](https://console.cloud.google.com/apis/credentials) →
+   **Credentials** → **Create credentials** → **OAuth client ID** → **Web application**.
+2. Under **Authorised redirect URIs**, add
+   `http://localhost:3001/api/auth/callback/google`. In production, add
+   `https://<your-app-host>/api/auth/callback/google`.
+3. Enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com)
+   and the [Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
+4. Copy the client ID and secret into `.env`, then restart `bun run dev`.
 
 </details>
-
-<details>
-<summary><strong>Getting the Microsoft app registration</strong></summary>
-
-1. [Azure portal](https://portal.azure.com) → **Microsoft Entra ID** → **App
-   registrations** → **New registration**. Microsoft's own walkthrough is
-   [Register an application](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app#register-an-application).
-2. Under **Supported account types**, pick **Accounts in this organizational directory
-   only** if everyone signing in is on your tenant. Anything wider is fine too —
-   `ALLOWED_SIGN_IN` still decides who gets an account — but the narrow choice turns
-   outsiders away at Microsoft rather than at our door.
-3. Set the **Redirect URI** to **Web** and
-   `http://localhost:3001/api/auth/callback/microsoft`. In production this is
-   `https://<your-api-host>/api/auth/callback/microsoft` — the API's origin, not the
-   app's, because the API is what serves `/api/auth/*`.
-4. **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated
-   permissions** → tick **User.Read** and **Mail.Read**. `offline_access` is requested
-   at sign-in and needs no entry here. If your tenant requires admin consent, click
-   **Grant admin consent** so reps are not each asked.
-5. **Certificates & secrets** → **New client secret**. Copy the **Value**, not the
-   Secret ID — the value is shown once and never again.
-6. **Overview** → copy the **Application (client) ID**.
-7. Put the two into `.env` as `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`.
-
-`Mail.Read` is read-only: the CRM can list and read messages and can never send,
-reply, move or delete. Reading is forward-only — the first check records the current
-time and imports nothing, so connecting an old mailbox does not dump years of mail into
-the CRM.
-
-To refuse other tenants at Microsoft rather than relying on `ALLOWED_SIGN_IN`, set
-`MICROSOFT_TENANT_ID` to your tenant's GUID (**Overview** → **Directory (tenant) ID**).
-It defaults to `common`, which accepts any work, school or personal Microsoft account
-and leaves the allow-list to sort them out. `organizations` is the middle setting: any
-work or school account, no personal ones.
-
-Microsoft client secrets expire — 24 months at most, and 6 months by default. Note the
-expiry somewhere, because the symptom of a lapsed one is every rep's mail quietly
-failing to sync.
-
-</details>
-
-`ALLOWED_SIGN_IN` is the entire authorisation model — an unset value means nobody can
-sign in, which is the safe direction to fail. It takes whole domains, individual
-addresses, or a mix:
-
-```sh
-ALLOWED_SIGN_IN="acme.com"                       # everyone at your company
-ALLOWED_SIGN_IN="acme.com,contractor@gmail.com"  # …plus one outsider
-ALLOWED_SIGN_IN="you@gmail.com"                  # a one-person install
-```
 
 ## Configuration
 
-**There is one `.env`, at the root of the repo**, read by all three processes. Real
-environment variables always win, so on a hosting platform you configure it there and
-the file is purely a local convenience.
-
-Beyond the values above, everything is optional and the app runs without any
-of it. [`.env.example`](./.env.example) is the full list with a note on each; the
-short version:
+There is **one `.env`, at the root of the repo**, read by all three processes. Real
+environment variables always win. [`.env.example`](./.env.example) lists every
+variable with a note on what it does. Anything a self-hoster may not have is optional:
+a missing key turns off that one feature and never stops the app.
 
 | | |
 | --- | --- |
-| `API_URL` / `APP_URL` | Where the two halves are served. Only needed off localhost. |
-| `PERPLEXITY_API_KEY` | Lets the agent search the open web, with citations. |
-| `AGENT_BRIDGE_SECRET` | Lets a rep talk to the agent from a contact's **Agent** tab. |
-| `REDIS_URL` | A shared cache. Without it, per-instance and in-memory. |
-| `CRON_SECRET` | Guards the mailbox sync route. Required to use it. |
-| `CRM_TELEMETRY_DISABLED` | Set to `1` and this install reports nothing. `DO_NOT_TRACK` too. |
+| `GCS_BUCKET` | Cloud Storage bucket for uploads. |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` | Microsoft sign-in and Outlook mail. |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `SLACK_SIGNING_SECRET` | The Slack connection. |
+| `CRON_SECRET` | Guards the scheduled routes (mail capture, revival, rates). |
+| `API_URL` / `APP_URL` | Public origins. Only needed off localhost. |
+| `CRM_TELEMETRY_DISABLED` | Set to `1` to report nothing. |
 
-## Tasks
+## Commands
 
 | Command | |
 | --- | --- |
-| `bun run dev` | Prepare the local database, then run everything in dependency-aware watch mode |
-| `bun run build` | Build all apps and packages |
-| `bun run test` | Run the test suite |
-| `bun run check-types` | `tsc --noEmit` everywhere |
-| `bun run lint` / `format` | [Biome](https://biomejs.dev) |
+| `bun run dev` | Prepare the local database, then run the app, API and agent in watch mode |
+| `bun run build` | Build every app and package |
+| `bun run test` | Run the test suites |
+| `bun run check-types` | Typecheck everything |
+| `bun run lint` / `bun run format` | Biome |
 | `bun run db:migrate` | Create and apply a migration |
-| `bun run db:seed` | Top up the demo pipeline (idempotent) |
+| `bun run db:seed` | Top up the sample pipeline |
 | `bun run db:studio` | Prisma Studio |
-| `bun run --filter=api trpc:generate` | Regenerate the `AppRouter` type |
-| `bun run --filter=api dev:session` | Print a session cookie for a local user |
+| `bun run --filter=api trpc:generate` | Regenerate the tRPC router type |
 
-Scope any of them with a Turborepo filter: `bun run dev --filter=api`.
+## Deploying to Google Cloud
 
-Because sign-in goes through an identity provider, there is no way to get a session from a terminal —
-`dev:session` writes the rows Better Auth would have written and prints the cookie it
-would have set. It refuses to run with `NODE_ENV=production`.
+The three images are built by Cloud Build and deployed to Cloud Run by one script:
 
-## Deploying
+```sh
+TAG=$(git rev-parse --short HEAD)
+gcloud builds submit --config deploy/cloudbuild.yaml --substitutions=_TAG=$TAG .
+TAG=$TAG deploy/deploy.sh all
+```
 
-Three deployments and a Postgres: the Next.js app, the NestJS API, and the agent.
-They are independent, and the only thing they must agree on is `DATABASE_URL` and
-`BETTER_AUTH_SECRET` — the API mints the session cookie and the app verifies it, so a
-mismatch is a redirect loop rather than an error.
+`deploy.sh all` does three things in order:
 
-Set `API_URL` and `APP_URL` to the real origins, and if the two are on different
-subdomains of one parent, set `AUTH_COOKIE_DOMAIN` to the parent so one cookie covers
-both. Add `http://your-api-host/api/auth/callback/google` — and, if you use Microsoft,
-`http://your-api-host/api/auth/callback/microsoft` — to the provider's
-redirect URIs. Set `CRON_SECRET` and point a scheduler at
-`POST /internal/sync/mailboxes` to keep the mailbox sync running.
+1. **Migrate.** It runs a Cloud Run job that applies the Prisma migrations to the public
+   schema and to every workspace schema, then refreshes the demo workspace.
+2. **Services.** It deploys the agent, the API and the web app, and gives the API
+   permission to call the agent.
+3. **Scheduler.** It creates or updates the four Cloud Scheduler jobs.
 
-`apps/api/src/generated/server.ts` is committed and `build` must never regenerate it —
-the generator needs a newer GLIBC than most build images have. Regenerate locally and
-commit it with the router change that caused it.
+Secrets come from Secret Manager. See [`deploy/deploy.sh`](./deploy/deploy.sh) for the
+full list.
+
+## Roadmap
+
+- WhatsApp Business API: two-way capture and sending, with no exports
+- Outlook and Teams capture for Microsoft 365 sales teams
+- Outbound qualifying calls over phone lines with Gemini Live
+- Meetings booked straight from a qualifying call
+- Approved write-back to Salesforce, HubSpot and other CRMs
+- Roles and a workspace switcher for larger teams
+- A benchmark of 100+ labelled conversations in 10+ languages
+- More data sources and enrichment providers
+- BigQuery export for revenue analytics
+- MCP connections to major LLMs and AI agents
+- A log of every data fetch, enrichment and scheduled job
 
 ## Contributing
 
-We'd rather have a paragraph you wrote than a pull request an agent wrote. See
-[CONTRIBUTING.md](./CONTRIBUTING.md).
-
-Security issues go through [SECURITY.md](./SECURITY.md), privately, not a public
-issue.
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Report security issues privately through
+[SECURITY.md](./SECURITY.md), not in a public issue.
 
 ## Licence
 
