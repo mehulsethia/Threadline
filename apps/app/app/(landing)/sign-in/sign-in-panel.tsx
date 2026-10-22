@@ -17,13 +17,15 @@ const HEADINGS = {
 } as const satisfies Record<EmailMode, { title: string; description: string }>;
 
 export function SignInPanel({
+	initialMode,
 	demo,
 	providers,
 }: {
+	initialMode: EmailMode;
 	demo: ReactNode;
 	providers: ReactNode;
 }) {
-	const [mode, setMode] = useState<EmailMode>("sign-in");
+	const [mode, setMode] = useState<EmailMode>(initialMode);
 
 	return (
 		<>

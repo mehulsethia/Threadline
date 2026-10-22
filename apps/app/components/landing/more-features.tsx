@@ -3,7 +3,7 @@ import { Section, SectionHeading } from "./section-heading";
 const FEATURES = [
 	{
 		title: "Ask your CRM",
-		body: "Ask which deals are at risk this month, or what Weber asked last week. Answers link straight to the records.",
+		body: "Ask which deals are at risk this month, or what a lead asked for last week. Answers link straight to the records.",
 	},
 	{
 		title: "Lead scores with reasons",

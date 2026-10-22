@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AgentFlows } from "@/components/landing/agent-flows";
+import { AgentsAtWork } from "@/components/landing/agents-at-work";
 import { LandingAnalytics } from "@/components/landing/analytics";
 import { ChannelsStrip } from "@/components/landing/channels-strip";
 import { ClosingCta } from "@/components/landing/closing-cta";
@@ -17,7 +18,7 @@ import { Roadmap } from "@/components/landing/roadmap";
 export const metadata: Metadata = {
 	title: "Threadline — Your conversations, turned into closed deals",
 	description:
-		"Threadline is an agentic CRM. It turns WhatsApp chats, emails, calls and voice notes in any language into evidence-backed records, then follows up on every deal.",
+		"Threadline is an agentic CRM. Its agents turn WhatsApp chats, emails, calls and voice notes in any language into evidence-backed records, then work every deal, with you approving what reaches a customer.",
 };
 
 export default function Home() {
@@ -32,6 +33,7 @@ export default function Home() {
 				<ChannelsStrip />
 				<ProblemSection />
 				<HowItWorks />
+				<AgentsAtWork />
 				<AgentFlows />
 				<MoreFeatures />
 				<Comparison />

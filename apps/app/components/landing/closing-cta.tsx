@@ -24,7 +24,7 @@ export function ClosingCta() {
 						size="lg"
 						className="px-6 text-band-foreground hover:bg-band-foreground/10 hover:text-band-foreground"
 					>
-						<Link href="/sign-in">Sign in with Google</Link>
+						<Link href="/sign-in?mode=sign-up">Create a free account</Link>
 					</Button>
 				</div>
 			</div>

@@ -2,6 +2,7 @@ export const REPO_URL = "https://github.com/mehulsethia/Threadline";
 
 export const SECTION_LINKS = [
 	{ label: "How it works", href: "/#how-it-works" },
+	{ label: "Autopilot", href: "/#autopilot" },
 	{ label: "Agents", href: "/#agents" },
 	{ label: "Google Cloud", href: "/#google-cloud" },
 	{ label: "Roadmap", href: "/#roadmap" },

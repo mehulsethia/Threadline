@@ -62,7 +62,7 @@ export default function SignInPage({ searchParams }: PageProps<"/sign-in">) {
 async function SignIn({
 	searchParams,
 }: Pick<PageProps<"/sign-in">, "searchParams">) {
-	const [session, options, { method }] = await Promise.all([
+	const [session, options, { method, mode }] = await Promise.all([
 		currentSession(),
 		signInOptions(),
 		searchParams,
@@ -91,6 +91,7 @@ async function SignIn({
 
 	return (
 		<SignInPanel
+			initialMode={mode === "sign-up" ? "sign-up" : "sign-in"}
 			demo={<DemoSignIn />}
 			providers={
 				hasOtherMethods ? (

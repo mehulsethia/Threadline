@@ -40,6 +40,7 @@ const VOICE: Flow = {
 	points: [
 		"Talks and listens in real time, with short turns, in under three minutes.",
 		"Proposes a stage and a qualification score. It never moves the deal on its own.",
+		"When the call ends, it writes the summary, the stage proposal and the follow-up for one-tap approval.",
 		"No live call possible? Record a voice note and get the same result.",
 	],
 	poweredBy: "Gemini Live API with native audio",
