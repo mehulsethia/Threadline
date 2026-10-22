@@ -79,7 +79,7 @@ describe("the Context key is a setting, never a variable", () => {
 	});
 
 	it("points at the settings page rather than a variable name", () => {
-		expect(contextDev(null)?.from).toBe("Settings → General");
+		expect(contextDev(null)?.from).toBe("Settings → Connections → Context.dev");
 	});
 });
 
@@ -93,7 +93,7 @@ describe("reading a person comes from the same Context key", () => {
 	});
 
 	it("points at the settings page rather than a variable name", () => {
-		expect(people(null)?.from).toBe("Settings → General");
+		expect(people(null)?.from).toBe("Settings → Connections → Context.dev");
 	});
 
 	it("turns on and off with the brand lookup, because it is one key", () => {

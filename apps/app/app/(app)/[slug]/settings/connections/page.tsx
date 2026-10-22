@@ -1,3 +1,4 @@
+import DataEnrichment from "@carbon/icons-react/es/DataEnrichment";
 import Microphone from "@carbon/icons-react/es/Microphone";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
 import MicrosoftLogo from "@crm/ui/components/brand-logos/microsoft";
@@ -32,11 +33,12 @@ async function ConnectionsSettingsPageContent({
 	const [{ slug }, query] = await Promise.all([params, searchParams]);
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	const [google, microsoft, slack, recorders] = await Promise.all([
+	const [google, microsoft, slack, recorders, researchKey] = await Promise.all([
 		queryClient.fetchQuery(trpc.google.status.queryOptions()),
 		queryClient.fetchQuery(trpc.microsoft.status.queryOptions()),
 		queryClient.fetchQuery(trpc.slack.status.queryOptions()),
 		queryClient.fetchQuery(trpc.recorders.status.queryOptions()),
+		queryClient.fetchQuery(trpc.settings.researchKey.queryOptions()),
 	]);
 	const recordersConnected = recorders.providers
 		.filter((row) => row.connected)
@@ -82,6 +84,19 @@ async function ConnectionsSettingsPageContent({
 					},
 				]
 			: []),
+		...(researchKey.configured
+			? [
+					{
+						name: "Context.dev",
+						status: "Connected",
+						bringsIn:
+							"Company logo, industry, size, location and socials, with sources",
+						sends: "Company domains to look up",
+						href: `/${slug}/settings/connections/context-dev`,
+						logo: DataEnrichment,
+					},
+				]
+			: []),
 		...(microsoft.linked
 			? [
 					{
@@ -115,6 +130,12 @@ async function ConnectionsSettingsPageContent({
 			name: "Meeting recorders",
 			description: "Fireflies and Fathom meeting transcripts",
 			href: `/${slug}/settings/connections/recorders`,
+		},
+		{
+			logo: DataEnrichment,
+			name: "Context.dev",
+			description: "Company research for every company in the CRM",
+			href: `/${slug}/settings/connections/context-dev`,
 		},
 	].filter((row) => !connectedNames.has(row.name));
 
@@ -193,6 +214,12 @@ async function ConnectionsSettingsPageContent({
 							name="Meeting recorders"
 							description="Fireflies and Fathom meeting transcripts"
 							href={`/${slug}/settings/connections/recorders`}
+						/>
+						<StarterRow
+							logo={DataEnrichment}
+							name="Context.dev"
+							description="Company research for every company in the CRM"
+							href={`/${slug}/settings/connections/context-dev`}
 						/>
 					</div>
 					{microsoft.linked ? null : <ComingSoon />}

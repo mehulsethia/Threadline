@@ -7,7 +7,8 @@ export const CONTEXT_DEV = "CONTEXT_DEV";
 
 export const CONTEXT_DEV_PEOPLE = "CONTEXT_DEV_PEOPLE";
 
-export const CONTEXT_DEV_SOURCE = "Context.dev key (Settings → General)";
+export const CONTEXT_DEV_SOURCE =
+	"Context.dev key (Settings → Connections → Context.dev)";
 
 export type Capability = {
 	readonly id: string;
@@ -53,14 +54,14 @@ export function capabilitiesFrom(
 		},
 		{
 			id: CONTEXT_DEV,
-			from: "Settings → General",
+			from: "Settings → Connections → Context.dev",
 			label: "Company brand data",
 			gives: "a company's logo, industry, location and socials from its domain",
 			enabled: contextDev !== null,
 		},
 		{
 			id: CONTEXT_DEV_PEOPLE,
-			from: "Settings → General",
+			from: "Settings → Connections → Context.dev",
 			label: "LinkedIn",
 			gives:
 				"a person read back from a LinkedIn URL you already hold — their real name, bio, current title and employer, every earlier role with its dates, their education and their other public profiles, all self-reported and so authoritative on identity",

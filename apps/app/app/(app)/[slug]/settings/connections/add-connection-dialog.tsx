@@ -1,5 +1,6 @@
 "use client";
 
+import DataEnrichment from "@carbon/icons-react/es/DataEnrichment";
 import Microphone from "@carbon/icons-react/es/Microphone";
 import Plug from "@carbon/icons-react/es/Plug";
 import DocusignLogo from "@crm/ui/components/brand-logos/docusign";
@@ -71,6 +72,14 @@ export function AddConnectionDialog({
 						description="Turn recorded meeting transcripts into facts and deals"
 						href={`/${slug}/settings/connections/recorders`}
 					/>
+					{!connected.includes("Context.dev") ? (
+						<CatalogRow
+							logo={DataEnrichment}
+							name="Context.dev"
+							description="Research every company: logo, industry, size and socials"
+							href={`/${slug}/settings/connections/context-dev`}
+						/>
+					) : null}
 					<CatalogRow
 						logo={StripeLogo}
 						name="Stripe"
