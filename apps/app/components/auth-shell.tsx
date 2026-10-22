@@ -68,7 +68,12 @@ export function AuthShell({ children, variant = "default" }: AuthShellProps) {
 				</p>
 			</section>
 
-			<section className="flex min-h-svh min-w-0 flex-col px-4 py-8 sm:px-10 lg:px-12">
+			<section
+				className={cn(
+					"flex min-h-svh min-w-0 flex-col px-4 sm:px-10 lg:px-12",
+					isSignIn ? "py-4" : "py-8",
+				)}
+			>
 				<Link
 					href="/"
 					aria-label="Threadline home"
@@ -77,12 +82,18 @@ export function AuthShell({ children, variant = "default" }: AuthShellProps) {
 					<Wordmark />
 				</Link>
 
-				<div className="flex flex-1 items-center justify-center py-8 sm:py-12">
+				<div
+					className={cn(
+						"flex flex-1 items-center justify-center",
+						isSignIn ? "py-4" : "py-8 sm:py-12",
+					)}
+				>
 					<div
 						className={cn(
-							"flex w-full max-w-md flex-col gap-6",
-							isSignIn &&
-								"rounded-xl border border-border bg-card p-6 shadow-md sm:p-8",
+							"flex w-full max-w-md flex-col",
+							isSignIn
+								? "gap-4 rounded-xl border border-border bg-card p-6 shadow-md"
+								: "gap-6",
 						)}
 					>
 						{children}

@@ -5,7 +5,6 @@ import { PASSWORD } from "@crm/auth/password";
 import { Button } from "@crm/ui/components/button";
 import {
 	Field,
-	FieldDescription,
 	FieldError,
 	FieldGroup,
 	FieldLabel,
@@ -14,7 +13,7 @@ import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
 import { type FormEvent, useId, useState } from "react";
 
-type Mode = "sign-in" | "sign-up";
+export type EmailMode = "sign-in" | "sign-up";
 
 const COPY = {
 	"sign-in": {
@@ -27,10 +26,15 @@ const COPY = {
 		switchPrompt: "Already have an account?",
 		switchAction: "Sign in",
 	},
-} as const satisfies Record<Mode, Record<string, string>>;
+} as const satisfies Record<EmailMode, Record<string, string>>;
 
-export function EmailSignIn() {
-	const [mode, setMode] = useState<Mode>("sign-in");
+export function EmailSignIn({
+	mode,
+	onModeChange,
+}: {
+	mode: EmailMode;
+	onModeChange: (mode: EmailMode) => void;
+}) {
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const nameId = useId();
@@ -70,7 +74,7 @@ export function EmailSignIn() {
 
 	return (
 		<form
-			className="flex flex-col gap-4"
+			className="flex flex-col gap-3"
 			onSubmit={(event) => {
 				submit(event).catch(() => {
 					setPending(false);
@@ -78,7 +82,7 @@ export function EmailSignIn() {
 				});
 			}}
 		>
-			<FieldGroup className="gap-4">
+			<FieldGroup className="gap-3">
 				{mode === "sign-up" && (
 					<Field>
 						<FieldLabel htmlFor={nameId}>Name</FieldLabel>
@@ -113,12 +117,12 @@ export function EmailSignIn() {
 						required
 						minLength={PASSWORD.minLength}
 						maxLength={PASSWORD.maxLength}
+						placeholder={
+							mode === "sign-up"
+								? `At least ${PASSWORD.minLength} characters`
+								: undefined
+						}
 					/>
-					{mode === "sign-up" && (
-						<FieldDescription>
-							At least {PASSWORD.minLength} characters.
-						</FieldDescription>
-					)}
 				</Field>
 				{error && <FieldError role="alert">{error}</FieldError>}
 			</FieldGroup>
@@ -136,7 +140,7 @@ export function EmailSignIn() {
 					className="h-auto p-0"
 					onClick={() => {
 						setError(null);
-						setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+						onModeChange(mode === "sign-in" ? "sign-up" : "sign-in");
 					}}
 				>
 					{copy.switchAction}

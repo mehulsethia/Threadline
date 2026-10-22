@@ -1,5 +1,4 @@
 import type { MailboxProviderId } from "@crm/auth/scopes";
-import { Separator } from "@crm/ui/components/separator";
 import type { Metadata } from "next";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
@@ -7,7 +6,7 @@ import { AuthHeading, AuthShell } from "@/components/auth-shell";
 import { getSession } from "@/lib/session";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { DemoSignIn } from "./demo-sign-in";
-import { EmailSignIn } from "./email-sign-in";
+import { SignInPanel } from "./sign-in-panel";
 import { SocialSignIn } from "./social-sign-in";
 import { type SsoProvider, SsoSignIn } from "./sso-sign-in";
 
@@ -91,41 +90,18 @@ async function SignIn({
 	const hasOtherMethods = showSso || social.length > 0;
 
 	return (
-		<>
-			<AuthHeading
-				title="Sign in to Threadline"
-				description="Open the demo workspace, or sign in to your own."
-			/>
-
-			<DemoSignIn />
-
-			<OrDivider />
-
-			<EmailSignIn />
-
-			{hasOtherMethods && (
-				<>
-					<OrDivider />
-
-					<div className="flex flex-col gap-2.5">
+		<SignInPanel
+			demo={<DemoSignIn />}
+			providers={
+				hasOtherMethods ? (
+					<>
 						{showSso ? <SsoSignIn providers={providers} /> : null}
 						{social.map((provider) => (
 							<SocialSignIn key={provider} provider={provider} />
 						))}
-					</div>
-				</>
-			)}
-		</>
-	);
-}
-
-function OrDivider() {
-	return (
-		<div className="relative flex items-center justify-center py-1">
-			<Separator className="w-full" />
-			<span className="absolute bg-card px-3 text-muted-foreground text-sm">
-				or
-			</span>
-		</div>
+					</>
+				) : null
+			}
+		/>
 	);
 }
