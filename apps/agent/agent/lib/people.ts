@@ -5,7 +5,7 @@ import type {
 } from "context.dev/resources/people";
 import { z } from "zod";
 import { CONTEXT } from "./context-config";
-import { contextDev, describe } from "./context-dev";
+import { contextDev, describe, throttled } from "./context-dev";
 
 export type EnrichedMatch = PersonEnrichResponse["match"];
 
@@ -141,10 +141,12 @@ export async function personByProfileUrl(
 	}
 
 	try {
-		const response = await api.people.enrich({
-			social_urls: [profileUrl],
-			timeoutMS: CONTEXT.timeoutMs,
-		});
+		const response = await throttled(() =>
+			api.people.enrich({
+				social_urls: [profileUrl],
+				timeoutMS: CONTEXT.timeoutMs,
+			}),
+		);
 
 		return matchFrom(response.match);
 	} catch (error) {
@@ -181,7 +183,7 @@ export async function personByClues(
 	}
 
 	try {
-		return matchFrom((await api.people.enrich(params)).match);
+		return matchFrom((await throttled(() => api.people.enrich(params))).match);
 	} catch (error) {
 		return classify(error);
 	}

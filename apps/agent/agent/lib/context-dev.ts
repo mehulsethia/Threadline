@@ -76,10 +76,66 @@ export async function contextDev(): Promise<ContextDev | null> {
 	}
 
 	if (client?.key !== key) {
-		client = { key, api: new ContextDev({ apiKey: key }) };
+		client = { key, api: new ContextDev({ apiKey: key, maxRetries: 0 }) };
 	}
 
 	return client.api;
+}
+
+let active = 0;
+let lastStartedAt = 0;
+const waiting: (() => void)[] = [];
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquire(): Promise<void> {
+	if (active >= CONTEXT.rate.maxConcurrent) {
+		await new Promise<void>((resolve) => waiting.push(resolve));
+	}
+	active += 1;
+	const gap = lastStartedAt + CONTEXT.rate.minGapMs - Date.now();
+	if (gap > 0) await sleep(gap);
+	lastStartedAt = Date.now();
+}
+
+function release(): void {
+	active -= 1;
+	waiting.shift()?.();
+}
+
+function rateLimited(error: unknown): error is APIError {
+	return error instanceof APIError && error.status === 429;
+}
+
+function retryDelayMs(error: APIError, attempt: number): number {
+	const header = error.headers?.get?.("retry-after");
+	const seconds = header ? Number(header) : Number.NaN;
+	const backoff = CONTEXT.rate.backoffMs * 2 ** attempt;
+	return Math.min(
+		Number.isFinite(seconds) && seconds > 0 ? seconds * 1_000 : backoff,
+		CONTEXT.rate.maxBackoffMs,
+	);
+}
+
+export async function throttled<T>(call: () => Promise<T>): Promise<T> {
+	for (let attempt = 0; ; attempt += 1) {
+		await acquire();
+		let delay = 0;
+		try {
+			return await call();
+		} catch (error) {
+			if (!rateLimited(error) || attempt >= CONTEXT.rate.retries) throw error;
+			delay = retryDelayMs(error, attempt);
+			console.warn(
+				`[context.dev] Rate limited; retrying in ${Math.round(delay / 1_000)}s (attempt ${attempt + 1} of ${CONTEXT.rate.retries}).`,
+			);
+		} finally {
+			release();
+		}
+		await sleep(delay);
+	}
 }
 
 export async function contextDevEnabled(): Promise<boolean> {
@@ -99,14 +155,16 @@ export type KeyCheck =
 const PROBE_EMAIL = "key-check@gmail.com";
 
 export async function verifyKey(key: string): Promise<KeyCheck> {
-	const api = new ContextDev({ apiKey: key });
+	const api = new ContextDev({ apiKey: key, maxRetries: 0 });
 
 	try {
-		await api.brand.retrieve({
-			type: "by_email",
-			email: PROBE_EMAIL,
-			timeoutMS: CONTEXT.verifyTimeoutMs,
-		});
+		await throttled(() =>
+			api.brand.retrieve({
+				type: "by_email",
+				email: PROBE_EMAIL,
+				timeoutMS: CONTEXT.verifyTimeoutMs,
+			}),
+		);
 
 		return { outcome: "valid" };
 	} catch (error) {
@@ -155,7 +213,9 @@ export async function prefetch(domain: string): Promise<void> {
 	if (!api) return;
 
 	try {
-		await api.utility.prefetch({ type: "brand", identifier: { domain } });
+		await throttled(() =>
+			api.utility.prefetch({ type: "brand", identifier: { domain } }),
+		);
 	} catch {}
 }
 
@@ -172,13 +232,15 @@ export async function extract(
 	}
 
 	try {
-		const response = await api.web.extract({
-			url,
-			schema,
-			instructions,
-			maxPages: 8,
-			timeoutMS: CONTEXT.timeoutMs,
-		});
+		const response = await throttled(() =>
+			api.web.extract({
+				url,
+				schema,
+				instructions,
+				maxPages: 8,
+				timeoutMS: CONTEXT.timeoutMs,
+			}),
+		);
 		return { outcome: "found", data: response.data };
 	} catch (error) {
 		return { outcome: "failed", reason: describe(error) };
@@ -204,10 +266,12 @@ export async function search(
 	};
 
 	try {
-		const response = await api.web.search(
-			options.excludeDomains
-				? { ...params, excludeDomains: options.excludeDomains }
-				: params,
+		const response = await throttled(() =>
+			api.web.search(
+				options.excludeDomains
+					? { ...params, excludeDomains: options.excludeDomains }
+					: params,
+			),
 		);
 
 		const results = (response.results ?? []).map((result) => ({
@@ -280,7 +344,7 @@ async function lookup(
 	}
 
 	try {
-		const response = await api.brand.retrieve(params);
+		const response = await throttled(() => api.brand.retrieve(params));
 		recordCreditUsage(10);
 		console.log(
 			`[context.dev] Used 10 credits (${getCreditsUsedToday()}/${cap} today).`,

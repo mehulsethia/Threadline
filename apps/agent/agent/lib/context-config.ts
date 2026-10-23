@@ -10,4 +10,12 @@ export const CONTEXT = {
 	},
 
 	avatarHosts: ["brand.dev", "licdn.com"],
+
+	rate: {
+		maxConcurrent: 1,
+		minGapMs: 0.3 * SECOND_MS,
+		retries: 3,
+		backoffMs: 2 * SECOND_MS,
+		maxBackoffMs: 30 * SECOND_MS,
+	},
 } as const;
