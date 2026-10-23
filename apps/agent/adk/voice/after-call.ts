@@ -145,8 +145,8 @@ async function writeWrapUp(
 		kind: "call.wrap-up",
 		title: `Call with ${leadName}: summary and follow-up ready`,
 		body: proposedStage
-			? `Proposed stage: ${STAGE_NAMES[proposedStage]}. Review it on the Revival page.`
-			: "Review the follow-up on the Revival page.",
+			? `Proposed stage: ${STAGE_NAMES[proposedStage]}. Review it in For you.`
+			: "Review the follow-up in For you.",
 		entity: "deal",
 		entityId: deal.id,
 		source: "voice",

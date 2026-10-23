@@ -15,6 +15,7 @@ import {
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { AgentEmptyState } from "@/components/crm/agent-empty-state";
 import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
 import { useFieldFacets } from "@/components/crm/fields/field-facets";
@@ -25,6 +26,7 @@ import { ReviewBadge } from "@/components/crm/review-badge";
 import { ListRefresh } from "@/components/data-table/list-refresh";
 import { ListSearch } from "@/components/data-table/list-search";
 import { SavedViewsMenu } from "@/components/data-table/saved-views-menu";
+import { unfiltered } from "@/components/data-table/unfiltered";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { ACTIVITY_FACET_OPTIONS } from "@/lib/activity-recency";
@@ -288,9 +290,13 @@ export function CompaniesTable() {
 			onRowHover={(row) => prefetchRecord({ kind: "company", id: row.id })}
 			onRowClick={(row) => openRecord({ kind: "company", id: row.id })}
 			empty={
-				input.archived
-					? "No archived companies."
-					: "No companies match this view."
+				input.archived ? (
+					"No archived companies."
+				) : unfiltered(input.q, query) ? (
+					<AgentEmptyState entity="companies" />
+				) : (
+					"No companies match this view."
+				)
 			}
 		/>
 	);

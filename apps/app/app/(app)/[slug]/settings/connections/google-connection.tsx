@@ -39,13 +39,16 @@ import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { Switch } from "@crm/ui/components/switch";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { AgentLiveLog } from "@/components/crm/agent-live-log";
 import { LocalRelativeTime } from "@/components/local-date-time";
+import { agentSteps } from "@/lib/agent-steps";
 import {
 	CONNECTED_PARAM,
 	CONNECTION_SYNC_COPY,
 } from "@/lib/connection-sync-copy";
+import { oauthErrorMessage } from "@/lib/oauth-errors";
 import { isSyncing, SYNC_POLL_MS } from "@/lib/sync-status";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -129,12 +132,7 @@ function GoogleUnavailable() {
 
 const GOOGLE_SYNC_TOAST = "google-sync";
 
-const CONNECT_ERRORS = new Map([
-	[
-		"email_doesn't_match",
-		"That Google account has a different email address to the one you sign in with, so it cannot be attached to your account. Connect the Google account that matches your sign-in address.",
-	],
-]);
+const FETCH_LOG_POLL_MS = 1_500;
 
 function ConnectGoogle({
 	slug,
@@ -204,8 +202,7 @@ function ConnectGoogle({
 						<Icon icon={Warning} />
 						<AlertTitle>Google did not finish connecting</AlertTitle>
 						<AlertDescription>
-							{CONNECT_ERRORS.get(connectError) ??
-								"Google returned an error before the connection was made. Try again."}
+							{oauthErrorMessage(connectError)}
 						</AlertDescription>
 					</Alert>
 				</CardContent>
@@ -289,9 +286,22 @@ export function GoogleConnection({
 		}),
 	);
 
+	const [showFetchLog, setShowFetchLog] = useState(false);
+	const fetchRecentMailPending = useRef(false);
+	const fetchProgress = useQuery({
+		...trpc.google.fetchProgress.queryOptions(),
+		enabled: showFetchLog,
+		refetchInterval: (query) =>
+			query.state.data?.running !== false || fetchRecentMailPending.current
+				? FETCH_LOG_POLL_MS
+				: false,
+	});
+
 	const fetchRecentMail = useMutation(
 		trpc.google.fetchRecentMail.mutationOptions({
 			onMutate: () => {
+				fetchRecentMailPending.current = true;
+				setShowFetchLog(true);
 				toast.loading(CONNECTION_SYNC_COPY.google.fetchingRecent, {
 					id: GOOGLE_SYNC_TOAST,
 				});
@@ -301,9 +311,18 @@ export function GoogleConnection({
 					id: GOOGLE_SYNC_TOAST,
 					description: CONNECTION_SYNC_COPY.google.fetchedRecent.description,
 				});
-				await Promise.all([cache.google(), cache.contact(), cache.company()]);
+				fetchRecentMailPending.current = false;
+				await Promise.all([
+					cache.google(),
+					cache.contact(),
+					cache.company(),
+					fetchProgress.refetch(),
+				]);
 			},
-			onError: (error) => toast.error(error.message, { id: GOOGLE_SYNC_TOAST }),
+			onError: (error) => {
+				fetchRecentMailPending.current = false;
+				toast.error(error.message, { id: GOOGLE_SYNC_TOAST });
+			},
 		}),
 	);
 
@@ -368,6 +387,18 @@ export function GoogleConnection({
 					</Button>
 				</CardAction>
 			</CardHeader>
+
+			{showFetchLog ? (
+				<CardContent>
+					<AgentLiveLog
+						running={
+							fetchRecentMail.isPending || fetchProgress.data?.running === true
+						}
+						waiting="Starting the 7-day fetch…"
+						steps={agentSteps(fetchProgress.data?.steps ?? [])}
+					/>
+				</CardContent>
+			) : null}
 
 			<CardContent>
 				{!hasRefreshToken ? (

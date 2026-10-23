@@ -10,8 +10,11 @@ export const metadata: Metadata = { title: "Connect your tools" };
 
 export const instant = false;
 
-export default async function OnboardingConnectPage() {
+export default async function OnboardingConnectPage({
+	searchParams,
+}: PageProps<"/onboarding/connect">) {
 	await requireSession();
+	const { error } = await searchParams;
 	const workspace = await getServerQueryClient().fetchQuery(
 		getServerTrpc().workspace.get.queryOptions(),
 	);
@@ -21,7 +24,10 @@ export default async function OnboardingConnectPage() {
 				title="Connect where your conversations happen"
 				description="Step 3 of 3. Each connection brings you back here. Threadline then reads these and keeps your deals, facts and follow-ups up to date by itself."
 			/>
-			<OnboardingConnections slug={workspace.slug} />
+			<OnboardingConnections
+				slug={workspace.slug}
+				connectError={typeof error === "string" ? error : undefined}
+			/>
 			<Button asChild className="w-full">
 				<Link href={`/${workspace.slug}/deals`}>Go to my dashboard</Link>
 			</Button>

@@ -7,6 +7,7 @@ import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Partnership from "@carbon/icons-react/es/Partnership";
 import Renew from "@carbon/icons-react/es/Renew";
 import Settings from "@carbon/icons-react/es/Settings";
+import TaskApproved from "@carbon/icons-react/es/TaskApproved";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { Button } from "@crm/ui/components/button";
 import type { CarbonIcon } from "@crm/ui/components/icon";
@@ -24,12 +25,14 @@ import {
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
+import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type RailItem = {
@@ -39,10 +42,35 @@ type RailItem = {
 	iconClassName?: string;
 	match: "exact" | "prefix";
 	related?: string[];
+	countsInbox?: boolean;
 };
+
+const INBOX_REFRESH_MS = 30_000;
+
+function CountBadge({ count, inline }: { count: number; inline?: boolean }) {
+	if (count <= 0) return null;
+	return (
+		<span
+			className={cn(
+				"flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1 font-medium text-[11px] text-primary-foreground tabular-nums",
+				inline ? "ml-auto" : "absolute -top-1 -right-1",
+			)}
+		>
+			{count > 99 ? "99+" : count}
+			<span className="sr-only"> waiting for you</span>
+		</span>
+	);
+}
 
 const ITEMS: RailItem[] = [
 	{ title: "Overview", href: "/", icon: Dashboard, match: "exact" },
+	{
+		title: "For you",
+		href: "/inbox",
+		icon: TaskApproved,
+		match: "prefix",
+		countsInbox: true,
+	},
 	{
 		title: "Ask your CRM",
 		href: "/ask",
@@ -74,10 +102,12 @@ function isActive(item: RailItem, pathname: string): boolean {
 function RailLink({
 	item,
 	active,
+	badge,
 	onPrefetch,
 }: {
 	item: RailItem;
 	active: boolean;
+	badge: number;
 	onPrefetch: () => void;
 }) {
 	return (
@@ -88,7 +118,7 @@ function RailLink({
 					variant="ghost"
 					size="icon"
 					className={cn(
-						"rounded-xl text-muted-foreground transition-all duration-150",
+						"relative rounded-xl text-muted-foreground transition-all duration-150",
 						active
 							? "bg-primary/15 text-primary font-semibold shadow-2xs hover:bg-primary/20 hover:text-primary scale-105"
 							: "hover:bg-surface-container/70 hover:text-foreground",
@@ -104,6 +134,7 @@ function RailLink({
 					>
 						<Icon icon={item.icon} className={item.iconClassName} />
 						<span className="sr-only">{item.title}</span>
+						<CountBadge count={badge} />
 					</Link>
 				</Button>
 			</TooltipTrigger>
@@ -115,11 +146,13 @@ function RailLink({
 function MobileRailLink({
 	item,
 	active,
+	badge,
 	onNavigate,
 	onPrefetch,
 }: {
 	item: RailItem;
 	active: boolean;
+	badge: number;
 	onNavigate: () => void;
 	onPrefetch: () => void;
 }) {
@@ -146,6 +179,7 @@ function MobileRailLink({
 			>
 				<Icon icon={item.icon} className={item.iconClassName} />
 				<span>{item.title}</span>
+				<CountBadge count={badge} inline />
 			</Link>
 		</Button>
 	);
@@ -216,6 +250,13 @@ export function AppIconRail() {
 	const workspaceUrl = useWorkspaceUrl();
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
+	const trpc = useTRPC();
+	const inbox = useQuery({
+		...trpc.inbox.count.queryOptions(),
+		refetchInterval: INBOX_REFRESH_MS,
+	});
+	const badgeFor = (item: RailItem) =>
+		item.countsInbox ? (inbox.data?.total ?? 0) : 0;
 
 	const items = useMemo(
 		() =>
@@ -241,6 +282,7 @@ export function AppIconRail() {
 					<RailLink
 						key={item.href}
 						item={item}
+						badge={badgeFor(item)}
 						active={isActive(item, pathname)}
 						onPrefetch={() => prefetchSection(item.section)}
 					/>
@@ -298,6 +340,7 @@ export function AppIconRail() {
 								<MobileRailLink
 									key={item.href}
 									item={item}
+									badge={badgeFor(item)}
 									active={isActive(item, pathname)}
 									onNavigate={() => setOpen(false)}
 									onPrefetch={() => prefetchSection(item.section)}

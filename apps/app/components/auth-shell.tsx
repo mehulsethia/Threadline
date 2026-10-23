@@ -32,6 +32,32 @@ function EvidenceExample() {
 	);
 }
 
+const GUARANTEES = [
+	"Nothing reaches a customer without you",
+	"Every field shows its source",
+	"Read-only Gmail",
+	"Export or delete everything anytime",
+] as const;
+
+function Guarantees({ tone }: { tone: "band" | "canvas" }) {
+	return (
+		<ul
+			aria-label="What Threadline promises"
+			className={cn(
+				"grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2",
+				tone === "band" ? "text-band-foreground/85" : "text-muted-foreground",
+			)}
+		>
+			{GUARANTEES.map((item) => (
+				<li key={item} className="flex items-center gap-2.5">
+					<span aria-hidden="true" className="h-px w-3 shrink-0 bg-thread" />
+					{item}
+				</li>
+			))}
+		</ul>
+	);
+}
+
 export function AuthShell({ children, variant = "default" }: AuthShellProps) {
 	const isSignIn = variant === "sign-in";
 
@@ -61,6 +87,7 @@ export function AuthShell({ children, variant = "default" }: AuthShellProps) {
 						</p>
 					</div>
 					{isSignIn ? <EvidenceExample /> : null}
+					{isSignIn ? <Guarantees tone="band" /> : null}
 				</div>
 
 				<p className="text-band-foreground/60 text-sm">
@@ -99,6 +126,11 @@ export function AuthShell({ children, variant = "default" }: AuthShellProps) {
 						{children}
 					</div>
 				</div>
+				{isSignIn ? (
+					<div className="mx-auto w-full max-w-md pb-4 lg:hidden">
+						<Guarantees tone="canvas" />
+					</div>
+				) : null}
 			</section>
 		</main>
 	);

@@ -241,6 +241,8 @@ export function useCrmCache(): CrmCache {
 					trpc.contacts.byId.queryKey(),
 					trpc.deals.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
+					trpc.dashboard.agentActivity.queryKey(),
+					trpc.inbox.count.queryKey(),
 				],
 				options,
 			),

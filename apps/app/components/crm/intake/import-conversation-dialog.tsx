@@ -24,37 +24,23 @@ import { Spinner } from "@crm/ui/components/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { AgentLiveLog } from "@/components/crm/agent-live-log";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { LocalDateTime } from "@/components/local-date-time";
+import { agentSteps } from "@/lib/agent-steps";
+import { SEARCH_PARAM } from "@/lib/search-param-keys";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
 type Step = "upload" | "preview" | "processing" | "result";
 
-const TOOL_TITLES = new Map<string, string>(
-	Object.entries({
-		intake_agent: "Starting intake agent",
-		load_intake_job: "Loading conversation file",
-		parse_whatsapp_export: "Parsing WhatsApp messages",
-		transcribe_audio: "Transcribing audio recording",
-		extract_lead_facts: "Extracting lead facts & quotes",
-		find_matching_contact: "Checking existing contacts",
-		upsert_company: "Resolving company",
-		upsert_contact: "Creating or updating contact",
-		upsert_deal: "Setting up deal & budget",
-		record_fact: "Recording fact to evidence ledger",
-		store_messages: "Storing conversation history",
-		log_activity: "Logging timeline activity",
-		create_task: "Scheduling follow-up task",
-		finish_job: "Finalizing intake",
-		agent_thinking: "Agent reasoning",
-	}),
-);
-
 export function ImportConversationDialog() {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useQueryState(
+		SEARCH_PARAM.dialog.importConversation,
+		parseAsBoolean.withDefault(false),
+	);
 	const [step, setStep] = useState<Step>("upload");
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
@@ -506,57 +492,22 @@ export function ImportConversationDialog() {
 				)}
 
 				{step === "processing" && (
-					<div className="space-y-4 py-2">
-						<div className="flex items-center gap-3 rounded-lg border bg-muted/20 p-3 text-xs">
-							<Spinner className="size-4 shrink-0 text-primary" />
-							<div>
-								<p className="font-medium">Processing conversation…</p>
-								<p className="text-muted-foreground">
-									Multimodal Gemini is extracting identity, facts, and
-									objections.
-								</p>
-							</div>
-						</div>
-
-						<div className="max-h-60 overflow-y-auto rounded-lg border bg-background/50 p-3 text-xs">
-							<p className="mb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-								Agent Step Timeline
-							</p>
-							<div className="space-y-2.5">
-								{(statusData?.timeline ?? []).map((ev) => (
-									<div key={ev.id} className="flex items-start gap-2 text-xs">
-										<div className="mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-											<Icon icon={Checkmark} className="size-2.5" />
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="font-medium text-foreground">
-												{TOOL_TITLES.get(ev.tool) || ev.tool}
-											</p>
-											<p className="text-muted-foreground text-[11px] break-words">
-												{ev.message}
-											</p>
-										</div>
-										<span className="shrink-0 text-[10px] text-muted-foreground/60">
-											<LocalDateTime
-												date={ev.timestamp}
-												options={{
-													hour: "numeric",
-													minute: "2-digit",
-													second: "2-digit",
-												}}
-											/>
-										</span>
-									</div>
-								))}
-
-								{(!statusData?.timeline ||
-									statusData.timeline.length === 0) && (
-									<p className="text-muted-foreground text-xs italic">
-										Agent is picking up task from queue…
-									</p>
-								)}
-							</div>
-						</div>
+					<div className="flex flex-col gap-3 py-2">
+						<p className="text-muted-foreground text-sm">
+							The agent is reading the conversation. Each step appears as it
+							happens.
+						</p>
+						<AgentLiveLog
+							running
+							steps={agentSteps(
+								(statusData?.timeline ?? []).map((event) => ({
+									id: event.id,
+									tool: event.tool,
+									message: event.message,
+									at: new Date(event.timestamp).toISOString(),
+								})),
+							)}
+						/>
 					</div>
 				)}
 
@@ -660,43 +611,22 @@ export function ImportConversationDialog() {
 							</div>
 						</div>
 
-						<details className="group rounded-lg border bg-background/50 p-3 text-xs">
-							<summary className="flex cursor-pointer select-none items-center justify-between font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-								<span>Agent Step Timeline ({timelineEvents.length} steps)</span>
-								<span className="text-[10px] text-primary group-open:hidden">
-									Expand
-								</span>
-								<span className="hidden text-[10px] text-primary group-open:inline">
-									Collapse
-								</span>
+						<details className="group flex flex-col gap-2">
+							<summary className="cursor-pointer select-none text-muted-foreground text-sm">
+								What the agent did ({timelineEvents.length} steps)
 							</summary>
-							<div className="mt-3 max-h-52 space-y-2.5 overflow-y-auto border-t pt-2.5">
-								{timelineEvents.map((ev) => (
-									<div key={ev.id} className="flex items-start gap-2 text-xs">
-										<div className="mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-											<Icon icon={Checkmark} className="size-2.5" />
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="font-medium text-foreground">
-												{TOOL_TITLES.get(ev.tool) || ev.tool}
-											</p>
-											<p className="text-muted-foreground text-[11px] break-words">
-												{ev.message}
-											</p>
-										</div>
-										<span className="shrink-0 text-[10px] text-muted-foreground/60">
-											<LocalDateTime
-												date={ev.timestamp}
-												options={{
-													hour: "numeric",
-													minute: "2-digit",
-													second: "2-digit",
-												}}
-											/>
-										</span>
-									</div>
-								))}
-							</div>
+							<AgentLiveLog
+								className="mt-2"
+								running={false}
+								steps={agentSteps(
+									timelineEvents.map((event) => ({
+										id: event.id,
+										tool: event.tool,
+										message: event.message,
+										at: new Date(event.timestamp).toISOString(),
+									})),
+								)}
+							/>
 						</details>
 
 						<DialogFooter className="gap-2 pt-2">

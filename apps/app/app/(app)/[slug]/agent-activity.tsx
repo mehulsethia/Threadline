@@ -20,6 +20,7 @@ import {
 import { type CarbonIcon, Icon } from "@crm/ui/components/icon";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { AgentEmptyState } from "@/components/crm/agent-empty-state";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
@@ -67,7 +68,7 @@ export function AgentActivityCard() {
 				</CardDescription>
 				<CardAction>
 					<Button asChild variant="contrast" size="sm">
-						<Link href={workspaceUrl("/revival")}>Review drafts</Link>
+						<Link href={workspaceUrl("/inbox")}>Open For you</Link>
 					</Button>
 				</CardAction>
 			</CardHeader>
@@ -87,11 +88,11 @@ export function AgentActivityCard() {
 
 			<CardPanel>
 				{!data || data.items.length === 0 ? (
-					<CardPanelEmpty>
-						{activity.isPending
-							? "Loading what the agents did…"
-							: "Nothing yet. Import a conversation or connect Gmail and the agents start working."}
-					</CardPanelEmpty>
+					activity.isPending ? (
+						<CardPanelEmpty>Loading what the agents did…</CardPanelEmpty>
+					) : (
+						<AgentEmptyState entity="activity" />
+					)
 				) : (
 					<ul className="flex flex-col divide-y">
 						{data.items.map((item) => {

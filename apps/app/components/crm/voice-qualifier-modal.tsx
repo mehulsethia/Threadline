@@ -588,11 +588,11 @@ export function VoiceQualifierModal({
 								<div className="flex flex-wrap items-center justify-between gap-3 border-t bg-accent px-8 py-4">
 									<p className="max-w-[52ch] text-sm">
 										The agent is writing a call summary, a follow-up message and
-										a stage proposal. They wait for your approval on the Revival
-										page in about a minute.
+										a stage proposal. They wait for your approval in For you in
+										about a minute.
 									</p>
 									<Button asChild variant="outline" size="sm">
-										<Link href={workspaceUrl("/revival")}>Open Revival</Link>
+										<Link href={workspaceUrl("/inbox")}>Open For you</Link>
 									</Button>
 								</div>
 							)}

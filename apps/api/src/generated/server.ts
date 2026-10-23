@@ -27,8 +27,9 @@ import { dealListInput, dealListOutput, dealIdInput, dealDetailOutput, dealCreat
 import { enrichmentQueueInput } from "@crm/validation/enrichment-queue";
 import { fieldListInput, fieldListOutput, fieldByKeyInput, serializedFieldOutput, fieldEntityInput, fieldFiltersOutput, fieldIdInput, fieldCoverageOutput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput, fieldReorderOutput, fieldDeleteOutput, fieldBackfillOutput } from "../fields/fields.contracts";
 import { leadFormListOutput, leadFormCreateInput, leadFormOutput, leadFormUpdateInput, leadFormIdInput } from "../forms/forms.contracts";
-import { googleConnectionStatusOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
+import { googleConnectionStatusOutput, googleFetchProgressOutput, setAutoCreateInput, suppressDomainInput, suppressDomainOutput, threadInput, emailThreadOutput, calendarEventInput, calendarEventOutput } from "../google/google.contracts";
 import { purgeSyncedDataOutput, revokeAccessOutput, microsoftConnectionStatusOutput, setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { inboxListOutput, inboxCountOutput } from "../inbox/inbox.contracts";
 import { intakePreviewInput, intakePreviewOutput, intakeStartInput, intakeStartOutput, intakeStatusInput, intakeStatusOutput } from "../intake/intake.contracts";
 import { notificationListInput, notificationListOutput, notificationMarkReadInput, notificationMarkReadOutput } from "../notifications/notifications.contracts";
 import { recorderStatusOutput, recorderSetKeyInput, recorderRemoveKeyInput, recorderSyncOutput } from "../recorders/recorders.contracts";
@@ -617,6 +618,9 @@ const appRouter = t.router({
     syncNow: publicProcedure
       .output(googleConnectionStatusOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    fetchProgress: publicProcedure
+      .output(googleFetchProgressOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
     fetchRecentMail: publicProcedure
       .output(googleConnectionStatusOutput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
@@ -635,6 +639,14 @@ const appRouter = t.router({
     event: publicProcedure
       .input(calendarEventInput)
       .output(calendarEventOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
+    }),
+  inbox: t.router({
+    list: publicProcedure
+      .output(inboxListOutput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any),
+    count: publicProcedure
+      .output(inboxCountOutput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as any)
     }),
   intake: t.router({

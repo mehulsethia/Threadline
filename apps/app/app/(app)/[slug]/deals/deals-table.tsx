@@ -12,6 +12,7 @@ import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import { AgentEmptyState } from "@/components/crm/agent-empty-state";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
 import { CompanyCell } from "@/components/crm/company-cell";
 import { DealScore } from "@/components/crm/deal-score";
@@ -23,6 +24,7 @@ import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { ListRefresh } from "@/components/data-table/list-refresh";
 import { ListSearch } from "@/components/data-table/list-search";
+import { unfiltered } from "@/components/data-table/unfiltered";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
 import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
@@ -293,7 +295,13 @@ export function DealsTable() {
 			onRowHover={(row) => prefetchRecord({ kind: "deal", id: row.id })}
 			onRowClick={(row) => openRecord({ kind: "deal", id: row.id })}
 			empty={
-				input.archived ? "No archived deals." : "No deals match this view."
+				input.archived ? (
+					"No archived deals."
+				) : unfiltered(input.q, query) ? (
+					<AgentEmptyState entity="deals" />
+				) : (
+					"No deals match this view."
+				)
 			}
 			meta={
 				input.archived || openPipelineCents === null ? undefined : (

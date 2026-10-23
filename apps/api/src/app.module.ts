@@ -24,6 +24,7 @@ import { FieldsModule } from "./fields/fields.module";
 import { FormsModule } from "./forms/forms.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
+import { InboxModule } from "./inbox/inbox.module";
 import { IntakeModule } from "./intake/intake.module";
 import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
@@ -78,6 +79,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		RevivalModule,
 		EnrichmentModule,
 		DashboardModule,
+		InboxModule,
 		SearchModule,
 		MailboxModule,
 		GoogleModule,

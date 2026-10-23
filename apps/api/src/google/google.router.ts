@@ -17,6 +17,7 @@ import {
 	calendarEventOutput,
 	emailThreadOutput,
 	googleConnectionStatusOutput,
+	googleFetchProgressOutput,
 	purgeSyncedDataOutput,
 	revokeAccessOutput,
 	setAutoCreateInput,
@@ -79,6 +80,14 @@ export class GoogleRouter {
 			report: true,
 		});
 		return this.statusFor(ctx.user.id);
+	}
+
+	@Query({
+		output: googleFetchProgressOutput,
+		meta: restMeta("GET", "/google/fetch-progress", ["Google"]),
+	})
+	async fetchProgress(@Ctx() ctx: AuthedTrpcContext) {
+		return this.sync.fetchProgress(ctx.user.id);
 	}
 
 	@Mutation({

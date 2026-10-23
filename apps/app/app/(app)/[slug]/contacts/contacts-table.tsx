@@ -13,6 +13,7 @@ import { useSearchInput } from "@crm/ui/hooks/use-search-input";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { AgentEmptyState } from "@/components/crm/agent-empty-state";
 import { CompanyCell } from "@/components/crm/company-cell";
 import { contactName } from "@/components/crm/contact-name";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
@@ -24,6 +25,7 @@ import { ReviewBadge } from "@/components/crm/review-badge";
 import { ListRefresh } from "@/components/data-table/list-refresh";
 import { ListSearch } from "@/components/data-table/list-search";
 import { SavedViewsMenu } from "@/components/data-table/saved-views-menu";
+import { unfiltered } from "@/components/data-table/unfiltered";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { ACTIVITY_FACET_OPTIONS } from "@/lib/activity-recency";
@@ -309,9 +311,13 @@ export function ContactsTable() {
 			onRowHover={(row) => prefetchRecord({ kind: "contact", id: row.id })}
 			onRowClick={(row) => openRecord({ kind: "contact", id: row.id })}
 			empty={
-				input.archived
-					? "No archived contacts."
-					: "No contacts match this view."
+				input.archived ? (
+					"No archived contacts."
+				) : unfiltered(input.q, query) ? (
+					<AgentEmptyState entity="contacts" />
+				) : (
+					"No contacts match this view."
+				)
 			}
 		/>
 	);

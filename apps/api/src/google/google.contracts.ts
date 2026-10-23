@@ -155,3 +155,17 @@ export type RevokeAccessOutput = z.infer<typeof revokeAccessOutput>;
 export type SuppressDomainOutput = z.infer<typeof suppressDomainOutput>;
 export type EmailThreadOutput = z.infer<typeof emailThreadOutput>;
 export type CalendarEventOutput = z.infer<typeof calendarEventOutput>;
+
+export const googleFetchProgressOutput = z.object({
+	running: z.boolean(),
+	steps: z.array(
+		z.object({
+			id: z.string(),
+			tool: z.string(),
+			message: z.string(),
+			at: z.string(),
+		}),
+	),
+});
+
+export type GoogleFetchProgress = z.infer<typeof googleFetchProgressOutput>;

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { db, rootDb } from "../src/client";
 import { Prisma } from "../src/generated/prisma/client";
 import {
@@ -24,6 +23,7 @@ import {
 	DEMO_USER_ID,
 	resetDemoOrg,
 } from "./reset-demo";
+import { seedAgentWork } from "./seed-demo-agents";
 
 const NOW = Date.now();
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -95,10 +95,12 @@ async function seedDemoWorkspace(): Promise<void> {
 		},
 	});
 
-	// The judge signs in; deals belong to a rep so drafts are signed by a
-	// salesperson, never by the judge account.
-	await upsertDemoUser(DEMO_USER_ID, "Judge Reviewer", DEMO_USER_EMAIL);
-	const user = await upsertDemoUser(DEMO_REP_ID, DEMO_REP_NAME, DEMO_REP_EMAIL);
+	const user = await upsertDemoUser(
+		DEMO_USER_ID,
+		DEMO_REP_NAME,
+		DEMO_USER_EMAIL,
+	);
+	await upsertDemoUser(DEMO_REP_ID, "Sam Rivera", DEMO_REP_EMAIL);
 
 	// The legacy Context.dev research step is replaced by Gemini grounded
 	// search; mark it skipped (never overwriting a real key) so the app does
@@ -722,11 +724,8 @@ async function seedDemoWorkspace(): Promise<void> {
 					method: "demo-seed",
 					evidence: [
 						{
-							evidenceId: `ev_${randomUUID().slice(0, 8)}`,
 							kind: "whatsapp.message",
-							quote: fact.quote,
-							weight: 0.95,
-							primary: true,
+							detail: `"${fact.quote}" (speaker: lead)`,
 						},
 					],
 				},
@@ -771,8 +770,10 @@ async function seedDemoWorkspace(): Promise<void> {
 		}
 	}
 
+	await seedAgentWork(user.id, DEMO_USER_EMAIL);
+
 	console.log(
-		`Seeded ${DEMO_ORG_NAME} with ${dealsData.length} global deals across US, UK, DE, FR, UAE, SG, IN!`,
+		`Seeded ${DEMO_ORG_NAME} with ${dealsData.length} global deals across US, UK, DE, FR, UAE, SG, IN, and the agent work around them.`,
 	);
 }
 

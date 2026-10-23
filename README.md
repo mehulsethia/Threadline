@@ -250,4 +250,6 @@ full list.
 - More data sources and enrichment providers
 - BigQuery export for revenue analytics
 - MCP connections to major LLMs and AI agents
+- An autonomy setting for each agent: suggest only, ask before sending, or act with a 24-hour undo
+- Approve drafts and stage moves from your phone
 - A log of every data fetch, enrichment and scheduled job

@@ -5,6 +5,7 @@ import { DEMO_ORG_ID, DEMO_ORG_SLUG, DEMO_USER_ID } from "@crm/db/demo-reset";
 import { seedDemoOrg } from "@crm/db/demo-seed";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { SEARCH_PARAM } from "@/lib/search-param-keys";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 10;
@@ -108,6 +109,6 @@ export async function POST(req: NextRequest) {
 
 	return NextResponse.json({
 		success: true,
-		redirectUrl: `/${DEMO_ORG_SLUG}/deals`,
+		redirectUrl: `/${DEMO_ORG_SLUG}?${SEARCH_PARAM.overview.scope}=everyone`,
 	});
 }

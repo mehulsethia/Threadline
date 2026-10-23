@@ -30,10 +30,16 @@ import {
 
 const MAX_MESSAGES_PER_TICK = 120;
 
+export type SyncProgress = (step: {
+	tool: string;
+	message: string;
+}) => Promise<void>;
+
 export type GmailSyncOptions = {
 	backfillIfEmpty?: boolean;
 	rescanRecent?: boolean;
 	report?: boolean;
+	progress?: SyncProgress;
 };
 
 type SyncTally = {
@@ -140,7 +146,13 @@ export class GmailSyncService {
 		}
 
 		const rescanned = options.rescanRecent
-			? await this.backfill(row, token.accessToken, mailbox, tally)
+			? await this.backfill(
+					row,
+					token.accessToken,
+					mailbox,
+					tally,
+					options.progress,
+				)
 			: 0;
 
 		const outcome = await this.incremental(
@@ -203,6 +215,7 @@ export class GmailSyncService {
 		accessToken: string,
 		mailbox: string,
 		tally?: SyncTally,
+		progress?: SyncProgress,
 	): Promise<number> {
 		const before = new Date();
 		const after = new Date(before.getTime() - CAPTURE.email.backfillMs);
@@ -231,6 +244,11 @@ export class GmailSyncService {
 			pageToken = page.data.nextPageToken;
 		} while (pageToken && ids.length < limit);
 
+		await progress?.({
+			tool: "list",
+			message: `Found ${ids.length} messages from the last 7 days`,
+		});
+
 		const { written } = await this.ingest(
 			row,
 			accessToken,
@@ -238,6 +256,7 @@ export class GmailSyncService {
 			ids.slice(0, limit),
 			tally,
 			limit,
+			progress,
 		);
 		return written;
 	}
@@ -323,6 +342,7 @@ export class GmailSyncService {
 		ids: readonly string[],
 		tally?: SyncTally,
 		limit: number = MAX_MESSAGES_PER_TICK,
+		progress?: SyncProgress,
 	): Promise<{ written: number; remaining: number }> {
 		if (ids.length === 0) return { written: 0, remaining: 0 };
 
@@ -342,6 +362,11 @@ export class GmailSyncService {
 			tally.read += ids.length;
 			tally.skipped["already-filed"] += ids.length - pending.length;
 		}
+
+		await progress?.({
+			tool: "dedupe",
+			message: `${ids.length - pending.length} already in Threadline, reading ${batch.length} new`,
+		});
 
 		if (batch.length === 0) return { written: 0, remaining };
 
@@ -376,6 +401,10 @@ export class GmailSyncService {
 				);
 				if (result.stored) {
 					written += 1;
+					await progress?.({
+						tool: "filed",
+						message: `Filed "${parsed.subject ?? "(no subject)"}" from ${parsed.from.name ?? parsed.from.email}`,
+					});
 					if (tally) {
 						tally.stored += 1;
 						if (result.companyId) tally.companies.add(result.companyId);
@@ -384,6 +413,10 @@ export class GmailSyncService {
 					tally.skipped[result.reason] += 1;
 				}
 			}
+			await progress?.({
+				tool: "read",
+				message: `Read ${Math.min(start + CAPTURE.email.fetchConcurrency, batch.length)} of ${batch.length}`,
+			});
 		}
 
 		return { written, remaining };

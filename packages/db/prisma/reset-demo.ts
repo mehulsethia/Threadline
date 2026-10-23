@@ -40,6 +40,7 @@ export async function resetDemoOrg(): Promise<void> {
 	).map((d) => d.id);
 
 	if (dealIds.length > 0) {
+		await db.commitment.deleteMany({ where: { dealId: { in: dealIds } } });
 		await db.outboundDraft.deleteMany({ where: { dealId: { in: dealIds } } });
 		await db.contactFact.deleteMany({ where: { dealId: { in: dealIds } } });
 		await db.whatsAppMessage.deleteMany({ where: { dealId: { in: dealIds } } });
@@ -81,6 +82,14 @@ export async function resetDemoOrg(): Promise<void> {
 				{ ownerId: { in: DEMO_USERS } },
 			],
 		},
+	});
+
+	await db.intakeJob.deleteMany({ where: { id: { startsWith: DEMO_PREFIX } } });
+	await db.notification.deleteMany({
+		where: { id: { startsWith: DEMO_PREFIX } },
+	});
+	await db.emailThread.deleteMany({
+		where: { id: { startsWith: DEMO_PREFIX } },
 	});
 
 	console.log(`Demo workspace "${DEMO_ORG_SLUG}" reset complete.`);

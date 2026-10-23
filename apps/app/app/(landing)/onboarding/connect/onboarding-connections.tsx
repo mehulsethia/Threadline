@@ -1,11 +1,14 @@
 "use client";
 
 import Microphone from "@carbon/icons-react/es/Microphone";
+import Warning from "@carbon/icons-react/es/Warning";
 import { authClient } from "@crm/auth/client";
 import { SYNC_SCOPES } from "@crm/auth/scopes";
+import { Alert, AlertDescription, AlertTitle } from "@crm/ui/components/alert";
 import GoogleLogo from "@crm/ui/components/brand-logos/google";
 import SlackLogo from "@crm/ui/components/brand-logos/slack";
 import { Button } from "@crm/ui/components/button";
+import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, Suspense, useState } from "react";
@@ -13,6 +16,7 @@ import { toast } from "sonner";
 import { RecorderKeys } from "@/app/(app)/[slug]/settings/connections/recorders/recorder-keys";
 import { ConnectedNotice } from "@/components/connected-notice";
 import { CONNECTED_PARAM } from "@/lib/connection-sync-copy";
+import { oauthErrorMessage } from "@/lib/oauth-errors";
 import { useTRPC } from "@/lib/trpc/client";
 
 const RETURN_PATH = "/onboarding/connect";
@@ -59,7 +63,13 @@ function Row({
 	);
 }
 
-export function OnboardingConnections({ slug }: { slug: string }) {
+export function OnboardingConnections({
+	slug,
+	connectError,
+}: {
+	slug: string;
+	connectError?: string;
+}) {
 	const trpc = useTRPC();
 	const google = useQuery(trpc.google.status.queryOptions());
 	const slack = useQuery(trpc.slack.status.queryOptions());
@@ -95,6 +105,13 @@ export function OnboardingConnections({ slug }: { slug: string }) {
 			<Suspense fallback={null}>
 				<ConnectedNotice />
 			</Suspense>
+			{connectError && !google.data?.linked ? (
+				<Alert variant="destructive">
+					<Icon icon={Warning} />
+					<AlertTitle>Google did not finish connecting</AlertTitle>
+					<AlertDescription>{oauthErrorMessage(connectError)}</AlertDescription>
+				</Alert>
+			) : null}
 			<ul className="flex w-full flex-col divide-y rounded-lg border bg-card">
 				<Row
 					logo={<GoogleLogo className="size-5 shrink-0" />}

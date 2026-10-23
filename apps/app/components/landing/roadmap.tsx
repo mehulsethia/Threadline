@@ -16,6 +16,8 @@ const ROADMAP = [
 			"Outbound qualifying calls over phone lines with Gemini Live",
 			"Meetings booked straight from a qualifying call",
 			"MCP connections to all major LLMs and AI agents",
+			"An autonomy setting for each agent: suggest only, ask before sending, or act with a 24-hour undo",
+			"Approve drafts and stage moves from your phone",
 		],
 	},
 	{

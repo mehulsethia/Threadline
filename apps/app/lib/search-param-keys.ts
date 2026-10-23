@@ -23,6 +23,7 @@ export const SEARCH_PARAM = {
 		switcher: "k",
 		closeDeal: "closeDeal",
 		closeStage: "closeStage",
+		importConversation: "import",
 	},
 	overview: {
 		scope: "scope",
