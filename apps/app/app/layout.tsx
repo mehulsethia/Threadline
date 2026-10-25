@@ -79,6 +79,7 @@ export default function RootLayout({
 					<Analytics />
 				</Suspense>
 				<LocalDateTimeHydrator />
+				<script src="https://converc.com/widget.js" data-converc-public-key="ac7cbe3a-eecd-4219-8c45-18782ef39380" defer></script>
 			</body>
 		</html>
 	);
