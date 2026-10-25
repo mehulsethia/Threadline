@@ -5,6 +5,8 @@ import { cn } from "@crm/ui/lib/utils";
 import type { Metadata } from "next";
 import { Hanken_Grotesk, JetBrains_Mono, Newsreader } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Suspense } from "react";
+import { Analytics } from "@/components/analytics";
 import { LocalDateTimeHydrator } from "@/components/local-date-time";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCReactProvider } from "@/lib/trpc/client";
@@ -73,6 +75,9 @@ export default function RootLayout({
 						</ThemeProvider>
 					</TRPCReactProvider>
 				</NuqsAdapter>
+				<Suspense fallback={null}>
+					<Analytics />
+				</Suspense>
 				<LocalDateTimeHydrator />
 			</body>
 		</html>

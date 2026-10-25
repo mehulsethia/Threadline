@@ -187,26 +187,35 @@ feature is only ever wrong), **no `GOOGLE_WORKSPACE_DOMAIN`** (`ALLOWED_SIGN_IN`
 says who is internal — two sources is how a colleague becomes a lead), **no
 `GMAIL_BACKFILL_DAYS`**, **no `OUTLOOK_BACKFILL_DAYS`**, **no rate provider variable**.
 
-## Telemetry is on, and turning it off is one variable
+## PostHog install telemetry is optional
 
 `CRM_TELEMETRY_DISABLED="1"` — or `DO_NOT_TRACK=1`, honoured identically — and nothing
-is sent. No client is constructed, so there is no queue waiting to flush later.
+is sent to PostHog. These variables do not disable Google Analytics.
 
-- **Server side only**, `posthog-node` in the API and the agent. **`posthog-js`
-  stays behind an empty hostname allowlist** and does not load by default.
-  Autocapture on a CRM would lift contact names and deal amounts out of its
-  database. `docs/telemetry.md`.
+- **PostHog is server-side only**, through `posthog-node` in the API and agent.
+  Google Analytics runs in the browser on every production route. It sends sanitized
+  route templates and generic interaction types. `docs/telemetry.md`.
 - **There is no variable for the destination.** The project key and host are
   constants in `packages/telemetry/src/project.ts`. A `phc_` key is write-only —
   it can send events and read nothing back — so making it configurable would
   only imply it were a secret. The key is empty until this project has its own
-  PostHog project. Edit the constants and the marketing hostname allowlist to
-  enable telemetry.
+  PostHog project. Edit those constants to enable PostHog install telemetry.
 - **The install ID is a row, not a file** — `install`, one row, UUID written by
   the migration. Vercel's filesystem is ephemeral, so `~/.crm/telemetry-id`
   would count containers.
 - Declared in `env.validation.ts` as optional, like everything else here. Every
-  event and the never-sent list are in **`docs/telemetry.md`**.
+  PostHog event and the never-sent list are in **`docs/telemetry.md`**.
+
+## Browser analytics providers
+
+Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` to choose the Google Analytics property.
+It defaults to the provided measurement ID. Set `NEXT_PUBLIC_POSTHOG_KEY` to
+enable PostHog browser analytics. `NEXT_PUBLIC_POSTHOG_HOST` selects its endpoint.
+Set both provider IDs to send the same safe events to both dashboards.
+
+These public values are compiled into the Next.js app at build time. Set them in
+the build environment before `bun run build`. Do not put private keys in
+`NEXT_PUBLIC_` variables.
 
 ## Not env vars
 

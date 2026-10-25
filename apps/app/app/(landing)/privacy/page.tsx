@@ -9,7 +9,7 @@ export default function PrivacyPage() {
 	return (
 		<LegalPage
 			title="Privacy policy"
-			updated="17 October 2026"
+			updated="23 October 2026"
 			intro="Threadline is a CRM that turns sales conversations into contacts, deals, facts and follow-up tasks. This policy explains what data Threadline reads, why, and how it is protected."
 			sections={[
 				{
@@ -27,6 +27,15 @@ export default function PrivacyPage() {
 						"Threadline uses this data only to provide the CRM features you see: matching messages to the right contact and company, extracting deal facts with the quote they came from, creating follow-up tasks, and drafting follow-up messages that you approve before anything is sent.",
 						"Text is processed by Google Gemini on Vertex AI in our Google Cloud project. It is not used to train AI models.",
 						"Threadline never sends email, Slack or WhatsApp messages without an explicit approval from you.",
+					],
+				},
+				{
+					heading: "Analytics",
+					body: [
+						"Google Analytics runs on every production page. Threadline can also send the same events to PostHog when its project key is configured. These tools record page views, scroll depth, clicks, field changes and form submissions.",
+						"We send sanitized route templates and generic interaction types. We send referrer domains only, without their paths or query strings. We do not send page text, labels, input values, form values, link destinations, names, email addresses, workspace IDs or record IDs.",
+						"PostHog receives an anonymous distinct ID. Analytics storage is enabled. Advertising storage, advertising user data and ad personalization are disabled. The app does not show an analytics consent prompt. You can block analytics requests in your browser.",
+						"Google and PostHog process browser network requests to provide their services. Google Analytics 4 applies IP anonymization.",
 					],
 				},
 				{

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { AgentFlows } from "@/components/landing/agent-flows";
 import { AgentsAtWork } from "@/components/landing/agents-at-work";
-import { LandingAnalytics } from "@/components/landing/analytics";
 import { ChannelsStrip } from "@/components/landing/channels-strip";
 import { ClosingCta } from "@/components/landing/closing-cta";
 import { Comparison } from "@/components/landing/comparison";
@@ -43,7 +42,6 @@ export default function Home() {
 				<ClosingCta />
 			</main>
 			<LandingFooter />
-			<LandingAnalytics />
 		</>
 	);
 }
